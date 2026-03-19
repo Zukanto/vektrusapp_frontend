@@ -1,0 +1,255 @@
+/**
+ * Module Color Utilities
+ * Subtle accent colors for module-specific styling
+ * Use CSS variables set by ModuleWrapper component
+ */
+
+/* Borders with module accent */
+.module-border {
+  border-color: var(--module-border-light, #B6EBF7);
+}
+
+.module-border-strong {
+  border-color: var(--module-border, #49B7E3);
+}
+
+/* Backgrounds with module tint */
+.module-bg-subtle {
+  background-color: var(--module-primary-very-light, #F4FCFE);
+}
+
+.module-bg-light {
+  background-color: var(--module-accent-light, #B6EBF7);
+  background-opacity: 0.1;
+}
+
+.module-bg-gradient-subtle {
+  background: linear-gradient(
+    135deg,
+    var(--module-primary-very-light, #E6F6FB) 0%,
+    rgba(255, 255, 255, 0.5) 100%
+  );
+}
+
+/* Hover states */
+.module-hover:hover {
+  background-color: var(--module-hover-bg, rgba(73, 183, 227, 0.05));
+}
+
+/* Focus rings */
+.module-focus:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--module-focus-ring, rgba(73, 183, 227, 0.2));
+  border-color: var(--module-border, #49B7E3);
+}
+
+/* Text colors */
+.module-text-primary {
+  color: var(--module-primary, #49B7E3);
+}
+
+.module-text-accent {
+  color: var(--module-accent, #49D69E);
+}
+
+/* Buttons with module gradient */
+.module-button-primary {
+  background: linear-gradient(
+    135deg,
+    var(--module-primary, #49B7E3) 0%,
+    var(--module-accent, #49D69E) 100%
+  );
+  color: white;
+  border: none;
+  transition: all 0.2s ease;
+}
+
+.module-button-primary:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px var(--module-focus-ring, rgba(73, 183, 227, 0.3));
+}
+
+.module-button-secondary {
+  background: white;
+  border: 2px solid var(--module-border-light, #B6EBF7);
+  color: var(--module-primary, #49B7E3);
+  transition: all 0.2s ease;
+}
+
+.module-button-secondary:hover {
+  border-color: var(--module-border, #49B7E3);
+  background-color: var(--module-hover-bg, rgba(73, 183, 227, 0.05));
+}
+
+/* Cards with module accent */
+.module-card {
+  background: white;
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.module-card:hover {
+  border-color: var(--module-border-light, #B6EBF7);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.module-card-accent {
+  background: white;
+  border-left: 4px solid var(--module-primary, #49B7E3);
+  border-radius: 12px;
+  padding: 16px;
+}
+
+/* Badges with module color */
+.module-badge {
+  background-color: var(--module-primary-very-light, #F4FCFE);
+  color: var(--module-primary, #49B7E3);
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 600;
+  border: 1px solid var(--module-border-light, #B6EBF7);
+}
+
+/* Progress bars */
+.module-progress-bar {
+  height: 8px;
+  background-color: #E5E7EB;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.module-progress-fill {
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    var(--module-primary, #49B7E3) 0%,
+    var(--module-accent, #49D69E) 100%
+  );
+  transition: width 0.3s ease;
+}
+
+/* Tabs with module accent */
+.module-tab {
+  padding: 12px 24px;
+  border-bottom: 2px solid transparent;
+  color: #7A7A7A;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.module-tab:hover {
+  color: #111111;
+  background-color: var(--module-hover-bg, rgba(73, 183, 227, 0.05));
+}
+
+.module-tab-active {
+  color: var(--module-primary, #49B7E3);
+  border-bottom-color: var(--module-primary, #49B7E3);
+  font-weight: 600;
+}
+
+/* Dividers */
+.module-divider {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--module-border-light, #B6EBF7) 50%,
+    transparent 100%
+  );
+}
+
+/* Checkboxes and inputs */
+.module-checkbox:checked {
+  background-color: var(--module-primary, #49B7E3);
+  border-color: var(--module-primary, #49B7E3);
+}
+
+.module-input:focus {
+  outline: none;
+  border-color: var(--module-border, #49B7E3);
+  box-shadow: 0 0 0 3px var(--module-focus-ring, rgba(73, 183, 227, 0.2));
+}
+
+/* Tooltips */
+.module-tooltip {
+  background-color: var(--module-primary, #49B7E3);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* Loading spinner with module color */
+.module-spinner {
+  border: 3px solid var(--module-primary-very-light, #F4FCFE);
+  border-top-color: var(--module-primary, #49B7E3);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  animation: module-spin 0.8s linear infinite;
+}
+
+@keyframes module-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Status indicators */
+.module-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--module-primary, #49B7E3);
+  animation: module-pulse 2s ease-in-out infinite;
+}
+
+@keyframes module-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Gradient overlays for hero sections */
+.module-hero-gradient {
+  background: linear-gradient(
+    135deg,
+    var(--module-primary-very-light, #F4FCFE) 0%,
+    rgba(255, 255, 255, 1) 50%,
+    var(--module-accent-light, rgba(182, 235, 247, 0.3)) 100%
+  );
+}
+
+/* Icon containers */
+.module-icon-container {
+  background: linear-gradient(
+    135deg,
+    var(--module-primary, #49B7E3) 0%,
+    var(--module-accent, #49D69E) 100%
+  );
+  border-radius: 12px;
+  padding: 12px;
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.module-icon-container-subtle {
+  background-color: var(--module-primary-very-light, #F4FCFE);
+  border: 2px solid var(--module-border-light, #B6EBF7);
+  border-radius: 12px;
+  padding: 12px;
+  color: var(--module-primary, #49B7E3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

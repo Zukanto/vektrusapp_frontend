@@ -1,0 +1,184 @@
+/* All @import statements MUST come first (CSS spec requirement) */
+
+/* Import Inter + Manrope Fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Manrope:wght@400;500;600;700&display=swap');
+
+/* Import Module Color Utilities */
+@import './styles/module-utilities.css';
+
+/* Import Vektrus AI Layer (Design Tokens, Glass Classes, Blob Animations) */
+@import './styles/ai-layer.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Body uses Inter as interface font. Manrope is reserved for headlines and
+   brand-defining UI moments — apply via font-manrope Tailwind class or
+   style={{ fontFamily: 'Manrope' }} in headline components. */
+body {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Vektrus Chat Loading Bubble Animations (centralized from VektrusLoadingBubble) */
+@keyframes vektrus-shine {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@keyframes vektrus-pulse-icon {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.15); opacity: 1; }
+}
+
+@keyframes vektrus-fade-slide-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ai-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+/* GeneratingOverlay shimmer + scanline (centralized from inline <style>) */
+@keyframes overlay-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+@keyframes scanline {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(350%); }
+}
+
+.ai-orb {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #7C6CF2 0%, rgba(124,108,242,0.3) 70%, transparent 100%);
+  animation: ai-pulse 2.5s ease-in-out infinite;
+  box-shadow: 0 0 32px rgba(124,108,242,0.25);
+}
+
+@keyframes fadeSlideIn {
+  to {
+    opacity: 1;
+    filter: blur(0px);
+    transform: translateY(0px);
+  }
+}
+
+@keyframes slideRightIn {
+  to {
+    opacity: 1;
+    filter: blur(0px);
+    transform: translateX(0px);
+  }
+}
+
+@keyframes testimonialIn {
+  to {
+    opacity: 1;
+    filter: blur(0px);
+    transform: translateY(0px) scale(1);
+  }
+}
+
+/* Animation Classes */
+.animate-element {
+  opacity: 0;
+  filter: blur(4px);
+  transform: translateY(20px);
+  animation: fadeSlideIn 0.8s ease-out forwards;
+}
+
+.animate-slide-right {
+  opacity: 0;
+  filter: blur(4px);
+  transform: translateX(40px);
+  animation: slideRightIn 1s ease-out forwards;
+}
+
+.animate-testimonial {
+  opacity: 0;
+  filter: blur(4px);
+  transform: translateY(20px) scale(0.95);
+  animation: testimonialIn 0.8s ease-out forwards;
+}
+
+/* Animation Delays */
+.animate-delay-100 { animation-delay: 0.1s; }
+.animate-delay-200 { animation-delay: 0.2s; }
+.animate-delay-300 { animation-delay: 0.3s; }
+.animate-delay-400 { animation-delay: 0.4s; }
+.animate-delay-500 { animation-delay: 0.5s; }
+.animate-delay-600 { animation-delay: 0.6s; }
+.animate-delay-700 { animation-delay: 0.7s; }
+.animate-delay-800 { animation-delay: 0.8s; }
+.animate-delay-900 { animation-delay: 0.9s; }
+.animate-delay-1000 { animation-delay: 1.0s; }
+.animate-delay-1200 { animation-delay: 1.2s; }
+.animate-delay-1400 { animation-delay: 1.4s; }
+
+/* Pulse single glow effect */
+@keyframes pulse-single-glow {
+  0% { box-shadow: 0 0 0 0 rgba(73, 183, 227, 0.4); }
+  50% { box-shadow: 0 0 0 8px rgba(73, 183, 227, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(73, 183, 227, 0); }
+}
+
+.pulse-glow-once {
+  animation: pulse-single-glow 1.5s ease-out 1;
+}
+
+@keyframes design-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.85); }
+}
+
+@keyframes vektrusTourSlideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Ensure scrollbar appears at viewport edge */
+html,
+body {
+  overflow-x: hidden;
+  overscroll-behavior-x: none;
+}
+
+/* Custom Checkbox */
+.custom-checkbox {
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid #B6EBF7;
+  border-radius: var(--vektrus-radius-sm, 12px);
+  background-color: white;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.custom-checkbox:checked {
+  background-color: #B6EBF7;
+  border-color: #B6EBF7;
+}
+
+.custom-checkbox:checked::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #111111;
+  font-size: 0.75rem;
+  font-weight: bold;
+}

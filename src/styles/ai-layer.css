@@ -1,0 +1,627 @@
+/**
+ * Vektrus AI Layer — Design Foundations
+ * v2.5 — Calm AI State System
+ *
+ * Defines the global design tokens and CSS classes for:
+ * - Vektrus Pulse Gradient
+ * - Glass Layer (Ebene 1)
+ * - Shadow System
+ * - Radius System
+ * - Glow Blob Animations (AI Processing States only)
+ *
+ * Z-Axis Model:
+ *   Ebene 0 (Base): Flat, calm, light — 85–90% of all UI
+ *   Ebene 1 (AI Layer): Glass + Pulse Gradient — 10–15% of UI,
+ *                       only during active AI processing
+ *
+ * USAGE RULES:
+ *   .glass-modal / .glass-panel  → only on modals, floating AI panels, KI overlays
+ *   .ai-border-gradient           → only on AI-interactive elements (buttons, borders)
+ *   .ai-glow-blob / ai-blob-container → only when AI is actively processing
+ *
+ * DO NOT USE on: sidebar, calendar days, charts, standard buttons,
+ *                settings pages, standard cards on base layer
+ */
+
+/* ============================================================
+   Global Design Tokens — CSS Custom Properties
+   ============================================================ */
+
+:root {
+  /* -- Vektrus Pulse Gradient -------------------------------- */
+  --vektrus-pulse-gradient: linear-gradient(
+    135deg,
+    #49B7E3 0%,
+    #7C6CF2 33%,
+    #E8A0D6 66%,
+    #F4BE9D 100%
+  );
+
+  /* -- AI Color --------------------------------------------- */
+  --vektrus-ai-violet: #7C6CF2;
+  --vektrus-ai-violet-rgb: 124, 108, 242;
+
+  /* -- Glass Layer Tokens ------------------------------------ */
+  --vektrus-glass-bg: rgba(255, 255, 255, 0.80);
+  --vektrus-glass-blur: 32px;
+  --vektrus-glass-border: rgba(255, 255, 255, 0.7);
+  --vektrus-glass-shadow: 0 20px 60px rgba(0, 0, 0, 0.06);
+
+  /* -- Shadow System ----------------------------------------
+     Multi-layer shadows for premium card definition:
+     Layer 1 (tight): crisp edge definition
+     Layer 2 (depth): soft ambient shadow
+     This approach follows modern SaaS patterns (Linear, Vercel, Notion) */
+  --vektrus-shadow-subtle:   0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 4px rgba(0, 0, 0, 0.03);
+  --vektrus-shadow-card:     0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.06);
+  --vektrus-shadow-elevated: 0 1px 3px rgba(0, 0, 0, 0.05), 0 8px 28px rgba(0, 0, 0, 0.09);
+  --vektrus-shadow-modal:    0 2px 4px rgba(0, 0, 0, 0.05), 0 16px 48px rgba(0, 0, 0, 0.14);
+
+  /* -- Border System ----------------------------------------
+     Standardized border colors for consistent card/surface separation.
+     Use these instead of ad-hoc rgba values. */
+  --vektrus-border-subtle:  rgba(73, 183, 227, 0.10);
+  --vektrus-border-default: rgba(73, 183, 227, 0.18);
+  --vektrus-border-strong:  rgba(73, 183, 227, 0.28);
+
+  /* -- Radius System ----------------------------------------
+     Generously rounded — no angular corners anywhere.
+     sm = minimum for any UI element (inputs, chips, badges, small buttons)
+     md = standard cards, containers, inputs
+     lg = large cards, modals, panels
+     xl = hero elements, feature cards */
+  --vektrus-radius-sm: 12px;
+  --vektrus-radius-md: 16px;
+  --vektrus-radius-lg: 20px;
+  --vektrus-radius-xl: 24px;
+}
+
+/* ============================================================
+   Glass Layer Classes — Ebene 1 (AI Moments only)
+   ============================================================ */
+
+/**
+ * .glass-modal
+ * For modal dialogs that overlay AI content.
+ * Heavier blur, stronger shadow, used for primary AI modals.
+ */
+.glass-modal {
+  background: var(--vektrus-glass-bg);
+  backdrop-filter: blur(var(--vektrus-glass-blur));
+  -webkit-backdrop-filter: blur(var(--vektrus-glass-blur));
+  border: 1px solid var(--vektrus-glass-border);
+  box-shadow: var(--vektrus-glass-shadow);
+  border-radius: var(--vektrus-radius-lg);
+}
+
+/**
+ * .glass-panel
+ * For floating AI panels (chat overlays, processing screens).
+ * Slightly lighter than glass-modal, same glass principle.
+ */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: var(--vektrus-shadow-elevated);
+  border-radius: var(--vektrus-radius-lg);
+}
+
+/* ============================================================
+   AI Border Gradient — Pulse Gradient outline for AI elements
+   ============================================================ */
+
+/**
+ * .ai-border-gradient
+ * Wraps an element with a 1px Pulse Gradient border via pseudo-element.
+ * Default: border invisible (opacity 0)
+ * On hover or when .ai-active class is present: border fades in
+ *
+ * Usage: Add to a button or container that represents an AI action.
+ * The element must have position set (relative, absolute, etc.).
+ */
+.ai-border-gradient {
+  position: relative;
+}
+
+.ai-border-gradient::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: var(--vektrus-pulse-gradient);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.ai-border-gradient:hover::before,
+.ai-border-gradient.ai-active::before {
+  opacity: 1;
+}
+
+/* ============================================================
+   Glow Blob Animations — AI Processing States
+   Only visible inside .ai-blob-container.ai-active
+   Cycle: 6–8s ease-in-out (calm, professional, not flashy)
+   Max opacity: 0.12–0.15 (subtle depth layer only)
+   ============================================================ */
+
+@keyframes ai-blob-drift-1 {
+  0%,  100% { transform: translate(0%,  0%)  scale(1);    }
+  33%        { transform: translate(8%,  -6%) scale(1.05); }
+  66%        { transform: translate(-5%, 8%)  scale(0.97); }
+}
+
+@keyframes ai-blob-drift-2 {
+  0%,  100% { transform: translate(0%,   0%)  scale(1);    }
+  33%        { transform: translate(-7%,  5%)  scale(1.03); }
+  66%        { transform: translate(6%,  -8%)  scale(1.07); }
+}
+
+@keyframes ai-blob-drift-3 {
+  0%,  100% { transform: translate(0%, 0%)  scale(1);    }
+  50%        { transform: translate(5%, 6%)  scale(0.95); }
+}
+
+/**
+ * .ai-glow-blob
+ * Base class for all gradient blobs.
+ * Always hidden (opacity: 0) until parent has .ai-active.
+ * Positioned absolutely, pointer-events: none.
+ */
+.ai-glow-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.8s ease;
+}
+
+.ai-glow-blob.blob-1 {
+  width: 240px;
+  height: 240px;
+  background: rgba(73, 183, 227, 0.18);
+  animation: ai-blob-drift-1 7s ease-in-out infinite;
+  top: -20%;
+  left: -10%;
+}
+
+.ai-glow-blob.blob-2 {
+  width: 200px;
+  height: 200px;
+  background: rgba(124, 108, 242, 0.14);
+  animation: ai-blob-drift-2 8s ease-in-out infinite;
+  bottom: -15%;
+  right: -10%;
+}
+
+.ai-glow-blob.blob-3 {
+  width: 170px;
+  height: 170px;
+  background: rgba(232, 160, 214, 0.12);
+  animation: ai-blob-drift-3 6.5s ease-in-out infinite;
+  top: 40%;
+  right: 15%;
+}
+
+/**
+ * .ai-blob-container
+ * Wrapper that contains blobs and clips overflow.
+ * Add .ai-active to make blobs visible.
+ * Remove .ai-active (or use transition) to let them fade out.
+ */
+.ai-blob-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.ai-blob-container.ai-active .ai-glow-blob {
+  opacity: 1;
+}
+
+/* ============================================================
+   glass-ai-layer — Task-spec alias
+   Matches the exact spec: rgba(255,255,255,0.8), blur(12px),
+   shadow 0 8px 32px. Border-radius inherits from element.
+   Use on: Pulse cards, Chat panel, AI overlays
+   ============================================================ */
+
+.glass-ai-layer {
+  background-color: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.04);
+}
+
+/* ============================================================
+   border-gradient-ai — Task-spec alias for ai-border-gradient
+   Same pseudo-element technique, 2px border on hover.
+   ============================================================ */
+
+.border-gradient-ai {
+  position: relative;
+}
+
+.border-gradient-ai::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 2px;
+  background: var(--vektrus-pulse-gradient);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.border-gradient-ai:hover::before,
+.border-gradient-ai.ai-active::before {
+  opacity: 1;
+}
+
+/* ============================================================
+   AI Typing Indicator — Pulse Gradient Dots
+   Three dots that animate sequentially in Pulse Gradient colors.
+   ============================================================ */
+
+@keyframes ai-typing-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+.ai-typing-dots {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.ai-typing-dots .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  animation: ai-typing-dot 1.4s ease-in-out infinite;
+}
+
+.ai-typing-dots .dot:nth-child(1) {
+  background: #49B7E3;
+  animation-delay: 0s;
+}
+
+.ai-typing-dots .dot:nth-child(2) {
+  background: #7C6CF2;
+  animation-delay: 0.2s;
+}
+
+.ai-typing-dots .dot:nth-child(3) {
+  background: #E8A0D6;
+  animation-delay: 0.4s;
+}
+
+/* ============================================================
+   Pulse Gradient Icon Background
+   Circle/rounded container with the Pulse Gradient fill.
+   Use on: Pulse card icons, AI indicator icons
+   ============================================================ */
+
+.pulse-gradient-icon {
+  background: var(--vektrus-pulse-gradient);
+}
+
+/* ============================================================
+   AI Response Bubble — Light Frosted Glass
+   Mint White milky glass with Pulse Gradient border.
+   Sits on the light Chat background, floats via soft shadow.
+   Text remains dark (#111111) for readability.
+   ============================================================ */
+
+.glass-ai-dark {
+  background-color: rgba(244, 252, 254, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.04);
+  color: #111111;
+}
+
+/* ============================================================
+   Hero Glow — Subtle gradient stripe behind headings
+   Very low opacity (5–10%), strong blur, Pulse Gradient colors.
+   ============================================================ */
+
+.ai-hero-glow {
+  position: absolute;
+  width: 280px;
+  height: 80px;
+  background: var(--vektrus-pulse-gradient);
+  opacity: 0.07;
+  filter: blur(40px);
+  pointer-events: none;
+  border-radius: 50%;
+}
+
+/* ============================================================
+   Chat Intelligent Canvas — Centered Stream Layout
+   Centers the chat message stream and input bar within the
+   main content area. Creates a focused B2B workspace feel
+   instead of a full-width consumer messenger.
+   ============================================================ */
+
+.chat-stream-wrapper {
+  max-width: 850px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+
+/* ============================================================
+   Chat AI Card — Bright Frosted Glass (Ebene 1)
+   The primary surface for AI responses. Bright, premium,
+   translucent glass with soft shadow. Replaces dark bubbles.
+   ============================================================ */
+
+.chat-ai-card {
+  background: linear-gradient(
+    135deg,
+    rgba(232, 244, 250, 0.65) 0%,
+    rgba(240, 248, 255, 0.58) 30%,
+    rgba(246, 244, 255, 0.55) 60%,
+    rgba(252, 248, 255, 0.50) 100%
+  );
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1.5px solid rgba(255, 255, 255, 0.70);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.06),
+    0 8px 32px rgba(73, 183, 227, 0.12),
+    0 0 0 0.5px rgba(73, 183, 227, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.8) inset,
+    inset 0 -1px 2px rgba(73, 183, 227, 0.04);
+  color: #111111;
+}
+
+/* ============================================================
+   Chat Sub-Card — Solid White (Ebene 2 on Glass)
+   Used within AI responses for concrete proposals, actions,
+   and interactive content. Sits on the glass surface with
+   clear Z-axis separation.
+   ============================================================ */
+
+.chat-sub-card {
+  background: #ffffff;
+  border: 1px solid #E5E7EB;
+  border-radius: 12px;
+  padding: 16px;
+}
+
+/* ============================================================
+   Chat AI Action Button — Gradient Border
+   Premium action buttons within AI responses.
+   White background with permanent Pulse Gradient border.
+   Hover: subtle outer glow.
+   ============================================================ */
+
+.chat-ai-action-btn {
+  position: relative;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(124, 108, 242, 0.12);
+  overflow: visible;
+  transition: all 0.25s ease;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.chat-ai-action-btn::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 2px;
+  background: var(--vektrus-pulse-gradient);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  z-index: 0;
+}
+
+.chat-ai-action-btn:hover {
+  border-color: transparent;
+  background: linear-gradient(
+    135deg,
+    rgba(73, 183, 227, 0.08) 0%,
+    rgba(124, 108, 242, 0.10) 50%,
+    rgba(232, 160, 214, 0.07) 100%
+  );
+  box-shadow:
+    0 4px 20px rgba(124, 108, 242, 0.14),
+    0 1px 4px rgba(124, 108, 242, 0.08);
+  transform: translateY(-1px);
+}
+
+.chat-ai-action-btn:hover::before {
+  opacity: 1;
+}
+
+.chat-ai-action-btn:active {
+  transform: translateY(0);
+}
+
+/* ============================================================
+   Chat Smart Chip — Soft Glass Prompt Suggestions
+   Lightweight glass surface for quick action chips above
+   the input bar. Subtle, calm, with gentle hover lift.
+   ============================================================ */
+
+.chat-smart-chip {
+  position: relative;
+  background-color: rgba(255, 255, 255, 0.55);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(124, 108, 242, 0.10);
+  border-radius: 9999px;
+  padding: 8px 16px;
+  overflow: visible;
+  box-shadow:
+    0 2px 8px rgba(73, 183, 227, 0.06),
+    0 1px 0 rgba(255, 255, 255, 0.7) inset;
+  transition: all 0.25s ease;
+}
+
+/* Pulse Gradient border — identical technique to chat-ai-action-btn */
+.chat-smart-chip::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: var(--vektrus-pulse-gradient);
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  z-index: 0;
+}
+
+.chat-smart-chip:hover {
+  transform: translateY(-1px);
+  border-color: transparent;
+  background: linear-gradient(
+    135deg,
+    rgba(73, 183, 227, 0.10) 0%,
+    rgba(124, 108, 242, 0.12) 50%,
+    rgba(232, 160, 214, 0.08) 100%
+  );
+  box-shadow:
+    0 4px 20px rgba(124, 108, 242, 0.14),
+    0 1px 4px rgba(124, 108, 242, 0.08);
+  color: #374151;
+}
+
+.chat-smart-chip:hover::before {
+  opacity: 1;
+}
+
+/* Text gradient effect on hover for smart chips */
+.chat-smart-chip:hover .chip-label {
+  background: var(--vektrus-pulse-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Active state — Pulse Gradient fill for selected category chips */
+.chat-smart-chip-active {
+  background: var(--vektrus-pulse-gradient) !important;
+  border: 1px solid transparent !important;
+  border-radius: 9999px;
+  padding: 8px 16px;
+  color: #ffffff !important;
+  box-shadow:
+    0 4px 20px rgba(124, 108, 242, 0.22),
+    0 2px 8px rgba(73, 183, 227, 0.15);
+}
+
+.chat-smart-chip-active:hover {
+  background: var(--vektrus-pulse-gradient) !important;
+  box-shadow:
+    0 6px 24px rgba(124, 108, 242, 0.28),
+    0 2px 8px rgba(73, 183, 227, 0.18);
+  transform: translateY(-1px);
+}
+
+/* ============================================================
+   Chat Input Glass — Frosted Input Container
+   Premium glass surface for the chat input area.
+   ============================================================ */
+
+.chat-input-glass {
+  background-color: rgba(255, 255, 255, 0.60);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1.5px solid rgba(255, 255, 255, 0.65);
+  box-shadow:
+    0 2px 12px rgba(73, 183, 227, 0.06),
+    0 1px 0 rgba(255, 255, 255, 0.7) inset;
+  transition: all 0.25s ease;
+}
+
+.chat-input-glass:focus-within {
+  border-color: rgba(73, 183, 227, 0.30);
+  box-shadow:
+    0 4px 20px rgba(73, 183, 227, 0.10),
+    0 1px 0 rgba(255, 255, 255, 0.8) inset;
+  background-color: rgba(255, 255, 255, 0.72);
+}
+
+/* ============================================================
+   Chat Sidebar Glass — Left Panel Premium Surface
+   Semi-transparent glass for the conversation list panel.
+   ============================================================ */
+
+.chat-sidebar-glass {
+  background: linear-gradient(
+    180deg,
+    rgba(232, 246, 252, 0.60) 0%,
+    rgba(244, 252, 254, 0.50) 100%
+  );
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-right: 1px solid rgba(255, 255, 255, 0.5);
+}
+
+.chat-sidebar-item {
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--vektrus-radius-md);
+  transition: all 0.2s ease;
+}
+
+.chat-sidebar-item:hover {
+  background-color: rgba(255, 255, 255, 0.55);
+  border-color: rgba(255, 255, 255, 0.6);
+  box-shadow: 0 2px 8px rgba(73, 183, 227, 0.06);
+}
+
+.chat-sidebar-item.active {
+  background-color: rgba(255, 255, 255, 0.75);
+  border-color: rgba(73, 183, 227, 0.20);
+  box-shadow:
+    0 2px 12px rgba(73, 183, 227, 0.08),
+    0 1px 0 rgba(255, 255, 255, 0.7) inset;
+}
+
+/* ============================================================
+   Chat Background — Subtle Gradient for Glass Visibility
+   Gentle gradient background that makes glass surfaces
+   visually distinguishable from flat surfaces.
+   ============================================================ */
+
+.chat-canvas-bg {
+  background:
+    radial-gradient(ellipse 600px 400px at 15% 10%, rgba(73, 183, 227, 0.14) 0%, transparent 70%),
+    radial-gradient(ellipse 500px 350px at 85% 75%, rgba(124, 108, 242, 0.10) 0%, transparent 70%),
+    radial-gradient(ellipse 400px 300px at 50% 50%, rgba(232, 160, 214, 0.06) 0%, transparent 70%),
+    linear-gradient(180deg, #E2F0F8 0%, #EAF2F9 30%, #F0F8FC 70%, #F4F9FD 100%);
+}
