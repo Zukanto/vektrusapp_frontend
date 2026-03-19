@@ -199,6 +199,12 @@ export class CalendarService {
     const media = this.extractMedia(post.content);
     const time = this.formatScheduledTime(post.scheduled_date);
 
+    // Read strategy metadata from the raw JSONB (bypasses ParsedContent which doesn't carry these)
+    const rawContent = post.content as any;
+    const pillar = rawContent?.pillar || undefined;
+    const funnelStage = rawContent?.funnel_stage || undefined;
+    const campaign = rawContent?.campaign || undefined;
+
     return {
       id: post.id,
       date: new Date(post.scheduled_date),
@@ -213,7 +219,10 @@ export class CalendarService {
       source: post.source,
       cta: parsed.cta,
       media,
-      contentTypeDetail: parsed.content_type,
+      contentTypeDetail: pillar || parsed.content_type,
+      pillar,
+      funnelStage,
+      campaign,
       estimatedEngagement: parsed.estimated_engagement,
       reasoning: parsed.reasoning,
       emojiSuggestions: parsed.emoji_suggestions,
@@ -241,6 +250,16 @@ export class CalendarService {
     }
     if (slot.emojiSuggestions) {
       content.emoji_suggestions = slot.emojiSuggestions;
+    }
+    // Strategy metadata — stored in JSONB, no schema change needed
+    if (slot.pillar) {
+      (content as any).pillar = slot.pillar;
+    }
+    if (slot.funnelStage) {
+      (content as any).funnel_stage = slot.funnelStage;
+    }
+    if (slot.campaign) {
+      (content as any).campaign = slot.campaign;
     }
     return content;
   }

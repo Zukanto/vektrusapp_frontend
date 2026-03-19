@@ -15,17 +15,23 @@ const AppLayout: React.FC = () => {
     const handleNavigateToPlannerWithMedia = () => navigateToModule('planner');
     const handleNavigateToChat = () => navigateToModule('chat');
     const handleNavigateToBrandStudio = () => navigateToModule('brand');
+    const handleNavigateToPulse = () => navigateToModule('pulse');
+    const handleNavigateToProfile = () => navigateToModule('profile');
 
     window.addEventListener('navigate-to-planner', handleNavigateToPlanner);
     window.addEventListener('navigate-to-planner-with-media', handleNavigateToPlannerWithMedia);
     window.addEventListener('navigate-to-chat', handleNavigateToChat);
     window.addEventListener('navigate-to-brand-studio', handleNavigateToBrandStudio);
+    window.addEventListener('navigate-to-pulse', handleNavigateToPulse);
+    window.addEventListener('navigate-to-profile', handleNavigateToProfile);
 
     return () => {
       window.removeEventListener('navigate-to-planner', handleNavigateToPlanner);
       window.removeEventListener('navigate-to-planner-with-media', handleNavigateToPlannerWithMedia);
       window.removeEventListener('navigate-to-chat', handleNavigateToChat);
       window.removeEventListener('navigate-to-brand-studio', handleNavigateToBrandStudio);
+      window.removeEventListener('navigate-to-pulse', handleNavigateToPulse);
+      window.removeEventListener('navigate-to-profile', handleNavigateToProfile);
     };
   }, [navigateToModule]);
 

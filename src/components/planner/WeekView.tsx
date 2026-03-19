@@ -1,7 +1,8 @@
 import React from 'react';
-import { Plus, Clock, TrendingUp, Ellipsis, Copy, PenLine, Trash2, Sparkles, ChevronRight, Check, CircleAlert as AlertCircle, CalendarClock, FileEdit, Send, Zap, Image as ImageIcon, Calendar, FileText, Film, Layers } from 'lucide-react';
+import { Plus, Clock, TrendingUp, Ellipsis, Copy, PenLine, Trash2, Sparkles, ChevronRight, Check, CircleAlert as AlertCircle, CalendarClock, FileEdit, Send, Zap, Image as ImageIcon, Calendar, FileText, Film, Layers, Coffee } from 'lucide-react';
 import SocialIcon from '../ui/SocialIcon';
 import { ContentSlot } from './types';
+import type { StatusFilter, ContentTypeFilter } from './PlannerHeader';
 
 interface WeekViewProps {
   selectedWeek: Date;
@@ -14,6 +15,8 @@ interface WeekViewProps {
   onSlotCopyToPlatform?: (slot: ContentSlot, platform: string) => void;
   plannerContext: any;
   onNavigatePulse?: () => void;
+  statusFilter?: StatusFilter;
+  contentTypeFilter?: ContentTypeFilter;
 }
 
 const WeekView: React.FC<WeekViewProps> = ({
@@ -26,20 +29,24 @@ const WeekView: React.FC<WeekViewProps> = ({
   onSlotDuplicate,
   onSlotCopyToPlatform,
   plannerContext,
-  onNavigatePulse
+  onNavigatePulse,
+  statusFilter = 'all',
+  contentTypeFilter = 'all',
 }) => {
   const weekDays = ['Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag', 'Sonntag'];
-  const platforms = ['instagram', 'linkedin', 'tiktok', 'facebook', 'twitter'];
+  const allPlatforms = ['instagram', 'linkedin', 'tiktok', 'facebook', 'twitter'];
+  const activePlatforms: string[] = plannerContext?.platforms?.length > 0 ? plannerContext.platforms : allPlatforms;
+  const platforms = activePlatforms;
   const [hoveredSlot, setHoveredSlot] = React.useState<string | null>(null);
   const [contextMenu, setContextMenu] = React.useState<{ slotId: string; x: number; y: number } | null>(null);
   const menuButtonRefs = React.useRef<Record<string, HTMLButtonElement | null>>({});
 
-  // Smart defaults: expand platforms with posts + Instagram and LinkedIn by default
+  // Smart defaults: expand all active platforms + any platform that has posts
   const getDefaultExpandedPlatforms = () => {
-    const platformsWithPosts = platforms.filter(platform =>
+    const platformsWithPosts = activePlatforms.filter(platform =>
       contentSlots.some(slot => slot.platform === platform)
     );
-    const defaults = ['instagram', 'linkedin'];
+    const defaults = activePlatforms.slice(0, 2);
     return Array.from(new Set([...platformsWithPosts, ...defaults]));
   };
 
@@ -309,10 +316,10 @@ const WeekView: React.FC<WeekViewProps> = ({
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
-  // Update expanded platforms when content changes
+  // Update expanded platforms when content or platform filter changes
   React.useEffect(() => {
     setExpandedPlatforms(getDefaultExpandedPlatforms());
-  }, [contentSlots.length]);
+  }, [contentSlots.length, activePlatforms.join(',')]);
 
   return (
     <div className="h-full overflow-auto p-6">
@@ -327,6 +334,7 @@ const WeekView: React.FC<WeekViewProps> = ({
             {weekDays.map((day, index) => {
               const dayDate = getDayDate(index);
               const isToday = dayDate.toDateString() === new Date().toDateString();
+              const isWeekend = index >= 5;
 
               return (
                 <div
@@ -334,16 +342,18 @@ const WeekView: React.FC<WeekViewProps> = ({
                   className={`p-4 text-center border-l-2 border-[rgba(73,183,227,0.18)] transition-all duration-200 ${
                     isToday
                       ? 'bg-[#E6F6FB]'
+                      : isWeekend
+                      ? 'bg-[#FAFAFA]'
                       : 'bg-white hover:bg-[#F9FAFB]'
                   }`}
                 >
                   <div className={`font-bold text-sm uppercase tracking-wide mb-1 ${
-                    isToday ? 'text-[#49D69E]' : 'text-[#111111]'
+                    isToday ? 'text-[#49D69E]' : isWeekend ? 'text-[#AAAAAA]' : 'text-[#111111]'
                   }`}>
                     {day.substring(0, 2)}
                   </div>
                   <div className={`text-2xl font-bold leading-none mb-1 ${
-                    isToday ? 'text-[#49D69E]' : 'text-[#111111]'
+                    isToday ? 'text-[#49D69E]' : isWeekend ? 'text-[#CCCCCC]' : 'text-[#111111]'
                   }`}>
                     {dayDate.getDate()}
                   </div>
@@ -353,15 +363,15 @@ const WeekView: React.FC<WeekViewProps> = ({
                     {dayDate.toLocaleDateString('de-DE', { month: 'short' })}
                   </div>
                   {isToday && (
-                    <div className="mt-1.5 mx-auto w-2 h-2 bg-gradient-to-br from-[#49D69E] to-[#49B7E3] rounded-full shadow-md"></div>
+                    <div className="mt-1.5 mx-auto w-2 h-2 bg-[#49D69E] rounded-full"></div>
                   )}
                 </div>
               );
             })}
           </div>
 
-          {/* Platform Rows */}
-          {platforms.map(platform => {
+          {/* Platform Rows — only show platforms selected in the header filter */}
+          {activePlatforms.map(platform => {
             const isExpanded = expandedPlatforms.includes(platform);
             const postCount = getPlatformPostCount(platform);
 
@@ -416,18 +426,21 @@ const WeekView: React.FC<WeekViewProps> = ({
                     {weekDays.map((day, dayIndex) => {
                       const dayDate = getDayDate(dayIndex);
                       const isToday = dayDate.toDateString() === new Date().toDateString();
+                      const isWeekend = dayIndex >= 5;
 
                       return (
                         <div
                           key={day}
                           className={`h-10 flex items-center justify-center border-l-2 border-[rgba(73,183,227,0.18)] text-xs font-bold transition-colors duration-200 ${
                             isToday
-                              ? 'bg-gradient-to-r from-[#B6EBF7]/20 to-[#B4E8E5]/20 text-[#49D69E]'
-                              : 'bg-gradient-to-r from-gray-50 to-gray-100 text-gray-700 hover:bg-[#F4FCFE]'
+                              ? 'bg-[#E6F6FB] text-[#49D69E]'
+                              : isWeekend
+                              ? 'bg-[#FAFAFA] text-[#AAAAAA]'
+                              : 'bg-[#F9FAFB] text-[#7A7A7A] hover:bg-[#F4FCFE]'
                           }`}
                         >
                           <span className={isToday ? 'bg-[#49D69E]/10 px-2 py-1 rounded-[var(--vektrus-radius-sm)]' : ''}>
-                            {day.substring(0, 2)} • {dayDate.getDate()}.{dayDate.getMonth() + 1}
+                            {day.substring(0, 2)} {dayDate.getDate()}.{dayDate.getMonth() + 1}
                           </span>
                         </div>
                       );
@@ -438,15 +451,20 @@ const WeekView: React.FC<WeekViewProps> = ({
 
                     {/* Day Slots */}
                     {weekDays.map((_, dayIndex) => {
-                      const daySlots = getSlotsForDay(dayIndex, platform);
+                      const daySlots = getSlotsForDay(dayIndex, platform).filter(slot => {
+                        if (statusFilter !== 'all' && slot.status !== statusFilter) return false;
+                        if (contentTypeFilter !== 'all' && slot.contentType !== contentTypeFilter) return false;
+                        return true;
+                      });
                       const dayDate = getDayDate(dayIndex);
                       const isToday = dayDate.toDateString() === new Date().toDateString();
+                      const isWeekend = dayIndex >= 5;
 
                       return (
                         <div
                           key={dayIndex}
                           className={`p-3 border-l border-[rgba(73,183,227,0.18)] min-h-[160px] ${
-                            isToday ? 'bg-[#F4FCFE]' : 'bg-white'
+                            isToday ? 'bg-[#F4FCFE]' : isWeekend ? 'bg-[#FAFAFA]' : 'bg-white'
                           }`}
                         >
                     <div className="space-y-2">
@@ -518,20 +536,35 @@ const WeekView: React.FC<WeekViewProps> = ({
                             </button>
                           </div>
 
-                          {/* Title */}
+                          {/* Title + Metadata */}
                           <div className="px-2.5 pb-2">
                             <h4 className={`text-[13px] font-semibold leading-snug truncate ${textColor}`}>
                               {slot.title}
                             </h4>
 
-                            {/* Content Score */}
-                            {slot.contentScore && (
-                              <div className="flex items-center gap-1.5 mt-1.5">
-                                <span className={`text-[11px] font-semibold ${textColor}`}>
-                                  Score {slot.contentScore.total}
+                            {/* Metadata row: score + pillar + funnel */}
+                            <div className="flex items-center gap-1 mt-1.5 flex-wrap">
+                              {slot.contentScore && (
+                                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/20 ${textColor}`}>
+                                  {slot.contentScore.total}/100
                                 </span>
-                              </div>
-                            )}
+                              )}
+                              {(slot.pillar || slot.contentTypeDetail) && (
+                                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded bg-white/15 ${textColor} opacity-80`}>
+                                  {(() => { const p = slot.pillar || slot.contentTypeDetail; return p === 'educational' ? 'Edu' : p === 'entertaining' ? 'Fun' : p === 'promotional' ? 'Promo' : 'BTS'; })()}
+                                </span>
+                              )}
+                              {slot.funnelStage && (
+                                <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded bg-white/10 ${textColor} opacity-70`}>
+                                  {slot.funnelStage === 'tofu' ? 'ToFu' : slot.funnelStage === 'mofu' ? 'MoFu' : 'BoFu'}
+                                </span>
+                              )}
+                              {slot.campaign && (
+                                <span className={`text-[10px] font-medium px-1 py-0.5 ${textColor} opacity-60 truncate max-w-[60px]`} title={slot.campaign}>
+                                  #{slot.campaign}
+                                </span>
+                              )}
+                            </div>
 
                             {/* Status Badge */}
                             {(slot.status === 'published' || slot.status === 'failed' || slot.status === 'scheduled') && (
@@ -569,6 +602,27 @@ const WeekView: React.FC<WeekViewProps> = ({
                               </div>
 
                               <div className="px-4 py-3">
+                                {/* Strategy metadata row */}
+                                {(slot.pillar || slot.contentTypeDetail || slot.funnelStage || slot.campaign) && (
+                                  <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
+                                    {(slot.pillar || slot.contentTypeDetail) && (
+                                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#F4FCFE] text-[#49B7E3]">
+                                        {(() => { const p = slot.pillar || slot.contentTypeDetail; return p === 'educational' ? 'Educational' : p === 'entertaining' ? 'Entertaining' : p === 'promotional' ? 'Promotional' : 'Behind the Scenes'; })()}
+                                      </span>
+                                    )}
+                                    {slot.funnelStage && (
+                                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[rgba(124,108,242,0.06)] text-[var(--vektrus-ai-violet)]">
+                                        {slot.funnelStage === 'tofu' ? 'Top of Funnel' : slot.funnelStage === 'mofu' ? 'Mid Funnel' : 'Bottom Funnel'}
+                                      </span>
+                                    )}
+                                    {slot.campaign && (
+                                      <span className="text-[10px] font-medium px-1.5 py-0.5 rounded bg-[#F4FCFE] text-[#7A7A7A]">
+                                        #{slot.campaign}
+                                      </span>
+                                    )}
+                                  </div>
+                                )}
+
                                 <p className="text-xs text-[#555] leading-relaxed line-clamp-3 mb-3">{slot.body || slot.content}</p>
 
                                 {slot.contentScore && (
@@ -617,46 +671,67 @@ const WeekView: React.FC<WeekViewProps> = ({
                         const pulseHintDay = getPulseHintDay(platform);
                         const showPulseHint = pulseHintDay === dayIndex;
 
+                        // Weekend off-day: calm, non-stressful empty state
+                        if (daySlots.length === 0 && isWeekend && !showPulseHint) {
+                          return (
+                            <button
+                              onClick={() => handleCreateSlot(dayIndex, platform)}
+                              className="w-full h-full min-h-[120px] rounded-[var(--vektrus-radius-sm)] flex flex-col items-center justify-center transition-all duration-200 group text-[#CCCCCC] hover:text-[#7A7A7A] hover:bg-white"
+                            >
+                              <Coffee className="w-5 h-5 mb-1.5 opacity-30 group-hover:opacity-60 transition-opacity" />
+                              <span className="text-[10px] font-medium opacity-40 group-hover:opacity-70 transition-opacity">Optional</span>
+                            </button>
+                          );
+                        }
+
+                        // Pulse suggestion slot: clear AI-driven recommendation
                         if (showPulseHint) {
                           return (
                             <button
                               onClick={() => onNavigatePulse?.()}
-                              className="w-full h-full min-h-[140px] border-2 border-dashed rounded-[var(--vektrus-radius-sm)] flex flex-col items-center justify-center transition-all duration-200 group relative opacity-60 hover:opacity-100 hover:bg-[#49B7E3]/5"
-                              style={{ borderColor: 'rgba(124, 108, 242, 0.3)' }}
+                              className="w-full h-full min-h-[120px] rounded-[var(--vektrus-radius-sm)] flex flex-col items-center justify-center transition-all duration-200 group hover:shadow-card"
+                              style={{ backgroundColor: 'rgba(124, 108, 242, 0.03)', border: '1px dashed rgba(124, 108, 242, 0.18)' }}
                             >
-                              <div className="w-8 h-8 rounded-full pulse-gradient-icon flex items-center justify-center mb-1.5">
-                                <Zap className="w-4 h-4 text-white" />
+                              <div className="w-7 h-7 rounded-full flex items-center justify-center mb-1.5 transition-transform group-hover:scale-110" style={{ background: 'linear-gradient(135deg, rgba(73,183,227,0.12), rgba(124,108,242,0.12))' }}>
+                                <Zap className="w-3.5 h-3.5" style={{ color: 'var(--vektrus-ai-violet)' }} />
                               </div>
-                              <span className="text-xs font-medium" style={{ color: 'var(--vektrus-ai-violet)' }}>
-                                Mit Pulse füllen
+                              <span className="text-[10px] font-semibold" style={{ color: 'var(--vektrus-ai-violet)' }}>
+                                Empfohlen
+                              </span>
+                              <span className="text-[9px] text-[#7A7A7A] mt-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
+                                Mit Pulse fuellen
                               </span>
                             </button>
                           );
                         }
 
+                        // Recommended slot: has smart hint data — show hint always at low opacity
+                        if (hint) {
+                          return (
+                            <button
+                              onClick={() => handleCreateSlot(dayIndex, platform)}
+                              className="w-full h-full min-h-[120px] border border-dashed border-[#49B7E3]/15 rounded-[var(--vektrus-radius-sm)] flex flex-col items-center justify-center hover:border-[#49B7E3]/40 hover:bg-[#F4FCFE] transition-all duration-200 group relative"
+                              style={{ backgroundColor: 'rgba(73,183,227,0.015)' }}
+                            >
+                              <Plus className="w-4 h-4 text-[#49B7E3]/40 group-hover:text-[#49B7E3] group-hover:scale-110 transition-all mb-1" />
+                              <div className="text-center px-1">
+                                <div className="flex items-center justify-center gap-1 mb-0.5">
+                                  <Clock className="w-2.5 h-2.5 text-[#49B7E3]/50 group-hover:text-[#49B7E3] transition-colors" />
+                                  <span className="text-[10px] font-medium text-[#49B7E3]/50 group-hover:text-[#49B7E3] transition-colors">{hint.time}</span>
+                                </div>
+                                <div className="text-[9px] text-[#7A7A7A]/50 group-hover:text-[#7A7A7A] transition-colors">{hint.type}</div>
+                              </div>
+                            </button>
+                          );
+                        }
+
+                        // Plain empty slot: minimal, no recommendation
                         return (
                           <button
                             onClick={() => handleCreateSlot(dayIndex, platform)}
-                            className="w-full h-full min-h-[140px] border-2 border-dashed border-gray-300 rounded-[var(--vektrus-radius-sm)] flex flex-col items-center justify-center text-gray-400 hover:text-[#49B7E3] hover:border-[#49B7E3] hover:bg-[#F4FCFE] transition-all duration-200 group relative"
+                            className="w-full h-full min-h-[120px] border border-dashed border-[rgba(73,183,227,0.10)] rounded-[var(--vektrus-radius-sm)] flex flex-col items-center justify-center text-[#CCCCCC] hover:text-[#49B7E3] hover:border-[#49B7E3]/30 hover:bg-[#F4FCFE] transition-all duration-200 group"
                           >
-                            <Plus className="w-8 h-8 mb-2 group-hover:scale-110 transition-transform" />
-
-                            {hint && (
-                              <div className="text-center px-2">
-                                <div className="text-xs text-gray-500 mb-1">Best Time</div>
-                                <div className="flex items-center justify-center space-x-1 mb-1">
-                                  <span className="text-[#49B7E3]">{hint.icon}</span>
-                                  <span className="text-xs font-semibold text-gray-700">{hint.time}</span>
-                                </div>
-                                <div className="text-xs text-gray-600">{hint.type}</div>
-                              </div>
-                            )}
-
-                            {hint && (
-                              <div className="absolute top-2 right-2 w-6 h-6 bg-[#49B7E3] rounded-full flex items-center justify-center group-hover:scale-105 transition-transform">
-                                <Sparkles className="w-3 h-3 text-white" />
-                              </div>
-                            )}
+                            <Plus className="w-4.5 h-4.5 group-hover:scale-110 transition-transform" />
                           </button>
                         );
                       })()}
@@ -806,10 +881,10 @@ const WeekView: React.FC<WeekViewProps> = ({
         })()}
 
         {/* Auto-Save Indicator */}
-        <div className="mt-4 flex justify-center">
-          <div className="flex items-center space-x-2 px-3 py-1 bg-white border border-[rgba(73,183,227,0.18)] rounded-full text-xs text-[#7A7A7A]">
-            <div className="w-2 h-2 bg-[#49D69E] rounded-full"></div>
-            <span>Automatisch gespeichert um {new Date().toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span>
+        <div className="mt-3 flex justify-center">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 text-[11px] text-[#AAAAAA]">
+            <div className="w-1.5 h-1.5 bg-[#49D69E] rounded-full"></div>
+            <span>Gespeichert</span>
           </div>
         </div>
       </div>

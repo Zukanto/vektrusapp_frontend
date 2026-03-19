@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { Zap, X, Sparkles } from 'lucide-react';
+import { Zap, X, Link2, RefreshCw, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PlannerHeader from './PlannerHeader';
-import NotificationBar from './NotificationBar';
+import type { StatusFilter, ContentTypeFilter } from './PlannerHeader';
+import WeeklyIntelligenceCard from './WeeklyIntelligenceCard';
 import WeekView from './WeekView';
 import ContentSlotEditor from './ContentSlotEditor';
-import PostReviewModal from './PostReviewModal';
 import MonthView from './MonthView';
 import { ContentSlot, PlannerContext } from './types';
 import { useToast } from '../ui/toast';
@@ -14,7 +14,9 @@ import { BetaHint } from '../ui/BetaHint';
 import { CalendarService } from '../../services/calendarService';
 import { supabase } from '../../lib/supabase';
 import { useMediaInsert } from '../../hooks/useMediaInsert';
+import { useConnectedPlatforms } from '../../hooks/useConnectedPlatforms';
 import { usePulseGeneration } from '../../hooks/usePulseGeneration';
+import PulseEntryModal from './PulseEntryModal';
 import { PlannerTutorial } from '../OnboardingTour';
 
 const ContentPlanner: React.FC = () => {
@@ -28,25 +30,32 @@ const ContentPlanner: React.FC = () => {
   });
   const [plannerContext, setPlannerContext] = useState<PlannerContext>({
     goal: 'engagement',
-    platforms: ['instagram', 'linkedin', 'tiktok'],
+    platforms: [],
     frequency: 4,
     tone: 'professional'
   });
 
   const [contentSlots, setContentSlots] = useState<ContentSlot[]>([]);
   const [selectedSlot, setSelectedSlot] = useState<ContentSlot | null>(null);
-  const [showReviewModal, setShowReviewModal] = useState(false);
-  const [generatedSlots, setGeneratedSlots] = useState<ContentSlot[]>([]);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [viewMode, setViewMode] = useState<'week' | 'month'>('week');
-  const [isGeneratingWeek, setIsGeneratingWeek] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [contentTypeFilter, setContentTypeFilter] = useState<ContentTypeFilter>('all');
   const { addToast } = useToast();
   const { selectedMedia, triggerPostCreation, clearSelection } = useMediaInsert();
+  const { connectedPlatforms, isLoading: isPlatformsLoading, hasError: platformsError, retry: retryPlatforms } = useConnectedPlatforms();
   const pulse = usePulseGeneration();
-
+  const [showPulseEntry, setShowPulseEntry] = useState(false);
   const loadRequestId = useRef(0);
   const realtimeUnsub = useRef<(() => void) | null>(null);
+
+  // Sync connected platforms into plannerContext when loaded
+  useEffect(() => {
+    if (!isPlatformsLoading) {
+      setPlannerContext(prev => ({ ...prev, platforms: connectedPlatforms }));
+    }
+  }, [isPlatformsLoading, connectedPlatforms]);
 
   const loadCalendarPostsLatest = useCallback(async () => {
     const requestId = ++loadRequestId.current;
@@ -145,8 +154,6 @@ const ContentPlanner: React.FC = () => {
       });
     }
   }, [selectedMedia, triggerPostCreation, isLoading]);
-
-  const loadCalendarPosts = loadCalendarPostsLatest;
 
   const getStartOfWeek = (date: Date): Date => {
     const d = new Date(date);
@@ -393,17 +400,6 @@ const ContentPlanner: React.FC = () => {
     });
   };
 
-  const getOptimalTime = (platform: string): string => {
-    const times: Record<string, string> = {
-      instagram: '18:00',
-      linkedin: '09:00',
-      tiktok: '19:00',
-      facebook: '15:00',
-      twitter: '12:00'
-    };
-    return times[platform] || '18:00';
-  };
-
   const generateContextualTitle = (platform: string, goal: string): string => {
     const titles: Record<string, Record<string, string[]>> = {
       instagram: {
@@ -459,20 +455,53 @@ const ContentPlanner: React.FC = () => {
     return platformHashtags[goal] || platformHashtags.engagement;
   };
 
-  const getOptimalContentType = (platform: string): ContentSlot['contentType'] => {
-    const types: Record<string, ContentSlot['contentType'][]> = {
-      instagram: ['post', 'reel', 'carousel', 'story'],
-      linkedin: ['post', 'carousel'],
-      tiktok: ['reel'],
-      facebook: ['post', 'story']
-    };
-    
-    const platformTypes = types[platform] || ['post'];
-    return platformTypes[Math.floor(Math.random() * platformTypes.length)];
+  const handleApproveAllDrafts = async () => {
+    const weekStart = getStartOfWeek(selectedWeek);
+    const weekEnd = getEndOfWeek(selectedWeek);
+    const weekDrafts = contentSlots.filter(s => {
+      const d = s.date instanceof Date ? s.date : new Date(s.date);
+      return d >= weekStart && d <= weekEnd && s.status === 'draft';
+    });
+
+    if (weekDrafts.length === 0) {
+      addToast({ type: 'info', title: 'Keine Entwürfe', description: 'Es gibt keine offenen Entwürfe diese Woche.', duration: 2000 });
+      return;
+    }
+
+    for (const draft of weekDrafts) {
+      await handlePostStatusChange(draft.id, 'scheduled');
+    }
+
+    addToast({
+      type: 'success',
+      title: `${weekDrafts.length} Posts freigegeben`,
+      description: 'Alle Entwürfe wurden als geplant markiert.',
+      duration: 3000,
+    });
   };
 
+  const openPulseFromPlanner = useCallback(() => {
+    setShowPulseEntry(true);
+  }, []);
 
-  const handleGenerateWeek = async () => {
+  const handlePulseEntrySelect = useCallback((mode: 'theme' | 'visual') => {
+    // Store selected platforms for Pulse WizardRoot to pick up
+    if (plannerContext.platforms.length > 0) {
+      sessionStorage.setItem('planner-pulse-platforms', JSON.stringify(plannerContext.platforms));
+    }
+    setShowPulseEntry(false);
+    pulse.reopenPopup(mode);
+  }, [plannerContext.platforms, pulse]);
+
+  const handleFillGaps = () => {
+    if (plannerContext.platforms.length === 0) {
+      addToast({ type: 'warning', title: 'Keine Plattformen', description: 'Wähle mindestens eine Plattform.', duration: 3000 });
+      return;
+    }
+    openPulseFromPlanner();
+  };
+
+  const handleGenerateWeek = () => {
     if (!plannerContext.goal || plannerContext.platforms.length === 0) {
       addToast({
         type: 'warning',
@@ -482,64 +511,7 @@ const ContentPlanner: React.FC = () => {
       });
       return;
     }
-
-    setIsGeneratingWeek(true);
-
-    await new Promise(resolve => setTimeout(resolve, 2500));
-
-    const slots = generateWeekPlan(plannerContext, selectedWeek);
-    setGeneratedSlots(slots);
-    setIsGeneratingWeek(false);
-    setShowReviewModal(true);
-  };
-
-  const handleReviewComplete = async (confirmedSlots: ContentSlot[]) => {
-    try {
-      const savedPosts = [];
-
-      for (const slot of confirmedSlots) {
-        try {
-          const createdPost = await CalendarService.createPost({
-            platform: slot.platform,
-            content: CalendarService.buildContentJsonb(slot),
-            scheduled_date: combineDateTime(slot.date, slot.time),
-            status: slot.status === 'planned' ? 'scheduled' : slot.status,
-            content_type: slot.contentType
-          });
-
-          savedPosts.push(CalendarService.convertToContentSlot(createdPost));
-        } catch (error) {
-          console.error('Error saving post:', error);
-        }
-      }
-
-      if (savedPosts.length > 0) {
-        setContentSlots(prev => [...prev, ...savedPosts]);
-        addToast({
-          type: 'success',
-          title: 'Posts eingeplant!',
-          description: `${savedPosts.length} Posts wurden in den Kalender übertragen.`,
-          duration: 4000
-        });
-      } else {
-        addToast({
-          type: 'error',
-          title: 'Fehler',
-          description: 'Posts konnten nicht gespeichert werden.',
-          duration: 3000
-        });
-      }
-    } catch (error) {
-      console.error('Error in handleReviewComplete:', error);
-      addToast({
-        type: 'error',
-        title: 'Fehler',
-        description: 'Posts konnten nicht gespeichert werden.',
-        duration: 3000
-      });
-    } finally {
-      setShowReviewModal(false);
-    }
+    openPulseFromPlanner();
   };
 
   const handleExport = () => {
@@ -574,54 +546,6 @@ const ContentPlanner: React.FC = () => {
     }
   }, [plannerContext.goal]);
 
-  const generateWeekPlan = (context: PlannerContext, week: Date): ContentSlot[] => {
-    // Mock KI-Generierung - würde normalerweise API-Call sein
-    const slots: ContentSlot[] = [];
-    const weekStart = new Date(week);
-    weekStart.setDate(week.getDate() - week.getDay() + 1); // Montag
-
-    context.platforms.forEach(platform => {
-      for (let day = 0; day < 7; day += Math.ceil(7 / context.frequency)) {
-        const slotDate = new Date(weekStart);
-        slotDate.setDate(weekStart.getDate() + day);
-
-        slots.push({
-          id: `${platform}-${day}-${Date.now()}`,
-          date: slotDate,
-          time: '18:00',
-          platform,
-          status: 'ai_suggestion',
-          title: generateContextualTitle(platform, context.goal),
-          content: generateContextualContent(platform, context.goal),
-          contentType: getContentType(platform),
-          hashtags: generateContextualHashtags(platform, context.goal),
-          tone: context.tone as any,
-          contentScore: (() => {
-            const readability = Math.floor(Math.random() * 25) + 70;
-            const hookStrength = Math.floor(Math.random() * 30) + 65;
-            const hashtagQuality = Math.floor(Math.random() * 30) + 60;
-            const ctaClarity = Math.floor(Math.random() * 25) + 70;
-            const platformFit = Math.floor(Math.random() * 20) + 75;
-            const total = Math.round((readability + hookStrength + hashtagQuality + ctaClarity + platformFit) / 5);
-            return { total, readability, hookStrength, hashtagQuality, ctaClarity, platformFit };
-          })()
-        });
-      }
-    });
-
-    return slots;
-  };
-
-  const getContentType = (platform: string): 'post' | 'story' | 'reel' | 'carousel' => {
-    const types: Record<string, ('post' | 'story' | 'reel' | 'carousel')[]> = {
-      instagram: ['post', 'story', 'reel', 'carousel'],
-      linkedin: ['post', 'carousel'],
-      tiktok: ['reel'],
-      facebook: ['post', 'story']
-    };
-    const platformTypes = types[platform] || types.instagram;
-    return platformTypes[Math.floor(Math.random() * platformTypes.length)];
-  };
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   const pulseBannerData = useMemo(() => {
@@ -658,114 +582,56 @@ const ContentPlanner: React.FC = () => {
     }
   };
 
-  const getNotificationData = (): { message: string; type: 'info' | 'warning' | 'success'; actionLabel?: string; onAction?: () => void } => {
-    const today = new Date();
-    const isMonday = today.getDay() === 1;
-    const weekStart = getStartOfWeek(selectedWeek);
-    const weekEnd = getEndOfWeek(selectedWeek);
-    const weekPosts = contentSlots.filter(s => s.date >= weekStart && s.date <= weekEnd);
-    const pulsePosts = weekPosts.filter(s => s.generatedBy === 'pulse' || s.status === 'ai_suggestion');
-
-    if (plannerContext.platforms.length === 0) {
-      return {
-        message: '⚠️ Verbinde zu erst deine Social Media Accounts',
-        type: 'warning',
-        actionLabel: 'Jetzt verbinden'
-      };
-    }
-
-    if (weekPosts.length === 0 && isMonday) {
-      return {
-        message: 'Neue Woche! Lasse Pulse neue Postings generieren',
-        type: 'info',
-        actionLabel: 'Start Pulse',
-        onAction: () => { pulse.reset(); pulse.reopenPopup(); }
-      };
-    }
-
-    if (weekPosts.length > 0 && weekPosts.length < 5) {
-      return {
-        message: `⚠️ Nur ${weekPosts.length} Posts geplant. Vektrus empfiehlt 5-7 pro Woche`,
-        type: 'warning',
-        actionLabel: 'Mehr generieren',
-        onAction: handleGenerateWeek
-      };
-    }
-
-    if (pulsePosts.length > 0) {
-      return {
-        message: `✨ ${pulsePosts.length} of ${weekPosts.length} posts wurden erstellt von Pulse`,
-        type: 'success'
-      };
-    }
-
-    if (plannerContext.goal === 'engagement') {
-      return {
-        message: 'Deine Reels performen mittwochs um 18:00 besonders gut.',
-        type: 'info'
-      };
-    }
-
-    if (plannerContext.goal === 'leads') {
-      return {
-        message: 'LinkedIn Posts am Dienstag generieren 40% mehr Leads.',
-        type: 'info'
-      };
-    }
-
-    return {
-      message: 'Tipp: Konsistenz ist wichtiger als Perfektion.',
-      type: 'info'
-    };
-  };
 
   return (
     <ModuleWrapper module="planner" showTopAccent={true}>
       <div className="h-full flex flex-col bg-[#F4FCFE]">
-        {/* Header */}
-        <PlannerHeader
-        selectedWeek={selectedWeek}
-        onWeekChange={setSelectedWeek}
-        context={plannerContext}
-        onContextChange={setPlannerContext}
-        onStartWizard={() => { pulse.reset(); pulse.reopenPopup(); }}
-        onGenerateWeek={handleGenerateWeek}
-        onExport={handleExport}
-        onMonthView={handleMonthView}
-        viewMode={viewMode}
-        weekPostsCount={contentSlots.filter(s => {
-          const weekStart = getStartOfWeek(selectedWeek);
-          const weekEnd = getEndOfWeek(selectedWeek);
-          return s.date >= weekStart && s.date <= weekEnd;
-        }).length}
-      />
-
-      <div className="flex items-center justify-end px-6 pt-2">
-        <PlannerTutorial />
-      </div>
-
-      <div className="px-6 pt-1">
-        <BetaHint
-          type="demo"
-          title="Auto-Posting befindet sich in der Entwicklung."
-          description="Du kannst deine Posts planen und vorbereiten -- die automatische Veroeffentlichung auf Instagram, LinkedIn und Facebook wird in Kürze verfügbar sein."
-          dismissable
-          storageKey="planner-auto-posting-hint"
-        />
-      </div>
-
-      {/* Notification Bar */}
-      {(() => {
-        const notificationData = getNotificationData();
-        return (
-          <NotificationBar
-            message={notificationData.message}
-            type={notificationData.type}
-            actionLabel={notificationData.actionLabel}
-            onAction={notificationData.onAction}
+        {/* Weekly Intelligence Card — unified strategic context + insights + actions */}
+        {viewMode === 'week' && (
+          <WeeklyIntelligenceCard
+            contentSlots={contentSlots}
+            selectedWeek={selectedWeek}
+            context={plannerContext}
+            onContextChange={setPlannerContext}
+            onNavigatePulse={openPulseFromPlanner}
+            onFillGaps={handleFillGaps}
+            onApproveAll={handleApproveAllDrafts}
           />
-        );
-      })()}
+        )}
+
+        {/* Toolbar — navigation + filters + actions */}
+        <PlannerHeader
+          selectedWeek={selectedWeek}
+          onWeekChange={setSelectedWeek}
+          context={plannerContext}
+          onContextChange={setPlannerContext}
+          connectedPlatforms={connectedPlatforms}
+          onStartWizard={openPulseFromPlanner}
+          onGenerateWeek={handleGenerateWeek}
+          onExport={handleExport}
+          onMonthView={handleMonthView}
+          viewMode={viewMode}
+          weekPostsCount={contentSlots.filter(s => {
+            const weekStart = getStartOfWeek(selectedWeek);
+            const weekEnd = getEndOfWeek(selectedWeek);
+            return s.date >= weekStart && s.date <= weekEnd;
+          }).length}
+          statusFilter={statusFilter}
+          onStatusFilterChange={setStatusFilter}
+          contentTypeFilter={contentTypeFilter}
+          onContentTypeFilterChange={setContentTypeFilter}
+        />
+
+        <div className="flex items-center justify-between px-6 pt-2">
+          <PlannerTutorial />
+          <BetaHint
+            type="demo"
+            title="Auto-Posting in Entwicklung"
+            description="Du kannst deine Posts planen und vorbereiten -- die automatische Veroeffentlichung auf Instagram, LinkedIn und Facebook wird in Kürze verfügbar sein."
+            dismissable
+            storageKey="planner-auto-posting-hint"
+          />
+        </div>
 
       <AnimatePresence>
         {pulseBannerData && !bannerDismissed && (
@@ -783,7 +649,7 @@ const ContentPlanner: React.FC = () => {
                   Deine Woche hat noch {pulseBannerData.freeSlots} freie Slots. Pulse kann dir helfen.
                 </span>
                 <button
-                  onClick={() => { pulse.reset(); pulse.reopenPopup(); }}
+                  onClick={openPulseFromPlanner}
                   className="text-sm font-semibold text-[#49B7E3] hover:text-[#3A9FD1] transition-colors px-3 py-1 rounded-[var(--vektrus-radius-sm)] hover:bg-[#49B7E3]/10"
                 >
                   Starten
@@ -802,9 +668,64 @@ const ContentPlanner: React.FC = () => {
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Week/Month View */}
+        {/* Week/Month View or Platform States */}
         <div className={`transition-all duration-300 ${isEditorOpen ? 'flex-1' : 'w-full'}`} data-tour="planner-calendar">
-          {viewMode === 'week' ? (
+          {isPlatformsLoading ? (
+            /* Loading state while fetching connected platforms */
+            <div className="h-full flex items-center justify-center p-6">
+              <div className="text-center">
+                <div className="w-10 h-10 rounded-[var(--vektrus-radius-sm)] bg-[#F4FCFE] flex items-center justify-center mx-auto mb-3">
+                  <RefreshCw className="w-4.5 h-4.5 text-[#49B7E3] animate-spin" />
+                </div>
+                <p className="text-sm text-[#7A7A7A]">Plattformen werden geladen...</p>
+              </div>
+            </div>
+          ) : platformsError ? (
+            /* Fetch error state */
+            <div className="h-full flex items-center justify-center p-6">
+              <div className="max-w-sm text-center">
+                <div className="w-11 h-11 rounded-[var(--vektrus-radius-sm)] bg-[#FA7E70]/8 flex items-center justify-center mx-auto mb-4">
+                  <AlertTriangle className="w-5 h-5 text-[#FA7E70]" />
+                </div>
+                <h3 className="text-[15px] font-semibold text-[#111111] mb-1.5">
+                  Plattformen konnten nicht geladen werden
+                </h3>
+                <p className="text-sm text-[#7A7A7A] leading-relaxed mb-5">
+                  Deine verbundenen Accounts konnten nicht abgerufen werden. Pruefe deine Verbindung und versuche es erneut.
+                </p>
+                <button
+                  onClick={retryPlatforms}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-[var(--vektrus-radius-sm)] text-sm font-semibold text-[#49B7E3] border border-[#49B7E3]/30 bg-white hover:bg-[#F4FCFE] transition-all"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Erneut versuchen
+                </button>
+              </div>
+            </div>
+          ) : connectedPlatforms.length === 0 ? (
+            /* Zero connected platforms — guide user to Profile page */
+            <div className="h-full flex items-center justify-center p-6">
+              <div className="max-w-sm text-center">
+                <div className="w-11 h-11 rounded-[var(--vektrus-radius-sm)] bg-[#F4FCFE] flex items-center justify-center mx-auto mb-4">
+                  <Link2 className="w-5 h-5 text-[#49B7E3]" />
+                </div>
+                <h3 className="text-[15px] font-semibold text-[#111111] mb-1.5">
+                  Keine Plattformen verbunden
+                </h3>
+                <p className="text-sm text-[#7A7A7A] leading-relaxed mb-5">
+                  Verbinde deine Social-Media-Accounts auf der Profil-Seite, um den Content Planner zu nutzen.
+                </p>
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent('navigate-to-profile'))}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-[var(--vektrus-radius-sm)] text-sm font-semibold text-white transition-all hover:opacity-90"
+                  style={{ backgroundColor: '#49B7E3' }}
+                >
+                  <Link2 className="w-3.5 h-3.5" />
+                  Accounts verbinden
+                </button>
+              </div>
+            </div>
+          ) : viewMode === 'week' ? (
             <WeekView
               selectedWeek={selectedWeek}
               contentSlots={contentSlots}
@@ -815,7 +736,9 @@ const ContentPlanner: React.FC = () => {
               onSlotDuplicate={handleSlotDuplicate}
               onSlotCopyToPlatform={handleSlotCopyToPlatform}
               plannerContext={plannerContext}
-              onNavigatePulse={() => { pulse.reset(); pulse.reopenPopup(); }}
+              onNavigatePulse={openPulseFromPlanner}
+              statusFilter={statusFilter}
+              contentTypeFilter={contentTypeFilter}
             />
           ) : (
             <MonthView
@@ -825,6 +748,7 @@ const ContentPlanner: React.FC = () => {
                 setSelectedWeek(week);
                 setViewMode('week');
               }}
+              activePlatforms={plannerContext.platforms}
             />
           )}
         </div>
@@ -841,40 +765,13 @@ const ContentPlanner: React.FC = () => {
         )}
       </div>
 
-      {/* Loading Animation */}
-      {isGeneratingWeek && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center">
-          <div className="bg-white rounded-[var(--vektrus-radius-lg)] p-8 max-w-md w-full mx-4 shadow-modal">
-            <div className="flex flex-col items-center">
-              <div className="relative w-20 h-20 mb-6">
-                <div className="absolute inset-0 border-3 border-[rgba(124,108,242,0.15)] rounded-full"></div>
-                <div className="absolute inset-0 border-3 border-[var(--vektrus-ai-violet)] rounded-full border-t-transparent animate-spin"></div>
-                <div className="absolute inset-2 bg-[rgba(124,108,242,0.06)] rounded-full flex items-center justify-center">
-                  <Sparkles className="w-8 h-8 text-[var(--vektrus-ai-violet)]" />
-                </div>
-              </div>
-
-              <h3 className="text-lg font-bold font-manrope text-[#111111] mb-2">KI plant deine Woche</h3>
-              <p className="text-sm text-[#7A7A7A] text-center mb-4">
-                Content wird analysiert und für deine Zielgruppe optimiert...
-              </p>
-
-              <div className="w-full bg-[#F4FCFE] rounded-full h-2 overflow-hidden">
-                <div className="h-full rounded-full animate-pulse" style={{ width: '70%', background: 'var(--vektrus-pulse-gradient)' }}></div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Post Review Modal */}
-      {showReviewModal && (
-        <PostReviewModal
-          generatedPosts={generatedSlots}
-          onConfirm={handleReviewComplete}
-          onClose={() => setShowReviewModal(false)}
+      {showPulseEntry && (
+        <PulseEntryModal
+          onSelect={handlePulseEntrySelect}
+          onClose={() => setShowPulseEntry(false)}
         />
       )}
+
       </div>
     </ModuleWrapper>
   );

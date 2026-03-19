@@ -1456,6 +1456,44 @@ const ContentSlotEditor: React.FC<ContentSlotEditorProps> = ({ slot, onUpdate, o
         </select>
       </div>
 
+      {/* Strategy Metadata */}
+      <div className="bg-[#F4FCFE] rounded-[var(--vektrus-radius-md)] p-4 border border-[rgba(73,183,227,0.12)]">
+        <h4 className="text-sm font-semibold text-[#111111] mb-3">Strategie-Kontext</h4>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-[11px] font-medium text-[#7A7A7A] block mb-1">Content-Pillar</label>
+            <select
+              value={editedSlot.pillar || editedSlot.contentTypeDetail || ''}
+              onChange={(e) => {
+                const val = e.target.value as any;
+                setEditedSlot(prev => ({ ...prev, pillar: val || undefined, contentTypeDetail: val || undefined }));
+              }}
+              className="w-full px-3 py-2 rounded-[var(--vektrus-radius-sm)] border border-[rgba(73,183,227,0.18)] bg-white text-xs text-[#111111] font-medium focus:outline-none focus:ring-1 focus:ring-[#49B7E3]/30 focus:border-[#49B7E3] transition-all cursor-pointer"
+            >
+              <option value="">Nicht zugeordnet</option>
+              <option value="educational">Educational</option>
+              <option value="entertaining">Entertaining</option>
+              <option value="promotional">Promotional</option>
+              <option value="behind_the_scenes">Behind the Scenes</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] font-medium text-[#7A7A7A] block mb-1">Funnel-Stufe</label>
+            <select
+              value={editedSlot.funnelStage || ''}
+              onChange={(e) => setEditedSlot(prev => ({ ...prev, funnelStage: (e.target.value as any) || undefined }))}
+              className="w-full px-3 py-2 rounded-[var(--vektrus-radius-sm)] border border-[rgba(73,183,227,0.18)] bg-white text-xs text-[#111111] font-medium focus:outline-none focus:ring-1 focus:ring-[#49B7E3]/30 focus:border-[#49B7E3] transition-all cursor-pointer"
+            >
+              <option value="">Nicht zugeordnet</option>
+              <option value="tofu">Top of Funnel</option>
+              <option value="mofu">Mid Funnel</option>
+              <option value="bofu">Bottom Funnel</option>
+            </select>
+          </div>
+        </div>
+        <p className="text-[10px] text-[#AAAAAA] mt-2">Wird beim Speichern mit dem Post persistiert.</p>
+      </div>
+
       {/* Content Score */}
       {editedSlot.contentScore && (
         <div className="bg-white rounded-[var(--vektrus-radius-md)] p-4 border border-[rgba(73,183,227,0.18)]">

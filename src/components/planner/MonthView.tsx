@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
+import { CalendarClock, Check, Clock, Sparkles, ArrowRight, FileEdit } from 'lucide-react';
 import { ContentSlot } from './types';
 import SocialIcon, { getPlatformLabel } from '../ui/SocialIcon';
 
@@ -7,12 +7,14 @@ interface MonthViewProps {
   selectedMonth: Date;
   contentSlots: ContentSlot[];
   onWeekSelect: (week: Date) => void;
+  activePlatforms?: string[];
 }
 
 const MonthView: React.FC<MonthViewProps> = ({
   selectedMonth,
   contentSlots,
-  onWeekSelect
+  onWeekSelect,
+  activePlatforms,
 }) => {
   const [currentMonth, setCurrentMonth] = React.useState(selectedMonth);
 
@@ -57,17 +59,23 @@ const MonthView: React.FC<MonthViewProps> = ({
   const getWeekRange = (weekStart: Date) => {
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
-    
-    return `${weekStart.getDate()}.${weekStart.getMonth() + 1} - ${weekEnd.getDate()}.${weekEnd.getMonth() + 1}`;
+    return `${weekStart.getDate()}.${weekStart.getMonth() + 1} – ${weekEnd.getDate()}.${weekEnd.getMonth() + 1}`;
   };
+
+  const allPlatforms = ['instagram', 'linkedin', 'tiktok', 'facebook', 'twitter'];
+  const platforms = activePlatforms && activePlatforms.length > 0 ? activePlatforms : allPlatforms;
+  const isFiltered = platforms.length < allPlatforms.length;
 
   const getWeekSlots = (weekStart: Date) => {
     const weekEnd = new Date(weekStart);
     weekEnd.setDate(weekStart.getDate() + 6);
-    
+    weekEnd.setHours(23, 59, 59, 999);
+
     return contentSlots.filter(slot => {
-      const slotDate = slot.date;
-      return slotDate >= weekStart && slotDate <= weekEnd;
+      const slotDate = slot.date instanceof Date ? slot.date : new Date(slot.date);
+      if (slotDate < weekStart || slotDate > weekEnd) return false;
+      if (isFiltered && !platforms.includes(slot.platform)) return false;
+      return true;
     });
   };
 
@@ -75,168 +83,139 @@ const MonthView: React.FC<MonthViewProps> = ({
     return weekSlots.filter(slot => slot.platform === platform);
   };
 
-  const navigateMonth = (direction: 'prev' | 'next') => {
-    const newMonth = new Date(currentMonth);
-    newMonth.setMonth(currentMonth.getMonth() + (direction === 'next' ? 1 : -1));
-    setCurrentMonth(newMonth);
-  };
+  const filteredSlots = isFiltered
+    ? contentSlots.filter(s => platforms.includes(s.platform))
+    : contentSlots;
 
-  const platforms = ['instagram', 'linkedin', 'tiktok', 'facebook', 'twitter'];
   const weeks = getMonthWeeks(currentMonth);
 
-
-  const getStatusColor = (status: ContentSlot['status']) => {
+  const getStatusDotColor = (status: ContentSlot['status']) => {
     switch (status) {
-      case 'planned':
-        return 'bg-[#49D69E]';
+      case 'published': return 'bg-[#49D69E]';
       case 'scheduled':
-        return 'bg-[#49B7E3]';
-      case 'draft':
-        return 'bg-[#F4BE9D]';
-      case 'ai_suggestion':
-        return 'bg-[#B6EBF7]';
-      case 'rejected':
-        return 'bg-[#FA7E70]';
-      case 'published':
-        return 'bg-[#49D69E]';
+      case 'planned': return 'bg-[#49B7E3]';
+      case 'draft': return 'bg-[#F4BE9D]';
+      case 'ai_suggestion': return 'bg-[var(--vektrus-ai-violet)]';
       case 'failed':
-        return 'bg-[#FA7E70]';
-      default:
-        return 'bg-[#B6EBF7]/20';
+      case 'rejected': return 'bg-[#FA7E70]';
+      default: return 'bg-[#B6EBF7]/40';
     }
+  };
+
+  const isThisWeek = (weekStart: Date) => {
+    const now = new Date();
+    const currentMonday = getMondayOfWeek(now);
+    return weekStart.toDateString() === currentMonday.toDateString();
   };
 
   return (
     <div className="h-full overflow-auto p-6">
       <div className="max-w-[1240px] mx-auto">
-        {/* Month Header */}
-        <div className="bg-white rounded-[var(--vektrus-radius-lg)] border border-[rgba(73,183,227,0.18)] p-6 mb-6 shadow-card">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => navigateMonth('prev')}
-                className="p-3 text-[#7A7A7A] hover:text-[#49B7E3] hover:bg-[#F4FCFE] rounded-[var(--vektrus-radius-sm)] transition-all duration-200"
-              >
-                <ChevronLeft className="w-5 h-5" />
-              </button>
-
-              <div className="flex items-center space-x-3 px-4">
-                <div className="w-10 h-10 bg-[#49B7E3] rounded-[var(--vektrus-radius-sm)] flex items-center justify-center shadow-subtle">
-                  <Calendar className="w-5 h-5 text-white" />
-                </div>
-                <h1 className="text-2xl font-bold font-manrope text-[#111111]">
-                  {currentMonth.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}
-                </h1>
-              </div>
-
-              <button
-                onClick={() => navigateMonth('next')}
-                className="p-3 text-[#7A7A7A] hover:text-[#49B7E3] hover:bg-[#F4FCFE] rounded-[var(--vektrus-radius-sm)] transition-all duration-200"
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            </div>
-
-            <button
-              onClick={() => onWeekSelect(selectedMonth)}
-              className="px-5 py-2.5 bg-[#49B7E3] hover:bg-[#3A9FD1] text-white rounded-[var(--vektrus-radius-sm)] font-semibold transition-all duration-200 shadow-card hover:shadow-elevated text-sm"
-            >
-              Zur Wochenansicht
-            </button>
-          </div>
-        </div>
-
-        {/* Month Grid */}
-        <div className="space-y-4">
+        {/* Week Cards */}
+        <div className="space-y-3">
           {weeks.map((weekStart, weekIndex) => {
             const weekSlots = getWeekSlots(weekStart);
-            const isCurrentWeek = weekStart.toDateString() === selectedMonth.toDateString();
-            
+            const isCurrent = isThisWeek(weekStart);
+            const draftCount = weekSlots.filter(s => s.status === 'draft').length;
+            const scheduledCount = weekSlots.filter(s => s.status === 'scheduled' || s.status === 'planned').length;
+            const publishedCount = weekSlots.filter(s => s.status === 'published').length;
+            const aiCount = weekSlots.filter(s => s.status === 'ai_suggestion').length;
+
             return (
               <div
                 key={weekIndex}
                 onClick={() => onWeekSelect(weekStart)}
-                className={`rounded-[var(--vektrus-radius-lg)] border p-6 cursor-pointer transition-all duration-200 hover:shadow-elevated ${
-                  isCurrentWeek
-                    ? 'border-[#49B7E3] bg-[#F4FCFE] shadow-card'
-                    : 'border-[rgba(73,183,227,0.18)] bg-white hover:border-[#B6EBF7]'
+                className={`rounded-[var(--vektrus-radius-md)] border cursor-pointer transition-all duration-200 hover:shadow-card hover:-translate-y-px ${
+                  isCurrent
+                    ? 'border-[#49B7E3]/40 bg-white shadow-subtle ring-1 ring-[#49B7E3]/10'
+                    : 'border-[rgba(73,183,227,0.15)] bg-white hover:border-[#B6EBF7]/60'
                 }`}
               >
-                {/* Week Header */}
-                <div className="flex items-center justify-between mb-5">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-12 h-12 rounded-[var(--vektrus-radius-sm)] flex items-center justify-center shadow-subtle ${
-                      isCurrentWeek
-                        ? 'bg-[#49B7E3]'
-                        : 'bg-[#F4FCFE]'
-                    }`}>
-                      <div className="text-center">
-                        <div className={`text-[10px] font-bold ${isCurrentWeek ? 'text-white' : 'text-[#7A7A7A]'}`}>KW</div>
-                        <div className={`text-lg font-bold leading-tight ${isCurrentWeek ? 'text-white' : 'text-[#111111]'}`}>
-                          {getISOWeekNumber(weekStart)}
-                        </div>
-                      </div>
+                <div className="flex items-center gap-5 px-5 py-4">
+                  {/* KW badge */}
+                  <div className={`w-11 h-11 rounded-[var(--vektrus-radius-sm)] flex flex-col items-center justify-center flex-shrink-0 ${
+                    isCurrent ? 'bg-[#49B7E3] shadow-subtle' : 'bg-[#F4FCFE]'
+                  }`}>
+                    <span className={`text-[9px] font-bold uppercase leading-none ${isCurrent ? 'text-white/70' : 'text-[#AAAAAA]'}`}>KW</span>
+                    <span className={`text-base font-bold leading-tight ${isCurrent ? 'text-white' : 'text-[#111111]'}`}>
+                      {getISOWeekNumber(weekStart)}
+                    </span>
+                  </div>
+
+                  {/* Week info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="text-sm font-semibold text-[#111111]">
+                        {getWeekRange(weekStart)}
+                      </span>
+                      {isCurrent && (
+                        <span className="text-[10px] font-semibold text-[#49B7E3] bg-[#49B7E3]/8 px-1.5 py-0.5 rounded-full">
+                          Aktuell
+                        </span>
+                      )}
                     </div>
-                    <div>
-                      <h3 className="text-lg font-bold font-manrope text-[#111111]">
-                        Kalenderwoche {getISOWeekNumber(weekStart)}
-                      </h3>
-                      <p className="text-sm text-[#7A7A7A]">{getWeekRange(weekStart)}</p>
+
+                    {/* Platform row */}
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {platforms.map(platform => {
+                        const count = getPlatformSlots(weekSlots, platform).length;
+                        const platformSlots = getPlatformSlots(weekSlots, platform);
+                        return (
+                          <div key={platform} className="flex items-center gap-1.5">
+                            <SocialIcon platform={platform} size={14} />
+                            {count > 0 ? (
+                              <div className="flex items-center gap-0.5">
+                                {platformSlots.slice(0, 4).map((slot, i) => (
+                                  <div
+                                    key={i}
+                                    className={`w-2 h-2 rounded-full ${getStatusDotColor(slot.status)}`}
+                                    title={slot.title}
+                                  />
+                                ))}
+                                {count > 4 && (
+                                  <span className="text-[9px] text-[#7A7A7A] font-medium ml-0.5">+{count - 4}</span>
+                                )}
+                              </div>
+                            ) : (
+                              <div className="w-2 h-2 rounded-full border border-dashed border-[#CCCCCC]" />
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-3">
-                    <div className="text-center px-4 py-2 bg-[#F4FCFE] rounded-[var(--vektrus-radius-sm)]">
-                      <div className="text-xl font-bold text-[#49B7E3]">{weekSlots.length}</div>
-                      <div className="text-xs text-[#7A7A7A] font-medium">Posts</div>
-                    </div>
-                    <div className="text-center px-4 py-2 bg-[rgba(73,214,158,0.08)] rounded-[var(--vektrus-radius-sm)]">
-                      <div className="text-xl font-bold text-[#49D69E]">
-                        {weekSlots.filter(s => s.status === 'planned').length}
-                      </div>
-                      <div className="text-xs text-[#7A7A7A] font-medium">Geplant</div>
-                    </div>
-                  </div>
-                </div>
+                  {/* Status summary */}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {draftCount > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-[var(--vektrus-radius-sm)] bg-[#F4BE9D]/10 text-[10px] font-semibold text-[#B8860B]">
+                        <FileEdit className="w-2.5 h-2.5" />{draftCount}
+                      </span>
+                    )}
+                    {scheduledCount > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-[var(--vektrus-radius-sm)] bg-[#49B7E3]/8 text-[10px] font-semibold text-[#49B7E3]">
+                        <CalendarClock className="w-2.5 h-2.5" />{scheduledCount}
+                      </span>
+                    )}
+                    {publishedCount > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-[var(--vektrus-radius-sm)] bg-[#49D69E]/8 text-[10px] font-semibold text-[#49D69E]">
+                        <Check className="w-2.5 h-2.5" />{publishedCount}
+                      </span>
+                    )}
+                    {aiCount > 0 && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 rounded-[var(--vektrus-radius-sm)] bg-[rgba(124,108,242,0.06)] text-[10px] font-semibold text-[var(--vektrus-ai-violet)]">
+                        <Sparkles className="w-2.5 h-2.5" />{aiCount}
+                      </span>
+                    )}
 
-                {/* Platform Overview */}
-                <div className="grid grid-cols-5 gap-4">
-                  {platforms.map(platform => {
-                    const platformSlots = getPlatformSlots(weekSlots, platform);
-                    
-                    return (
-                      <div key={platform} className="text-center">
-                        <div className="flex items-center justify-center space-x-2 mb-2">
-                          <SocialIcon platform={platform} size={20} />
-                          <span className="text-sm font-medium text-[#111111]">
-                            {getPlatformLabel(platform)}
-                          </span>
-                        </div>
-                        
-                        <div className="flex justify-center space-x-1">
-                          {platformSlots.slice(0, 3).map((slot, index) => (
-                            <div
-                              key={index}
-                              className={`w-3 h-3 rounded-full ${getStatusColor(slot.status)}`}
-                              title={slot.title}
-                            />
-                          ))}
-                          {platformSlots.length > 3 && (
-                            <div className="w-3 h-3 rounded-full bg-gray-300 flex items-center justify-center">
-                              <span className="text-xs text-white">+</span>
-                            </div>
-                          )}
-                          {platformSlots.length === 0 && (
-                            <div className="w-3 h-3 rounded-full border-2 border-dashed border-gray-300" />
-                          )}
-                        </div>
-                        
-                        <div className="text-xs text-[#7A7A7A] mt-1">
-                          {platformSlots.length} Post{platformSlots.length !== 1 ? 's' : ''}
-                        </div>
-                      </div>
-                    );
-                  })}
+                    {/* Total count */}
+                    <div className="flex items-center gap-1.5 pl-2 border-l border-[rgba(73,183,227,0.12)]">
+                      <span className="text-sm font-bold text-[#111111]">{weekSlots.length}</span>
+                      <span className="text-[11px] text-[#7A7A7A]">Posts</span>
+                    </div>
+
+                    <ArrowRight className="w-4 h-4 text-[#CCCCCC] group-hover:text-[#7A7A7A] transition-colors ml-1" />
+                  </div>
                 </div>
               </div>
             );
@@ -244,36 +223,34 @@ const MonthView: React.FC<MonthViewProps> = ({
         </div>
 
         {/* Month Summary */}
-        <div className="mt-6 bg-white rounded-[var(--vektrus-radius-md)] border border-[rgba(73,183,227,0.18)] p-6 shadow-subtle">
-          <h3 className="text-lg font-semibold font-manrope text-[#111111] mb-4">Monatsübersicht</h3>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="text-center p-4 bg-[#F4FCFE] rounded-[var(--vektrus-radius-sm)]">
-              <div className="text-2xl font-bold text-[#49B7E3] mb-1">
-                {contentSlots.length}
+        <div className="mt-5 bg-white rounded-[var(--vektrus-radius-md)] border border-[rgba(73,183,227,0.12)] overflow-hidden shadow-subtle">
+          <div className="px-5 py-3 border-b border-[rgba(73,183,227,0.08)]">
+            <h3 className="text-sm font-semibold text-[#111111]">Monatsübersicht</h3>
+          </div>
+          <div className="grid grid-cols-4 divide-x divide-[rgba(73,183,227,0.08)]">
+            <div className="text-center py-4 px-3">
+              <div className="text-xl font-bold text-[#49B7E3] mb-0.5">
+                {filteredSlots.length}
               </div>
-              <div className="text-sm text-[#7A7A7A]">Gesamt Posts</div>
+              <div className="text-[11px] text-[#7A7A7A] font-medium">Gesamt</div>
             </div>
-
-            <div className="text-center p-4 bg-[#F4FCFE] rounded-[var(--vektrus-radius-sm)]">
-              <div className="text-2xl font-bold text-[#49D69E] mb-1">
-                {contentSlots.filter(s => s.status === 'planned').length}
+            <div className="text-center py-4 px-3">
+              <div className="text-xl font-bold text-[#49D69E] mb-0.5">
+                {filteredSlots.filter(s => s.status === 'scheduled' || s.status === 'planned').length}
               </div>
-              <div className="text-sm text-[#7A7A7A]">Geplant</div>
+              <div className="text-[11px] text-[#7A7A7A] font-medium">Geplant</div>
             </div>
-
-            <div className="text-center p-4 bg-[#F4FCFE] rounded-[var(--vektrus-radius-sm)]">
-              <div className="text-2xl font-bold text-[var(--vektrus-ai-violet)] mb-1">
-                {contentSlots.filter(s => s.status === 'ai_suggestion').length}
+            <div className="text-center py-4 px-3">
+              <div className="text-xl font-bold text-[var(--vektrus-ai-violet)] mb-0.5">
+                {filteredSlots.filter(s => s.status === 'ai_suggestion').length}
               </div>
-              <div className="text-sm text-[#7A7A7A]">KI-Vorschläge</div>
+              <div className="text-[11px] text-[#7A7A7A] font-medium">KI-Vorschläge</div>
             </div>
-
-            <div className="text-center p-4 bg-[#F4FCFE] rounded-[var(--vektrus-radius-sm)]">
-              <div className="text-2xl font-bold text-[#49D69E] mb-1">
-                {contentSlots.filter(s => s.status === 'published').length}
+            <div className="text-center py-4 px-3">
+              <div className="text-xl font-bold text-[#49D69E] mb-0.5">
+                {filteredSlots.filter(s => s.status === 'published').length}
               </div>
-              <div className="text-sm text-[#7A7A7A]">Veröffentlicht</div>
+              <div className="text-[11px] text-[#7A7A7A] font-medium">Live</div>
             </div>
           </div>
         </div>

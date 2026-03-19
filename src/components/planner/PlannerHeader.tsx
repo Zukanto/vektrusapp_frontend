@@ -1,19 +1,28 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, Zap, Wand as Wand2, Eye, Megaphone, Heart, Target, DollarSign, Rocket, Users } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Zap, Eye, Calendar, Filter, FileText, Film, Layers, Sparkles, Clock, CheckCircle, ListFilter } from 'lucide-react';
 import { PlannerContext } from './types';
 import { useModuleColors } from '../../hooks/useModuleColors';
+import SocialIcon from '../ui/SocialIcon';
+
+export type StatusFilter = 'all' | 'draft' | 'scheduled' | 'published' | 'ai_suggestion';
+export type ContentTypeFilter = 'all' | 'post' | 'reel' | 'carousel' | 'story';
 
 interface PlannerHeaderProps {
   selectedWeek: Date;
   onWeekChange: (date: Date) => void;
   context: PlannerContext;
   onContextChange: (context: PlannerContext) => void;
+  connectedPlatforms?: string[];
   onStartWizard: () => void;
   onGenerateWeek: () => void;
   onExport?: () => void;
   onMonthView?: () => void;
   weekPostsCount?: number;
   viewMode?: 'week' | 'month';
+  statusFilter?: StatusFilter;
+  onStatusFilterChange?: (filter: StatusFilter) => void;
+  contentTypeFilter?: ContentTypeFilter;
+  onContentTypeFilterChange?: (filter: ContentTypeFilter) => void;
 }
 
 const PlannerHeader: React.FC<PlannerHeaderProps> = ({
@@ -21,28 +30,45 @@ const PlannerHeader: React.FC<PlannerHeaderProps> = ({
   onWeekChange,
   context,
   onContextChange,
+  connectedPlatforms,
   onStartWizard,
   onGenerateWeek,
   onExport,
   onMonthView,
   weekPostsCount = 0,
-  viewMode = 'week'
+  viewMode = 'week',
+  statusFilter = 'all',
+  onStatusFilterChange,
+  contentTypeFilter = 'all',
+  onContentTypeFilterChange,
 }) => {
-  const goals = [
-    { id: 'awareness', label: 'Awareness', icon: <Megaphone className="w-4 h-4" /> },
-    { id: 'engagement', label: 'Engagement', icon: <Heart className="w-4 h-4" /> },
-    { id: 'leads', label: 'Lead Generation', icon: <Target className="w-4 h-4" /> },
-    { id: 'sales', label: 'Sales', icon: <DollarSign className="w-4 h-4" /> },
-    { id: 'launch', label: 'Produktlaunch', icon: <Rocket className="w-4 h-4" /> },
-    { id: 'community', label: 'Community Building', icon: <Users className="w-4 h-4" /> }
+  const allPlatforms = [
+    { id: 'instagram', label: 'Instagram' },
+    { id: 'linkedin', label: 'LinkedIn' },
+    { id: 'tiktok', label: 'TikTok' },
+    { id: 'facebook', label: 'Facebook' },
+    { id: 'twitter', label: 'Twitter' },
   ];
 
-  const platforms = [
-    { id: 'instagram', label: 'Instagram', color: 'bg-pink-500', isConnected: true },
-    { id: 'linkedin', label: 'LinkedIn', color: 'bg-blue-600', isConnected: true },
-    { id: 'tiktok', label: 'TikTok', color: 'bg-black', isConnected: false },
-    { id: 'facebook', label: 'Facebook', color: 'bg-blue-500', isConnected: false },
-    { id: 'twitter', label: 'Twitter', color: 'bg-sky-500', isConnected: false }
+  // Show only platforms the user has actually connected via Late API
+  // No fallback — if nothing is connected, no pills are shown
+  const platforms = connectedPlatforms && connectedPlatforms.length > 0
+    ? allPlatforms.filter(p => connectedPlatforms.includes(p.id))
+    : [];
+
+  const statusOptions: { id: StatusFilter; label: string; icon: React.ReactNode }[] = [
+    { id: 'all', label: 'Alle', icon: <ListFilter className="w-3.5 h-3.5" /> },
+    { id: 'draft', label: 'Entwürfe', icon: <Clock className="w-3.5 h-3.5" /> },
+    { id: 'scheduled', label: 'Geplant', icon: <Calendar className="w-3.5 h-3.5" /> },
+    { id: 'published', label: 'Live', icon: <CheckCircle className="w-3.5 h-3.5" /> },
+    { id: 'ai_suggestion', label: 'KI', icon: <Sparkles className="w-3.5 h-3.5" /> },
+  ];
+
+  const typeOptions: { id: ContentTypeFilter; label: string; icon: React.ReactNode }[] = [
+    { id: 'all', label: 'Alle', icon: <Filter className="w-3.5 h-3.5" /> },
+    { id: 'post', label: 'Posts', icon: <FileText className="w-3.5 h-3.5" /> },
+    { id: 'reel', label: 'Reels', icon: <Film className="w-3.5 h-3.5" /> },
+    { id: 'carousel', label: 'Carousel', icon: <Layers className="w-3.5 h-3.5" /> },
   ];
 
   const getWeekStart = (date: Date) => {
@@ -58,7 +84,6 @@ const PlannerHeader: React.FC<PlannerHeaderProps> = ({
     const start = getWeekStart(date);
     const end = new Date(start);
     end.setDate(start.getDate() + 6);
-
     return `${start.getDate()}.${start.getMonth() + 1} - ${end.getDate()}.${end.getMonth() + 1}.${end.getFullYear()}`;
   };
 
@@ -76,25 +101,18 @@ const PlannerHeader: React.FC<PlannerHeaderProps> = ({
     const newPlatforms = context.platforms.includes(platformId)
       ? context.platforms.filter(p => p !== platformId)
       : [...context.platforms, platformId];
-    
     onContextChange({ ...context, platforms: newPlatforms });
   };
 
-  const getCurrentGoal = () => {
-    return goals.find(g => g.id === context.goal);
-  };
-
   const colors = useModuleColors('planner');
-  const [showPlatformMenu, setShowPlatformMenu] = useState(false);
-  const [showOnlyActive, setShowOnlyActive] = useState(true);
   const [showGlow, setShowGlow] = useState(false);
   const glowShownRef = useRef(false);
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     if (glowShownRef.current) return;
     const sessionKey = 'pulse-glow-shown';
     if (sessionStorage.getItem(sessionKey)) return;
-
     if (weekPostsCount === 0) {
       setShowGlow(true);
       glowShownRef.current = true;
@@ -103,10 +121,6 @@ const PlannerHeader: React.FC<PlannerHeaderProps> = ({
       return () => clearTimeout(timer);
     }
   }, [weekPostsCount]);
-
-  const activePlatforms = platforms.filter(p => p.isConnected);
-  const inactivePlatforms = platforms.filter(p => !p.isConnected);
-  const visiblePlatforms = showOnlyActive ? activePlatforms : platforms;
 
   const getWeekNumber = (date: Date) => {
     const monday = getWeekStart(date);
@@ -118,22 +132,20 @@ const PlannerHeader: React.FC<PlannerHeaderProps> = ({
     return Math.round(diff / (7 * 24 * 60 * 60 * 1000)) + 1;
   };
 
+  const hasActiveFilters = statusFilter !== 'all' || contentTypeFilter !== 'all';
+
   return (
-    <div
-      className="bg-white border-b-2"
-      style={{ borderBottomColor: colors.borderLight, height: '88px' }}
-    >
-      <div className="max-w-[1240px] mx-auto h-full flex flex-col">
-        {/* Zeile 1 - Haupt-Navigation (48px) */}
-        <div className="flex items-center justify-between px-6" style={{ height: '48px' }}>
-          {/* Links: Wochennavigation */}
-          <div className="flex items-center space-x-3">
+    <div className="bg-white border-b border-[rgba(73,183,227,0.15)]">
+      <div className="max-w-[1240px] mx-auto">
+        {/* Single row toolbar */}
+        <div className="flex items-center justify-between px-6 h-[52px]">
+          {/* Left: Week navigation */}
+          <div className="flex items-center gap-2">
             <button
               onClick={() => navigateWeek('prev')}
-              className="w-9 h-9 flex items-center justify-center rounded-[var(--vektrus-radius-sm)] transition-all hover:bg-[#F4FCFE]"
-              style={{ color: colors.primary }}
+              className="w-8 h-8 flex items-center justify-center rounded-[var(--vektrus-radius-sm)] transition-all hover:bg-[#F4FCFE] text-[#7A7A7A] hover:text-[#111111]"
             >
-              <ChevronLeft className="w-5 h-5" />
+              <ChevronLeft className="w-4.5 h-4.5" />
             </button>
 
             {viewMode === 'month' ? (
@@ -141,99 +153,148 @@ const PlannerHeader: React.FC<PlannerHeaderProps> = ({
                 {selectedWeek.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' })}
               </span>
             ) : (
-              <>
-                <div
-                  className="px-3 py-1.5 rounded-[var(--vektrus-radius-sm)] font-semibold text-sm"
-                  style={{ backgroundColor: colors.primaryVeryLight, color: colors.primary, minWidth: '80px', textAlign: 'center' }}
-                >
-                  KW {getWeekNumber(selectedWeek)}
-                </div>
-
-                <span className="text-sm text-gray-700">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium text-[#7A7A7A]">
                   {getWeekRange(selectedWeek)}
                 </span>
-              </>
+              </div>
             )}
 
             <button
               onClick={() => navigateWeek('next')}
-              className="w-9 h-9 flex items-center justify-center rounded-[var(--vektrus-radius-sm)] transition-all hover:bg-[#F4FCFE]"
-              style={{ color: colors.primary }}
+              className="w-8 h-8 flex items-center justify-center rounded-[var(--vektrus-radius-sm)] transition-all hover:bg-[#F4FCFE] text-[#7A7A7A] hover:text-[#111111]"
             >
-              <ChevronRight className="w-5 h-5" />
+              <ChevronRight className="w-4.5 h-4.5" />
+            </button>
+
+            <button
+              onClick={() => onWeekChange(new Date())}
+              className="px-2.5 py-1 text-xs font-medium text-[#7A7A7A] hover:text-[#49B7E3] hover:bg-[#F4FCFE] rounded-[var(--vektrus-radius-sm)] transition-all"
+            >
+              Heute
             </button>
           </div>
 
-          {/* Mitte: Ansichts-Toggle */}
-          <button
-            onClick={onMonthView}
-            className="flex items-center space-x-2 px-4 py-2 text-[#7A7A7A] hover:text-[#111111] hover:bg-[#F4FCFE] rounded-[var(--vektrus-radius-sm)] transition-all text-sm font-medium"
-            style={{ width: '140px' }}
-          >
-            <Eye className="w-4 h-4" />
-            <span>Monatsansicht</span>
-          </button>
+          {/* Center: Platform + filter controls */}
+          <div className="flex items-center gap-2" data-tour="planner-filter">
+            {/* Platform pills */}
+            {platforms.map(platform => (
+              <button
+                key={platform.id}
+                onClick={() => togglePlatform(platform.id)}
+                className={`h-7 px-2.5 rounded-full text-xs font-medium transition-all duration-150 flex items-center gap-1.5 ${
+                  context.platforms.includes(platform.id)
+                    ? 'bg-[#111111] text-white'
+                    : 'bg-[#F4FCFE] text-[#7A7A7A] hover:bg-[#E6F6FB]'
+                }`}
+              >
+                <SocialIcon platform={platform.id} size={12} />
+                <span>{platform.label}</span>
+              </button>
+            ))}
 
-          {/* Rechts: Primary Actions */}
-          <div className="flex items-center space-x-3">
+            {/* Divider */}
+            <div className="w-px h-5 bg-[rgba(73,183,227,0.15)] mx-1" />
+
+            {/* Filter toggle */}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`h-7 px-2.5 rounded-full text-xs font-medium transition-all duration-150 flex items-center gap-1.5 ${
+                hasActiveFilters || showFilters
+                  ? 'bg-[#49B7E3]/10 text-[#49B7E3]'
+                  : 'bg-[#F4FCFE] text-[#7A7A7A] hover:bg-[#E6F6FB]'
+              }`}
+            >
+              <Filter className="w-3.5 h-3.5" />
+              <span>Filter</span>
+              {hasActiveFilters && (
+                <span className="w-1.5 h-1.5 rounded-full bg-[#49B7E3]" />
+              )}
+            </button>
+          </div>
+
+          {/* Right: View toggle + Pulse CTA */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onMonthView}
+              className="h-8 px-3 flex items-center gap-1.5 text-xs font-medium text-[#7A7A7A] hover:text-[#111111] hover:bg-[#F4FCFE] rounded-[var(--vektrus-radius-sm)] transition-all"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>{viewMode === 'week' ? 'Monat' : 'Woche'}</span>
+            </button>
+
             <button
               onClick={onStartWizard}
               data-tour="planner-pulse-button"
-              className={`pulse-planner-btn flex items-center space-x-2 px-5 py-2.5 rounded-[var(--vektrus-radius-sm)] font-semibold transition-all duration-200 border-2 hover:shadow-subtle ${showGlow ? 'pulse-glow-once' : ''}`}
+              className={`pulse-planner-btn flex items-center gap-2 px-4 py-2 rounded-[var(--vektrus-radius-sm)] font-semibold transition-all duration-200 text-sm text-white hover:shadow-card ${showGlow ? 'pulse-glow-once' : ''}`}
               style={{
-                borderColor: '#49B7E3',
-                color: '#49B7E3',
-                backgroundColor: 'transparent',
-                minWidth: '160px',
-                height: '40px'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(73, 183, 227, 0.08)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'transparent';
+                background: 'linear-gradient(135deg, #49B7E3 0%, var(--vektrus-ai-violet) 100%)',
               }}
             >
               <Zap className="w-4 h-4" />
-              <span className="text-sm whitespace-nowrap">Pulse</span>
+              <span>Pulse</span>
             </button>
           </div>
         </div>
 
-        {/* Zeile 2 - Platform Filter (40px) */}
-        <div className="flex items-center px-6 space-x-2" data-tour="planner-filter" style={{ height: '40px' }}>
-          {/* Toggle: Nur aktive / Alle Plattformen */}
-          <button
-            onClick={() => setShowOnlyActive(!showOnlyActive)}
-            className="h-8 px-3 rounded-[var(--vektrus-radius-sm)] text-xs font-bold transition-all duration-200 border-2 flex items-center space-x-1.5 mr-2"
-            style={{
-              backgroundColor: showOnlyActive ? colors.primaryVeryLight : 'white',
-              borderColor: showOnlyActive ? colors.primary : '#D1D5DB',
-              color: showOnlyActive ? colors.primary : '#6B7280'
-            }}
-          >
-            <span>{showOnlyActive ? 'Nur aktive' : 'Alle anzeigen'}</span>
-            <span className="text-xs opacity-70">({visiblePlatforms.length}/{platforms.length})</span>
-          </button>
+        {/* Expandable filter row */}
+        {showFilters && (
+          <div className="flex items-center gap-4 px-6 pb-3 pt-1">
+            {/* Status filters */}
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] font-semibold text-[#7A7A7A] uppercase tracking-wide mr-1.5">Status</span>
+              {statusOptions.map(opt => (
+                <button
+                  key={opt.id}
+                  onClick={() => onStatusFilterChange?.(opt.id)}
+                  className={`h-6 px-2 rounded-full text-[11px] font-medium transition-all duration-150 flex items-center gap-1 ${
+                    statusFilter === opt.id
+                      ? 'bg-[#111111] text-white'
+                      : 'bg-[#F4FCFE] text-[#7A7A7A] hover:bg-[#E6F6FB]'
+                  }`}
+                >
+                  {opt.icon}
+                  <span>{opt.label}</span>
+                </button>
+              ))}
+            </div>
 
-          {visiblePlatforms.map(platform => (
-            <button
-              key={platform.id}
-              onClick={() => togglePlatform(platform.id)}
-              disabled={!platform.isConnected}
-              className={`h-8 px-3 rounded-[var(--vektrus-radius-sm)] text-xs font-medium transition-all duration-200 flex items-center space-x-1.5 ${
-                !platform.isConnected
-                  ? 'bg-[#F4FCFE] text-gray-400 cursor-not-allowed opacity-50'
-                  : context.platforms.includes(platform.id)
-                  ? `${platform.color} text-white`
-                  : 'bg-[#B6EBF7]/20 text-gray-500'
-              }`}
-            >
-              <span>{platform.label}</span>
-              {!platform.isConnected && <svg className="w-3 h-3 opacity-60" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>}
-            </button>
-          ))}
-        </div>
+            {/* Divider */}
+            <div className="w-px h-5 bg-[rgba(73,183,227,0.12)]" />
+
+            {/* Content type filters */}
+            <div className="flex items-center gap-1">
+              <span className="text-[11px] font-semibold text-[#7A7A7A] uppercase tracking-wide mr-1.5">Format</span>
+              {typeOptions.map(opt => (
+                <button
+                  key={opt.id}
+                  onClick={() => onContentTypeFilterChange?.(opt.id)}
+                  className={`h-6 px-2 rounded-full text-[11px] font-medium transition-all duration-150 flex items-center gap-1 ${
+                    contentTypeFilter === opt.id
+                      ? 'bg-[#111111] text-white'
+                      : 'bg-[#F4FCFE] text-[#7A7A7A] hover:bg-[#E6F6FB]'
+                  }`}
+                >
+                  {opt.icon}
+                  <span>{opt.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Clear filters */}
+            {hasActiveFilters && (
+              <button
+                onClick={() => {
+                  onStatusFilterChange?.('all');
+                  onContentTypeFilterChange?.('all');
+                }}
+                className="text-[11px] font-medium text-[#FA7E70] hover:text-[#E05A4E] transition-colors ml-auto"
+              >
+                Filter zurücksetzen
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

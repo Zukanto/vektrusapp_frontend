@@ -82,17 +82,29 @@ const WizardRoot: React.FC<WizardRootProps> = ({ onComplete, onClose }) => {
   const thisMonday = getMonday(today);
   const thisWeekStart = today > thisMonday ? today : thisMonday;
 
-  const [data, setData] = useState<PulseWizardData>({
-    theme: '',
-    topicDescription: '',
-    platforms: [],
-    frequency: 3,
-    scheduleType: 'next_7_days',
-    timeframe: { startDate: today, endDate: (() => { const e = new Date(today); e.setDate(today.getDate() + 6); e.setHours(23, 59, 59, 999); return e; })() },
-    goal: '',
-    tone: '',
-    imageGeneration: { enabled: true, quality: 'standard' },
-    storiesEnabled: false
+  // Pre-fill platforms from Planner handoff (if available)
+  const [data, setData] = useState<PulseWizardData>(() => {
+    let prefilledPlatforms: string[] = [];
+    try {
+      const stored = sessionStorage.getItem('planner-pulse-platforms');
+      if (stored) {
+        prefilledPlatforms = JSON.parse(stored);
+        sessionStorage.removeItem('planner-pulse-platforms');
+      }
+    } catch { /* ignore */ }
+
+    return {
+      theme: '',
+      topicDescription: '',
+      platforms: prefilledPlatforms,
+      frequency: 3,
+      scheduleType: 'next_7_days',
+      timeframe: { startDate: today, endDate: (() => { const e = new Date(today); e.setDate(today.getDate() + 6); e.setHours(23, 59, 59, 999); return e; })() },
+      goal: '',
+      tone: '',
+      imageGeneration: { enabled: true, quality: 'standard' },
+      storiesEnabled: false,
+    };
   });
 
   const update = (partial: Partial<PulseWizardData>) => {

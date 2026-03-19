@@ -1,3 +1,6 @@
+export type ContentPillar = 'educational' | 'entertaining' | 'promotional' | 'behind_the_scenes';
+export type FunnelStage = 'tofu' | 'mofu' | 'bofu';
+
 export interface ContentSlot {
   id: string;
   date: Date;
@@ -37,7 +40,9 @@ export interface ContentSlot {
     edited: string;
     lastModified: Date;
   };
-  contentTypeDetail?: 'educational' | 'entertaining' | 'promotional' | 'behind_the_scenes';
+  contentTypeDetail?: ContentPillar;
+  pillar?: ContentPillar;
+  funnelStage?: FunnelStage;
   estimatedEngagement?: 'low' | 'medium' | 'high';
   reasoning?: string;
   emojiSuggestions?: string[];
@@ -50,6 +55,7 @@ export interface PlannerContext {
   theme?: string;
   targetAudience?: string;
   tone?: string;
+  campaign?: string;
 }
 
 export interface WizardStep {

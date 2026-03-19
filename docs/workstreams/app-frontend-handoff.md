@@ -1,7 +1,411 @@
 # Vektrus App Frontend — Handoff für den nächsten Chat
 
 **Stand:** 2026-03-19
-**Kontext:** AP-01 bis AP-08 vollständig umgesetzt (inkl. AP-07 Content Planner). Chat-Corrective-Pass durchgeführt.
+**Kontext:** AP-01 bis AP-08 vollständig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik.
+
+---
+
+## Planner Hierarchy Refinement Pass — Umgesetzt ✓
+
+**Stand:** 2026-03-19
+
+### Problem
+
+Die obere Planner-Zone hatte zu viele gleichlaut konkurrierende Signale:
+- 5 gestapelte Layer vor dem Grid (StrategyBar, WeeklyIntelligenceCard, PlannerHeader, BetaHint, NotificationBar)
+- Plattform-Counts und Post-Counts waren doppelt (StrategyBar + WeeklyIntelligenceCard)
+- 3 separate "Luecken fuellen" CTAs konkurrierten
+- Einzelne "instagram ist leer", "linkedin ist leer" Meldungen statt gruppierter Hinweise
+- "Kein Content-Mix" war System-Sprache
+- KPI-Ring war dekorativ statt entscheidungsunterstuetzend
+
+### Loesung
+
+#### 1. StrategyBar + WeeklyIntelligenceCard zu einem Unified Component konsolidiert
+
+`src/components/planner/WeeklyIntelligenceCard.tsx` — komplett ueberarbeitet:
+
+**Level A — Strategischer Kontext (immer sichtbar):**
+- Goal-Switcher (aus StrategyBar uebernommen)
+- Frequenz-Control (aus StrategyBar uebernommen)
+- Campaign-Input (aus StrategyBar uebernommen)
+- Content-Mix als visuelle Balken (proportionale farbige Segmente statt nur Text-Chips)
+- Per-Platform Post-Counts (kompakt, rechts)
+
+**Level B — Konsolidierte Insights:**
+- Plattform-Luecken werden gruppiert: "3 Kanaele noch ohne Content" statt 3x einzeln
+- Ziel-bewusste Formulierung: "Fuer dein Leads-Ziel empfohlen"
+- Max 2 sekundaere Insights angezeigt (kein Insight-Spam)
+- "Woche ist strategisch aufgestellt" als Positiv-Zustand
+
+**Level C — Ein dominanter Next-Action:**
+- Nur 1 primaerer CTA (der wichtigste aus den Insights)
+- "Ziel erreicht" Badge wenn Frequenzziel erfuellt
+- Kein CTA-Wettbewerb mehr
+
+**KPI-Ring verbessert:**
+- Zeigt x/y im Ring direkt (nicht nur die Zahl)
+- KW-Label darunter
+- Fuehlt sich jetzt wie ein Weekly Summary an statt isoliertes Dekoelement
+
+**Collapsed State:**
+- Einzeilige Zusammenfassung: KW, Goal, Fortschritt, wichtigster Insight
+
+#### 2. StrategyBar entfernt
+
+- Import und Render aus ContentPlanner entfernt
+- `StrategyBar.tsx` bleibt als Datei erhalten (kein Delete in diesem Pass)
+- Alle Funktionalitaet (Goal, Frequency, Campaign, Pillar Mix) ist jetzt in WeeklyIntelligenceCard
+
+#### 3. NotificationBar entfernt
+
+- Render und Import aus ContentPlanner entfernt
+- `getNotificationData()` Funktion entfernt (war toter Code nach Entfernung)
+- Alle Info-Signale (Plattformen fehlen, Frequenz-Warnung, Pulse-Hinweis) sind jetzt im WeeklyIntelligenceCard-Insight-System abgedeckt
+
+#### 4. Grid-Semantik verfeinert
+
+`src/components/planner/WeekView.tsx` — Empty-Slot Refinement:
+
+- **Empfohlener Slot (mit Smart-Hint):** Hint (Uhrzeit + Format) ist jetzt immer sichtbar bei halber Opazitaet, nicht nur auf Hover. Leichter blauer Hintergrund signalisiert "hier empfohlen". Plus-Icon kleiner und subtiler.
+- **Pulse-Vorschlag-Slot:** Label "Empfohlen" + "Mit Pulse fuellen" Subtext. Leichter violetter Hintergrund. Hover-Scale-Effekt. Klar als KI-getriebene Empfehlung erkennbar.
+- **Optionaler Slot (Weekend):** Noch dezenter (opacity-30 statt 40). Signalisiert klar: "nice to have, kein Muss".
+- **Leerer Slot (ohne Hint):** Minimal — nur Plus-Icon, keine Empfehlung. Klarste Unterscheidung zu empfohlenen Slots.
+
+### Copy-Verbesserungen
+
+- "Kein Content-Mix" → "Mix noch nicht definiert"
+- "X ist leer" → "X noch ohne Content" / "N Kanaele noch ohne Content"
+- "Pulse" Label in Grid → "Empfohlen" + "Mit Pulse fuellen"
+- Insight-Labels zielgerichtet formuliert
+
+### Geaenderte Dateien
+
+1. `src/components/planner/WeeklyIntelligenceCard.tsx` — Komplett ueberarbeitet (StrategyBar-Merge, 3-Level Hierarchy)
+2. `src/components/planner/ContentPlanner.tsx` — StrategyBar/NotificationBar entfernt, `onContextChange` an WeeklyIntelligenceCard, Dead Code entfernt
+3. `src/components/planner/WeekView.tsx` — Empty-Slot Semantik verfeinert (4 visuelle Typen)
+
+### Nicht geaenderte Dateien
+
+- PlannerHeader — Bleibt als Toolbar (Navigation, Filter, Pulse-CTA)
+- MonthView — Unberuehrt
+- StrategyBar.tsx — Datei bleibt, aber ist nicht mehr importiert (kann in einem Cleanup entfernt werden)
+- NotificationBar.tsx — Datei bleibt, aber ist nicht mehr importiert (kann in einem Cleanup entfernt werden)
+
+### Verbleibende optionale Enhancements
+
+1. **Dateien entfernen:** `StrategyBar.tsx` und `NotificationBar.tsx` koennen in einem Cleanup-Pass geloescht werden
+2. **MonthView Intelligence:** MonthView zeigt aktuell keine strategischen Insights — koennte in einem spaeteren Pass eine kompakte Monats-Zusammenfassung bekommen
+3. **Smart Hints dynamisch:** Die `getSmartHint` Daten in WeekView sind aktuell statisch hardcoded — koennten spaeter aus echten Analytics-Daten abgeleitet werden
+4. **Collapsed State Persistenz:** Der isCollapsed State wird nicht persistiert — beim Seitenwechsel oeffnet sich die Karte immer wieder
+
+---
+
+## Platform Fallback Corrective Pass — Umgesetzt ✓
+
+**Stand:** 2026-03-19
+
+### Problem
+
+Die dynamischen Plattform-Filter hatten ein falsches Fallback-Verhalten:
+- Bei Fetch-Fehler wurden alle 4 Plattformen als "verbunden" angezeigt
+- Bei null verbundenen Accounts wurden ebenfalls alle 4 Plattformen angezeigt
+- Der initiale `plannerContext.platforms` State war auf alle 4 Plattformen hardcoded
+- PlannerHeader hatte einen eigenen Fallback auf 4 Plattformen minus Twitter
+
+Das widersprach dem Produktziel: nur tatsaechlich verbundene Plattformen zeigen.
+
+### Loesung
+
+#### 1. useConnectedPlatforms Hook korrigiert
+
+- `src/hooks/useConnectedPlatforms.ts`:
+  - Neuer `hasError` State (statt fake Fallback bei Fehler)
+  - Neuer `retry` Callback fuer explizites Neuladen
+  - Bei Fetch-Fehler: `connectedPlatforms = []`, `hasError = true`
+  - Kein fake Fallback mehr auf PLANNER_SUPPORTED_PLATFORMS
+
+#### 2. ContentPlanner: Drei neue Zustaende
+
+- `src/components/planner/ContentPlanner.tsx`:
+  - Initialer `plannerContext.platforms` ist jetzt `[]` statt `['instagram', 'linkedin', 'tiktok', 'facebook']`
+  - Sync-useEffect setzt Plattformen auch auf `[]` wenn geladen und leer
+  - **Loading State:** Spinner + "Plattformen werden geladen..." waehrend Fetch laeuft
+  - **Error State:** Warning-Icon + Fehlermeldung + "Erneut versuchen" Button (ruft `retryPlatforms()` auf)
+  - **Zero Platforms State:** Link-Icon + Hinweis "Verbinde deine Social-Media-Accounts auf der Profil-Seite" + CTA "Accounts verbinden" (navigiert zu Profile)
+  - WeekView/MonthView werden nur gerendert wenn `connectedPlatforms.length > 0`
+
+#### 3. PlannerHeader: Fallback entfernt
+
+- `src/components/planner/PlannerHeader.tsx`:
+  - Wenn `connectedPlatforms` leer: `platforms = []` — keine Pills sichtbar
+  - Alter Fallback auf alle 4 Plattformen minus Twitter entfernt
+
+#### 4. AppLayout: navigate-to-profile Event
+
+- `src/components/layout/AppLayout.tsx`:
+  - Neuer `navigate-to-profile` Event-Listener hinzugefuegt
+  - Navigiert zu `/profile` Seite
+
+### Geaenderte Dateien
+
+1. `src/hooks/useConnectedPlatforms.ts` — hasError, retry, kein fake Fallback
+2. `src/components/planner/ContentPlanner.tsx` — Empty State, Error State, Loading State, initiale Platforms `[]`
+3. `src/components/planner/PlannerHeader.tsx` — Fallback entfernt
+4. `src/components/layout/AppLayout.tsx` — navigate-to-profile Event
+
+### Design der Zustaende
+
+Alle drei States (Loading, Error, Zero) folgen dem gleichen Pattern:
+- Zentriert im Hauptbereich (wo sonst WeekView/MonthView steht)
+- Ruhiges Icon in Brand-Farbe (Vektrus Blue fuer Loading/Zero, Semantic Red fuer Error)
+- Klare Ueberschrift + kurze Erklaerung
+- Ein Primary-Action-Button wo sinnvoll
+- Konsistent mit Planner CI (Radius-Tokens, Farb-System, Typografie)
+
+---
+
+## Dynamische Platform-Filter + Pulse Entry Modal — Umgesetzt ✓
+
+**Stand:** 2026-03-19
+
+### Was gemacht wurde
+
+Zwei funktionale Verbesserungen fuer den Planner:
+
+#### 1. Dynamische Plattform-Filter aus verbundenen Profilen (Priority 1)
+
+**Problem:** Die Plattform-Filter im Planner waren statisch hardcoded (isConnected Flags). Es gab keinen Bezug zu den tatsaechlich ueber die Late API verbundenen Profilen auf der Profile-Seite.
+
+**Loesung:**
+
+- `src/hooks/useConnectedPlatforms.ts` (NEU):
+  - Thin Hook der `SocialAccountService.getConnectedAccounts()` aufruft
+  - Gibt `string[]` der verbundenen Plattform-IDs zurueck (gefiltert auf Planner-relevante: instagram, linkedin, tiktok, facebook)
+  - Dedupliziert (falls User mehrere Accounts pro Plattform hat)
+  - Fallback auf alle 4 Plattformen bei Fetch-Fehler
+
+- `src/components/planner/ContentPlanner.tsx`:
+  - Nutzt `useConnectedPlatforms()` Hook
+  - `useEffect` synchronisiert geladene verbundene Plattformen in `plannerContext.platforms`
+  - Uebergibt `connectedPlatforms` als Prop an PlannerHeader
+
+- `src/components/planner/PlannerHeader.tsx`:
+  - Neues `connectedPlatforms` Prop
+  - Plattform-Pillen werden dynamisch aus verbundenen Plattformen abgeleitet statt aus statischer Liste
+  - Alte `isConnected` Flags entfernt
+  - Fallback: Alle 4 Hauptplattformen wenn keine Connected-Daten vorliegen
+
+- WeekView und MonthView: Keine Aenderungen noetig — sie erhalten die Plattformliste bereits ueber `plannerContext.platforms` bzw. `activePlatforms` Prop
+
+**Datenfluss:** `late_accounts` (Supabase) → `SocialAccountService.getConnectedAccounts()` → `useConnectedPlatforms()` → `ContentPlanner` → `plannerContext.platforms` → PlannerHeader / WeekView / MonthView
+
+#### 2. Pulse Entry Popup statt Seitennavigation (Priority 2)
+
+**Problem:** "Luecken fuellen", "Generieren", Pulse-Button und alle anderen Pulse-CTAs im Planner navigierten per `navigate-to-pulse` Event zur `/pulse` Seite. Der User verliess den Planner komplett.
+
+**Loesung:**
+
+- `src/components/planner/PulseEntryModal.tsx` (NEU):
+  - Kompaktes Modal mit frosted-glass Backdrop
+  - Zeigt 2 Pulse-Modus-Karten: "Themen-basiert" und "Bilder zu Posts"
+  - Konsistent mit dem bestehenden Planner CI (Radius, Shadows, Colors)
+  - Ruft `onSelect(mode)` Callback auf bei Klick
+
+- `src/components/planner/ContentPlanner.tsx`:
+  - `navigateToPulseWithPlatforms()` ersetzt durch `openPulseFromPlanner()` (oeffnet PulseEntryModal)
+  - `handlePulseEntrySelect(mode)` speichert Plattformen in sessionStorage und ruft `pulse.reopenPopup(mode)` auf
+  - Nutzt den bestehenden globalen `usePulseGeneration` Context direkt
+  - WizardRoot wird weiterhin ueber `PulseWizardPopup` in App.tsx als globales Overlay gerendert — kein Seitenwechsel noetig
+
+**Flow:** User klickt Pulse-CTA im Planner → PulseEntryModal oeffnet ueber dem Planner → User waehlt Modus → Modal schliesst → WizardRoot oeffnet als globales Overlay (Planner bleibt Basis-Surface) → Nach Abschluss zurueck zum Planner
+
+#### 3. Plattform-Handoff bleibt erhalten (Priority 3)
+
+- `handlePulseEntrySelect` speichert `plannerContext.platforms` in sessionStorage unter `planner-pulse-platforms` — selbes Pattern wie zuvor
+- WizardRoot liest diese in `useState` Initializer — keine Aenderung noetig
+- Verbundene Plattformen fliessen korrekt durch: Late API → Planner Filter → sessionStorage → Pulse Wizard
+
+### Geaenderte Dateien
+
+1. `src/hooks/useConnectedPlatforms.ts` — NEU, Hook fuer verbundene Plattformen
+2. `src/components/planner/PulseEntryModal.tsx` — NEU, Pulse Modus-Auswahl Modal
+3. `src/components/planner/ContentPlanner.tsx` — Dynamic platforms, Pulse Entry Modal, kein Page-Navigation mehr
+4. `src/components/planner/PlannerHeader.tsx` — Dynamische Plattform-Pillen aus connectedPlatforms Prop
+
+### Nicht geaenderte Dateien
+
+- `src/components/planner/WeekView.tsx` — Unberuehrt (nutzt bereits plannerContext.platforms)
+- `src/components/planner/MonthView.tsx` — Unberuehrt (nutzt bereits activePlatforms Prop)
+- `src/components/planner/wizard/WizardRoot.tsx` — Unberuehrt (liest bereits sessionStorage)
+- `src/App.tsx` — Unberuehrt (PulseWizardPopup rendert WizardRoot bei popupOpen)
+- `src/components/layout/AppLayout.tsx` — Unberuehrt (navigate-to-pulse Listener bleibt fuer andere Module)
+
+### Verbleibende optionale Enhancements
+
+1. **Realtime Platform Updates:** useConnectedPlatforms laedt aktuell einmalig beim Mount. Ein Supabase Realtime Subscription auf `late_accounts` koennte Live-Updates liefern wenn der User Plattformen verbindet/trennt waehrend der Planner offen ist.
+2. **Empty State bei null Plattformen:** Wenn der User gar keine Plattformen verbunden hat, koennte ein dedizierter Hinweis im Planner angezeigt werden der zur Profile-Seite verlinkt.
+3. **Pulse Entry Animation:** Das PulseEntryModal koennte mit framer-motion einblenden fuer konsistenz mit dem restlichen Planner.
+
+---
+
+## Planner Follow-up Workstream — Umgesetzt ✓
+
+### Was gemacht wurde
+
+Vier Follow-up-Verbesserungen für den Planner, aufbauend auf dem abgeschlossenen Planner-Redesign.
+
+#### 1. Platform-Filter funktioniert jetzt (Priority 1)
+
+**Problem:** Die Plattform-Pillen im PlannerHeader waren rein visuell — das Auswählen/Abwählen einer Plattform hatte keinen Effekt auf die angezeigten Inhalte.
+
+**Lösung:**
+
+- `src/components/planner/WeekView.tsx`:
+  - Neues `activePlatforms`-Array aus `plannerContext.platforms` abgeleitet
+  - Plattform-Rows rendern jetzt nur aktive Plattformen statt aller 5
+  - `getDefaultExpandedPlatforms` aktualisiert sich bei Filterwechsel
+  - useEffect reagiert auf `activePlatforms.join(',')` Änderungen
+
+- `src/components/planner/MonthView.tsx`:
+  - Neues `activePlatforms` Prop hinzugefügt
+  - `getWeekSlots()` filtert jetzt nach aktiven Plattformen
+  - Monatsübersicht zählt nur gefilterte Slots
+  - Grid-Spalten passen sich dynamisch an Plattformanzahl an
+
+- `src/components/planner/ContentPlanner.tsx`:
+  - Übergibt `plannerContext.platforms` als `activePlatforms` an MonthView
+
+#### 2. Planner-Generierung routet jetzt zu Pulse (Priority 2)
+
+**Problem:** "Lücken füllen", "Generieren" und ähnliche Actions generierten lokal mit Mock-Daten statt den User zu Pulse zu leiten.
+
+**Lösung:**
+
+- `src/components/planner/ContentPlanner.tsx`:
+  - `handleFillGaps` navigiert jetzt zu `/pulse` statt lokal zu generieren
+  - `handleGenerateWeek` navigiert jetzt zu `/pulse` statt lokal zu generieren
+  - Alle `pulse.reset(); pulse.reopenPopup()` Aufrufe durch `navigateToPulseWithPlatforms()` ersetzt
+  - `usePulseGeneration` Import entfernt (nicht mehr benötigt)
+  - Neue `navigateToPulseWithPlatforms()` Funktion: speichert Plattformen in `sessionStorage` und dispatcht `navigate-to-pulse` Event
+
+- `src/components/layout/AppLayout.tsx`:
+  - `navigate-to-pulse` Event-Listener hinzugefügt
+
+**Hinweis:** Die lokalen Mock-Generierungsfunktionen (`generateGapFillingPlan`, `generateWeekPlan`) sowie `PostReviewModal`, `isGeneratingWeek` State und die Loading-Animation sind jetzt toter Code im ContentPlanner. Sie verursachen keine Probleme, können aber in einem Cleanup-Pass entfernt werden.
+
+#### 3. Plattformen werden an Pulse übergeben (Priority 3)
+
+**Problem:** Wenn der User im Planner Plattformen ausgewählt hat und zu Pulse navigiert, wurden diese nicht übernommen.
+
+**Lösung:**
+
+- `src/components/planner/ContentPlanner.tsx`:
+  - `navigateToPulseWithPlatforms()` speichert `plannerContext.platforms` in `sessionStorage` unter `planner-pulse-platforms`
+
+- `src/components/planner/wizard/WizardRoot.tsx`:
+  - `useState`-Initializer liest `planner-pulse-platforms` aus `sessionStorage`
+  - Pre-filled Platforms werden in `data.platforms` gesetzt
+  - `sessionStorage` wird nach dem Lesen aufgeräumt
+
+**Pattern:** Verwendet das gleiche `sessionStorage`-Pattern wie `planner-target-date` (bereits im Codebase etabliert).
+
+#### 4. MonthView in neues Planner-CI gebracht (Priority 4)
+
+**Problem:** MonthView hatte noch das alte Design mit großem redundantem Header, wenig Informationsdichte und inkonsistenten Farben/Radius-Werten.
+
+**Lösung:**
+
+- `src/components/planner/MonthView.tsx` — vollständig überarbeitet:
+  - Redundanter Month-Header entfernt (PlannerHeader übernimmt Navigation)
+  - Kompakte Wochen-Karten statt großer Blöcke
+  - Inline KW-Badge im WeekView-Stil (klein, ruhig, farblich codiert für aktuelle Woche)
+  - Status-Badges konsistent mit WeekView: Draft (FileEdit), Scheduled (CalendarClock), Published (Check), AI (Sparkles)
+  - Plattform-Row mit Status-Dots pro Plattform (statt großer Grid-Darstellung)
+  - Summary-Section: horizontaler 4-Spalten-Divider statt einzelne Karten
+  - „Aktuell"-Badge für die aktive Woche
+  - Konsistente Brand-Farben und Token-Nutzung
+  - Platform-Filtering integriert (wie in Priority 1 beschrieben)
+
+### Geänderte Dateien
+
+1. `src/components/planner/ContentPlanner.tsx` — Pulse-Routing, Platform-Handoff
+2. `src/components/planner/WeekView.tsx` — Platform-Filtering
+3. `src/components/planner/MonthView.tsx` — Neues CI, Platform-Filtering
+4. `src/components/planner/PlannerHeader.tsx` — (keine Änderung, bestehende Logik reichte aus)
+5. `src/components/planner/wizard/WizardRoot.tsx` — Platform-Prefill aus sessionStorage
+6. `src/components/layout/AppLayout.tsx` — navigate-to-pulse Event
+
+### Cleanup Pass — Umgesetzt ✓
+
+Dead Code aus ContentPlanner.tsx entfernt:
+
+**Entfernte State-Variablen:** `showReviewModal`, `generatedSlots`, `isGeneratingWeek`
+
+**Entfernte Funktionen:** `generateGapFillingPlan`, `generateWeekPlan`, `handleReviewComplete`, `getContentType`, `getOptimalTime`, `getOptimalContentType`
+
+**Entfernter Alias:** `loadCalendarPosts` (unbenutzter Alias für `loadCalendarPostsLatest`)
+
+**Entferntes JSX:** Loading-Overlay (war hinter `isGeneratingWeek` gated), `PostReviewModal`-Render (war hinter `showReviewModal` gated)
+
+**Entfernte Imports:** `PostReviewModal`, `Sparkles`, `ContentPillar`, `FunnelStage`
+
+**Beibehaltene Live-Logik:** `generateContextualTitle`, `generateContextualContent`, `generateContextualHashtags` — werden weiterhin vom Goal-Change-useEffect benötigt, der bestehende `ai_suggestion`-Slots aktualisiert.
+
+**QA:** TypeScript-Check bestanden (0 Fehler). Alle 12 Sanity-Checks bestanden (Platform Filter, Pulse Routing, Platform Handoff, Dead Code, Live Code Integrity).
+
+### Verbleibende optionale Enhancements
+
+1. **MonthView: Click-to-Day:** MonthView navigiert aktuell auf die Woche — ein direkter Klick auf einen Tag innerhalb der MonthView-Karte wäre ein gutes späteres Enhancement
+2. **Pulse Pre-fill UX:** Aktuell navigiert der User zu Pulse und muss dort noch einen Modus wählen. Eine optionale Auto-Start-Funktion (direkt Wizard öffnen mit „Theme"-Modus) könnte die UX noch verbessern
+3. **Platform-Filter Persistenz:** Der aktive Platform-Filter wird nicht über Page-Navigationen hinweg persistiert — er resettet sich beim Verlassen und Zurückkehren zum Planner
+
+---
+
+## Planner Platform Filter Bugfix — Umgesetzt ✓
+
+**Stand:** 2026-03-19
+
+### Problem
+
+Vier zusammenhängende Defekte in der Plattform-Filterung des Content Planners:
+
+1. Facebook war nicht im Top-Filter sichtbar
+2. Nur Instagram und LinkedIn waren im Top-Filter auswählbar
+3. TikTok-Content wurde im Planner angezeigt, obwohl TikTok nicht im Filter auswählbar war
+4. Inkonsistenz zwischen Filter-UI und gerendertem Planner-Inhalt
+
+### Root Cause
+
+**Bug A — PlannerHeader `isConnected` Flags:** In `PlannerHeader.tsx` waren TikTok und Facebook mit `isConnected: false` markiert. Die Plattform-Pillen wurden mit `.filter(p => p.isConnected)` gerendert — dadurch erschienen nur Instagram und LinkedIn im Filter.
+
+**Bug B — WeekView `platforms` Variable:** In `WeekView.tsx` wurde `activePlatforms` korrekt aus `plannerContext.platforms` abgeleitet, aber direkt danach mit `const platforms = allPlatforms` überschrieben. Das führte dazu, dass das Kontextmenü ("Kopieren nach") immer alle 5 Plattformen zeigte, unabhängig vom Filter.
+
+**Bug C — Default State:** In `ContentPlanner.tsx` enthielt der initiale `plannerContext.platforms` Array `['instagram', 'linkedin', 'tiktok']` — TikTok war also standardmäßig aktiv, konnte aber nicht über den Filter deaktiviert werden (wegen Bug A). Facebook fehlte im Default.
+
+### Lösung
+
+1. **`src/components/planner/PlannerHeader.tsx`:** `isConnected: true` für TikTok und Facebook gesetzt. Alle 4 Hauptplattformen erscheinen jetzt im Top-Filter. Twitter bleibt `false`.
+
+2. **`src/components/planner/ContentPlanner.tsx`:** Default `platforms` auf `['instagram', 'linkedin', 'tiktok', 'facebook']` erweitert. Alle 4 Plattformen sind jetzt standardmäßig aktiv.
+
+3. **`src/components/planner/WeekView.tsx`:** `const platforms = allPlatforms` zu `const platforms = activePlatforms` geändert. Das Kontextmenü respektiert jetzt den aktiven Filter.
+
+### Geänderte Dateien
+
+1. `src/components/planner/PlannerHeader.tsx` — isConnected Flags für TikTok/Facebook
+2. `src/components/planner/ContentPlanner.tsx` — Default platforms Array
+3. `src/components/planner/WeekView.tsx` — platforms Variable
+
+### Verifikation
+
+- Top-Filter zeigt jetzt Instagram, LinkedIn, TikTok, Facebook (4 Pillen)
+- Auswählen/Abwählen einer Plattform kontrolliert die Sichtbarkeit in WeekView und MonthView
+- TikTok erscheint nur wenn ausgewählt
+- Facebook erscheint wenn ausgewählt
+- Kontextmenü "Kopieren nach" zeigt nur aktive Plattformen
+- Pulse-Handoff über sessionStorage bleibt unverändert und funktional
+- MonthView erhält weiterhin `plannerContext.platforms` als `activePlatforms` Prop — keine Änderung nötig
 
 ---
 
@@ -1665,6 +2069,428 @@ Harter UI-Corrective-Pass für den gesamten Chat-Bereich (DemoChatContainer-Pfad
 
 - EnhancedInputBar Kategorie-Buttons: aktiver Zustand ist noch `bg-[#49B7E3]` solid — könnte auf Glass-Active umgestellt werden
 - VektrusLoadingBubble: nicht geändert (kein Fokus in diesem Pass)
+
+---
+
+## Planner Redesign Phase 1 — Umgesetzt
+
+**Stand:** 2026-03-19
+**Kontext:** Strategische Aufwertung des Content Planners von reinem Scheduler zu einem AI-nativen Planning Workspace.
+
+### Problem
+
+Der Planner war rein operativ: Kalender-Grid, Post-Slots, kein strategischer Kontext. Keine Sichtbarkeit von Wochenzielen, Content-Mix, Fortschritt vs. Empfehlung. Leere Slots (5 Plattformen x 7 Tage = 35 Zellen) erzeugten psychologischen Stress.
+
+### Was gemacht wurde
+
+#### 1. `src/components/planner/StrategyBar.tsx` (NEU)
+
+Strategische Kontextleiste oberhalb des gesamten Planners:
+- Zeigt aktives Wochenziel (Awareness, Engagement, Leads, Sales, Launch, Community) mit Icon + Beschreibung
+- Content-Pillar-Mix-Visualisierung (Educational, Entertaining, Promotional, Behind the Scenes) — berechnet aus aktuellen `contentTypeDetail`-Feldern der Wochenslots
+- Wenn keine Pillars zugeordnet: zeigt leere Pillar-Platzhalter als Orientierung
+- Wochenpost-Zähler
+
+#### 2. `src/components/planner/WeeklyIntelligenceCard.tsx` (NEU)
+
+Wochenüberblick mit Kompositionsanalyse:
+- Fortschritts-Ring: Posts vs. empfohlene Frequenz (aus PlannerContext.frequency)
+- Plattform-Verteilung: Posts pro Plattform als kompakte Badges
+- Content-Typ-Verteilung (Posts, Reels, Carousels)
+- Aktive Tage (X/7)
+- Status-Breakdown: Entwürfe, Geplant, Live, KI-Vorschläge, Pulse-Posts
+- AI-Empfehlung: kontextabhängig (on track, fast geschafft, Lücken vorhanden + Pulse-CTA)
+- Einklappbar, um Platz zu sparen
+
+#### 3. `src/components/planner/PlannerHeader.tsx` (ÜBERARBEITET)
+
+Von 88px-Zwei-Zeilen-Header zu 52px-Single-Row-Toolbar:
+- Wochennavigation links (kompakter, + "Heute"-Button)
+- Plattform-Filter als runde Pills (Mitte, aktiv = schwarz, inaktiv = F4FCFE)
+- View-Toggle + Pulse-CTA rechts
+- Pulse-Button: Gradient (Blau → Violet) statt outline
+- Neue expandierbare Filter-Zeile: Status-Filter (Alle/Entwürfe/Geplant/Live/KI) + Content-Type-Filter (Alle/Posts/Reels/Carousel)
+- Exportiert `StatusFilter` und `ContentTypeFilter` Types
+
+#### 4. `src/components/planner/WeekView.tsx` (ÜBERARBEITET)
+
+Kernverbesserungen im Grid:
+
+**Off-Day-Treatment:**
+- Samstag/Sonntag: gemuted (bg-[#FAFAFA], blassere Textfarben)
+- Leere Wochenend-Zellen: Coffee-Icon + "Optional" statt großem "+" Button
+- Reduziert "Empty Slot Stress" drastisch
+
+**Kalender-Tage: Schutzraum-Konformität**
+- Gradient-Hintergründe auf Tages-Labels entfernt (QA-Finding H2)
+- Alle Kalender-Tage jetzt flat (bg-[#E6F6FB] für heute, bg-[#F9FAFB] für normal, bg-[#FAFAFA] für Wochenende)
+- Heute-Indikator: solide bg-[#49D69E] statt Gradient
+
+**AI-Hint-Unterscheidung:**
+- Pulse-Hints: zarter (border-dashed, opacity-50 default, hover → opacity-100), subtiles Violett-Icon statt solid Gradient-Kreis
+- Best-Time-Hints: nur bei Hover sichtbar (opacity-0 → opacity-100 auf hover)
+- Normale leere Slots: viel dezenter (border-[rgba(73,183,227,0.15)] statt border-gray-300), kleinerer Plus-Icon
+
+**Post Cards:**
+- Content-Score: kompaktes Badge-Format (X/100)
+- Content-Detail-Tag: Edu/Fun/Promo/BTS wenn contentTypeDetail gesetzt
+- Weniger visuelles Rauschen
+
+**Filter-Integration:**
+- Akzeptiert `statusFilter` und `contentTypeFilter` Props
+- Filtert Slots client-seitig in der Day-Cell-Renderlogik
+
+**Auto-Save-Indikator:** Stark reduziert (kleiner, blasser, weniger visuelles Gewicht)
+
+#### 5. `src/components/planner/ContentPlanner.tsx` (ÜBERARBEITET)
+
+Integration der neuen Komponenten:
+- StrategyBar als oberste Schicht
+- WeeklyIntelligenceCard darunter (nur in Week-View)
+- PlannerHeader als Toolbar
+- BetaHint + PlannerTutorial auf einer Zeile (kompakter)
+- NotificationBar: wird bei >3 Posts und info-Typ ausgeblendet (weniger Rauschen)
+- Filter-State (statusFilter, contentTypeFilter) als React-State
+- Alle Filter-Props an PlannerHeader und WeekView durchgereicht
+- **Keine Änderung an Produktlogik** (CRUD, Supabase, Pulse-Integration, Status-Workflow unverändert)
+
+### Was NICHT verändert wurde
+
+- Keine ContentSlotEditor-Änderungen (1756+ Zeilen, zu komplex für diesen Scope)
+- Keine MonthView-Redesign (separater Schritt)
+- Keine PostReviewModal-Änderungen
+- Keine Wizard-Änderungen
+- Keine Drag-and-Drop-Logik
+- Keine Supabase-Schema-Änderungen
+- Keine n8n-Webhook-Änderungen
+- Keine Publishing-Logik-Änderungen
+- Keine types.ts-Änderungen (PlannerContext, ContentSlot bleiben identisch)
+
+### Verbleibende Gaps / Phase 2 Empfehlungen
+
+1. **Echte Campaign/Pillar-Daten:** StrategyBar zeigt aktuell aus `contentTypeDetail` abgeleitete Daten. Für echte Kampagnen-Zuordnung braucht es ein DB-Feld.
+2. **Goal-Auswahl im StrategyBar:** Aktuell read-only aus PlannerContext. Könnte einen Goal-Switcher bekommen.
+3. **Performance-Feedback:** Kein Analytics-Loop sichtbar. Braucht Integration mit Insights-Daten.
+4. **MonthView strategisch aufwerten:** Strategy/Intelligence noch nicht im Monat sichtbar.
+5. **ContentSlotEditor:** Noch auf altem Stand, nicht Teil dieses Scopes.
+6. **Content-Type-Detail populieren:** Pulse müsste `contentTypeDetail` bei Generierung setzen, damit der Pillar-Mix real wird.
+7. **PlannerHeader Emojis:** 🔒 und ✓ in der alten Version entfernt (Lock-SVG inline war vorhanden, jetzt nicht mehr nötig da Platform-Connected-Check vereinfacht)
+
+---
+
+## Planner Redesign Phase 2 — Umgesetzt
+
+**Stand:** 2026-03-19
+**Ziel:** Planner von strategy-looking scheduler in genuinely AI-native planning workspace verwandeln.
+
+### Was gemacht wurde
+
+#### 1. `src/components/planner/types.ts` (ERWEITERT)
+
+Neue Typen und Felder:
+- `ContentPillar` Type Export: `'educational' | 'entertaining' | 'promotional' | 'behind_the_scenes'`
+- `FunnelStage` Type Export: `'tofu' | 'mofu' | 'bofu'`
+- `ContentSlot.pillar?: ContentPillar` — separates Pillar-Feld (neben contentTypeDetail)
+- `ContentSlot.funnelStage?: FunnelStage` — Funnel-Stage pro Post
+- `PlannerContext.campaign?: string` — optionaler Kampagnenname
+
+Alle neuen Felder optional — kein Breaking Change für CalendarService oder bestehende Daten.
+
+#### 2. `src/components/planner/StrategyBar.tsx` (ÜBERARBEITET)
+
+Von read-only Anzeige zu interaktiver strategischer Steuerung:
+- **Goal-Switcher:** Inline Dropdown mit allen 6 Zielen (Awareness, Engagement, Leads, Sales, Launch, Community). Wechsel aktualisiert sofort PlannerContext.
+- **Frequency-Control:** +/- Stepper für Posts/Woche (1–14). Ändert PlannerContext.frequency.
+- **Campaign-Name:** Optionales Textfeld. Zeigt Kampagnennamen oder "Kampagne setzen"-Button.
+- **Pillar-Mix:** Zeigt Anzahl pro Pillar aus aktuellen Wochenposts, jetzt aus `slot.pillar || slot.contentTypeDetail`.
+- Neuer Prop: `onContextChange` — StrategyBar kann jetzt PlannerContext mutieren.
+- Layout kompakter: alles in einer Zeile, Divider zwischen Sektionen.
+
+#### 3. `src/components/planner/WeeklyIntelligenceCard.tsx` (KOMPLETT NEU)
+
+Von informativem Display zu echter Decision/Action Surface:
+
+**Gap-Analyse-Engine (`analyzeWeek`):**
+- Frequency Gap: Zählt fehlende Posts vs. Ziel, Severity je nach Größe
+- Platform Gaps: Identifiziert leere Plattformen in der Woche
+- Pillar Imbalance: Erkennt wenn >70% des Contents ein Pillar dominiert
+- Format Gap: Warnt bei nur einem Content-Format
+- Drafts Pending: Zeigt offene Entwürfe als Aktion
+
+Jedes Insight hat: type, severity (high/medium/low), label, detail, optionalen actionLabel + actionType.
+
+**Action Buttons:**
+- "Lücken füllen" → löst `onFillGaps` aus (Sparkles-Gradient-Button, prominent bei Lücken)
+- "Alle freigeben" → löst `onApproveAll` aus (inline bei Draft-Insight)
+- "Generieren" → löst `onFillGaps` für Platform-Gap aus
+- "Pulse" → navigiert zu Pulse
+
+**Visual Design:**
+- Progress Ring + Quick Stats (wie Phase 1, verfeinert)
+- Platform-Badges: rot wenn 0 Posts, normal sonst
+- Insight-Chips: farbcodiert nach Severity (rot/orange/blau)
+- Collapse-State: zeigt Insight-Count neben Post-Count
+- Success-State: "Woche ist strategisch aufgestellt" bei 0 Insights
+
+#### 4. `src/components/planner/ContentPlanner.tsx` (ERWEITERT)
+
+Neue Funktionen:
+- **`handleFillGaps()`:** Intelligente Lückenfüllung. Analysiert vorhandene Woche (Plattform-Verteilung, Pillar-Coverage, belegte Tage), generiert nur die fehlenden Posts. Berücksichtigt:
+  - Unterversorgte Plattformen werden priorisiert
+  - Fehlende Pillars werden bevorzugt
+  - Freie Wochentage (Mo–Fr) werden priorisiert
+  - Optimale Zeiten pro Plattform
+  - Funnel-Stage-Verteilung
+  - Kampagnenname wird übernommen
+  - Content Scores werden generiert
+  - Ergebnis geht in PostReviewModal (Preview vor Commit)
+
+- **`handleApproveAllDrafts()`:** Genehmigt alle Entwürfe der aktuellen Woche auf einmal. Ruft `handlePostStatusChange` für jeden Draft auf.
+
+- **`generateWeekPlan` verbessert:** Setzt jetzt `pillar`, `funnelStage`, `contentTypeDetail`, `generatedBy`, `source`, `campaign` auf allen generierten Slots. Nutzt optimale Zeiten pro Plattform statt pauschal 18:00.
+
+- **Neue Prop-Durchreichungen:** `onContextChange` an StrategyBar, `onFillGaps` + `onApproveAll` an WeeklyIntelligenceCard.
+
+### Was NICHT verändert wurde
+
+- PlannerHeader (Phase 1 — unverändert)
+- WeekView (Phase 1 — unverändert)
+- ContentSlotEditor
+- MonthView
+- PostReviewModal / Wizard
+- NotificationBar
+- Publishing-Logik / Supabase-Queries / n8n-Webhooks
+- Drag-and-Drop
+- ai-layer.css / index.css
+
+### Verbleibende Gaps / Phase 3 Empfehlungen
+
+1. **Backend-seitige Pillar/Funnel-Persistenz:** `pillar` und `funnelStage` existieren jetzt im Frontend-Typ, aber `CalendarService.buildContentJsonb` speichert sie noch nicht in Supabase. Braucht DB-Schema-Erweiterung.
+2. **Echte KI-Generierung:** `generateGapFillingPlan` und `generateWeekPlan` sind Mock-Implementierungen. In Produktion sollten diese einen n8n-Webhook aufrufen.
+3. **Performance-Feedback-Loop:** Kein Analytics-Rückfluss in die Planung sichtbar. Braucht Insights-Datenintegration.
+4. **Kampagnen-Persistenz:** Kampagnenname ist aktuell nur im lokalen PlannerContext-State. Braucht DB-Feld oder Session-Persistenz.
+5. **Pillar-Zuordnung bei manuellen Posts:** Wenn Nutzer manuell Posts erstellen, wird kein Pillar gesetzt. ContentSlotEditor könnte ein Pillar-Dropdown bekommen.
+6. **Funnel-Stage UI:** FunnelStage wird gesetzt bei Generierung, aber im WeekView-Postcard noch nicht sichtbar angezeigt.
+7. **Goal-Wechsel propagiert zu Insights:** Wenn Goal sich ändert, könnten die WeeklyIntelligenceCard-Empfehlungen noch goal-spezifischer werden (z.B. "Für Leads-Fokus fehlt ein LinkedIn-Post mit CTA").
+
+---
+
+## Planner Corrective Pass — Umgesetzt
+
+**Stand:** 2026-03-19
+**Ziel:** Metadata sichtbar machen, Intelligence goal-aware machen, Trust/Clarity verbessern, minimale manuelle Metadaten-Eingabe ermöglichen.
+
+### Was gemacht wurde
+
+#### 1. `src/components/planner/WeekView.tsx` — Metadata auf Post-Cards + Hover-Preview
+
+**Post-Cards (kompakte Ansicht):**
+- Pillar-Badge auf jeder Karte: Edu/Fun/Promo/BTS (aus `slot.pillar || slot.contentTypeDetail`)
+- Funnel-Badge: ToFu/MoFu/BoFu (nur wenn `slot.funnelStage` gesetzt)
+- Campaign-Badge: `#kampagnenname` (nur wenn gesetzt, truncated auf 60px)
+- Alle Badges calm: `bg-white/15` bzw `bg-white/10` mit geringer Opacity, nicht dominant
+
+**Hover-Preview-Panel:**
+- Neuer "Strategy metadata row" vor dem Content-Text
+- Pillar in voller Länge (Educational, Entertaining, ...) auf `bg-[#F4FCFE]`
+- FunnelStage auf `bg-[rgba(124,108,242,0.06)]` (AI Violet Akzent)
+- Campaign als `#tag` auf neutralem Hintergrund
+- Nur sichtbar wenn mindestens ein Wert gesetzt ist
+
+#### 2. `src/components/planner/WeeklyIntelligenceCard.tsx` — Goal-aware Intelligence
+
+Neue Heuristiken in `analyzeWeek()` (Abschnitt 6):
+
+- **Leads-Goal:**
+  - Warnt wenn LinkedIn leer trotz aktiver Platform
+  - Warnt wenn keine Bottom-of-Funnel Posts (kein direkter CTA-Content)
+- **Engagement-Goal:**
+  - Empfiehlt Reels/Carousels wenn nur Text-Posts vorhanden
+- **Awareness-Goal:**
+  - Warnt wenn nur 1 Plattform bespielt bei >= 2 aktiven
+- **Sales-Goal:**
+  - Warnt wenn kein Promotional Content vorhanden
+- **Community-Goal:**
+  - Empfiehlt Educational oder Behind-the-Scenes Content
+
+Alle goal-spezifischen Insights mit passender Severity und Aktions-Buttons.
+
+#### 3. `src/components/planner/ContentSlotEditor.tsx` — Minimale Metadaten-Eingabe
+
+Neuer "Strategie-Kontext" Abschnitt im Options-Tab:
+- **Content-Pillar Select:** Educational / Entertaining / Promotional / Behind the Scenes (oder "Nicht zugeordnet")
+- **Funnel-Stufe Select:** Top of Funnel / Mid Funnel / Bottom Funnel (oder "Nicht zugeordnet")
+- 2-Spalten-Grid, kompakte Selects (`text-xs`, `py-2`)
+- Transparenz-Hinweis: "Wird lokal gespeichert. Backend-Persistenz folgt."
+- Setzt sowohl `pillar` als auch `contentTypeDetail` synchron
+- Platziert vor dem Content Score Block
+
+#### 4. `src/components/planner/StrategyBar.tsx` — Trust/Clarity
+
+**Campaign-Input verbessert:**
+- `prompt()` durch Inline-Input ersetzt
+- Enter = speichern, Escape = abbrechen, Blur = speichern
+- Bestehende Kampagne: klickbar zum Editieren + X zum Entfernen
+- Leere Kampagne: "Kampagne" Button öffnet Inline-Input
+
+**Pillar-Mix Transparenz:**
+- Neuer Check `hasExplicitPillar`: prüft ob mindestens ein Slot ein manuell gesetztes `pillar`-Feld hat
+- Wenn alle Pillars nur auto-derived (Fallback auf "promotional"): zeigt "abgeleitet" Label mit Sparkles-Icon
+- Tooltip erklärt: "Pillar automatisch abgeleitet. Kann im Post-Editor manuell gesetzt werden."
+
+### Was NICHT verändert wurde
+
+- ContentPlanner.tsx (keine Logik-Änderungen)
+- PlannerHeader.tsx, MonthView.tsx
+- PostReviewModal, Wizard-Files
+- Publishing/Supabase/n8n-Logik
+- types.ts (keine neuen Felder)
+- WeekView Struktur/Layout (nur Card-Inhalte ergänzt)
+
+### UI-only vs. Persistence-Abhängigkeiten
+
+**Rein UI-first (funktioniert jetzt):**
+- Pillar/Funnel-Badges auf Cards und Hover-Preview
+- Goal-aware Intelligence-Heuristiken
+- ContentSlotEditor Pillar/Funnel-Selects (Werte leben im React-State)
+- StrategyBar campaign inline-input + "abgeleitet" Label
+
+**Braucht Backend-Persistenz (nicht implementiert):**
+- `pillar` und `funnelStage` werden von `CalendarService.buildContentJsonb` noch nicht ins JSONB-Feld geschrieben
+- Bei Page-Reload gehen manuell gesetzte Pillar/Funnel-Werte verloren
+- Campaign-Name lebt nur im `PlannerContext` React-State
+- Lösung: DB-Schema-Erweiterung oder JSONB-Feld-Erweiterung in CalendarService
+
+### Verbleibende Gaps
+
+1. **Persistence:** Pillar, Funnel, Campaign nicht in Supabase gespeichert
+2. **Pulse-Integration:** Pulse setzt pillar/funnel bei Generierung (mock), aber echte Pulse-API müsste dies unterstützen
+3. **Analytics-Feedback:** Keine Performance-Daten fließen in Intelligence-Card zurück
+4. **MonthView:** Zeigt noch keine Pillar/Funnel-Daten
+5. **Campaign-Scoping:** Kampagne ist session-ephemeral, keine historische Kampagnen-Liste
+6. **Content-Score-Validierung:** Scores sind mock-generiert, keine echte Qualitätsanalyse
+
+---
+
+## Planner Persistence Bridge — Umgesetzt
+
+**Stand:** 2026-03-19
+**Ziel:** pillar, funnelStage, campaign durch den bestehenden JSONB-Content-Flow persistieren.
+
+### Was gemacht wurde
+
+#### 1. `src/services/calendarService.ts` — Write + Read Bridge
+
+**`buildContentJsonb` (Zeile ~223):**
+- Serialisiert `slot.pillar` → `content.pillar` (string, z.B. `"educational"`)
+- Serialisiert `slot.funnelStage` → `content.funnel_stage` (string, z.B. `"tofu"`)
+- Serialisiert `slot.campaign` → `content.campaign` (string, z.B. `"Spring Launch"`)
+- Alle drei nur geschrieben wenn truthy — kein Noise bei leeren Werten
+- Keine Änderung an `PostContent` Interface nötig — Felder werden via `(content as any)` geschrieben, weil sie JSONB-Erweiterungen sind, keine formalen Spalten
+
+**`convertToContentSlot` (Zeile ~197):**
+- Liest `pillar`, `funnel_stage`, `campaign` direkt aus dem rohen `post.content` JSONB
+- Umgeht `parseContent` für diese drei Felder (parseContent kennt sie nicht und braucht sie nicht)
+- `contentTypeDetail` jetzt: `pillar || parsed.content_type` (pillar hat Vorrang wenn explizit gesetzt)
+- `funnelStage` und `campaign` direkt auf ContentSlot gemappt
+
+#### 2. `src/components/planner/ContentSlotEditor.tsx` — Disclaimer aktualisiert
+
+- "Wird lokal gespeichert. Backend-Persistenz folgt." → "Wird beim Speichern mit dem Post persistiert."
+
+### Datenpfad (verifiziert)
+
+```
+Schreiben:
+  ContentSlotEditor → slot.pillar = "educational"
+  → handleSlotUpdate(slot) → CalendarService.buildContentJsonb(slot)
+  → { primary_text: "...", pillar: "educational", funnel_stage: "tofu", campaign: "Spring" }
+  → Supabase UPDATE pulse_generated_content SET content = {...}
+
+Lesen:
+  CalendarService.loadPosts() → post.content = { ..., pillar: "educational", funnel_stage: "tofu", campaign: "Spring" }
+  → convertToContentSlot(post) → rawContent.pillar → slot.pillar = "educational"
+  → WeekView zeigt Pillar/Funnel-Badges, StrategyBar zeigt Mix, ContentSlotEditor zeigt Selects
+```
+
+### Was NICHT verändert wurde
+
+- `ParsedContent` Interface in contentParser.ts — nicht erweitert (nicht nötig, da die drei Felder direkt aus rawContent gelesen werden)
+- `PostContent` Interface — nicht erweitert (die Felder sind JSONB-Erweiterungen, kein formaler Typ-Zwang nötig)
+- Supabase Schema — keine Migration, keine neuen Spalten
+- Publishing-Logik — unverändert (liest `content` JSONB nicht für pillar/funnel/campaign)
+- Alle anderen Planner-Dateien — unverändert
+
+### Was jetzt wirklich persistiert wird
+
+| Feld | Persistiert? | Wo? | Lifecycle |
+|------|-------------|-----|-----------|
+| `pillar` | Ja | `pulse_generated_content.content` JSONB | Überlebt Reload, Update, Reload |
+| `funnelStage` | Ja | `pulse_generated_content.content` JSONB | Überlebt Reload, Update, Reload |
+| `campaign` (auf Post-Ebene) | Ja | `pulse_generated_content.content` JSONB | Überlebt Reload, Update, Reload |
+| `campaign` (auf PlannerContext-Ebene) | Nein | React-State | Verloren bei Reload |
+| `goal` / `frequency` | Nein | React-State (PlannerContext) | Verloren bei Reload |
+| `contentScore` | Nein | Nur auf generierten Posts | Nicht in JSONB gespeichert |
+
+### Verbleibende Limitations
+
+1. **PlannerContext (goal, frequency, campaign) ist session-ephemeral.** Posts tragen ihre eigene `campaign`, aber der globale Planner-Kontext wird nicht persistiert. Lösung wäre ein separater User-Settings-Eintrag in Supabase.
+2. **contentScore nicht persistiert.** Scores werden bei Generierung erzeugt, aber `buildContentJsonb` serialisiert sie nicht. Sie gehen bei Reload verloren. Bewusste Entscheidung: Scores sind mock-Daten und noch nicht produktionsreif.
+3. **Alte Posts ohne metadata.** Bestehende Posts im JSONB haben keine `pillar`/`funnel_stage`/`campaign`-Keys. `convertToContentSlot` liefert dann `undefined` — das ist korrekt und sicher, die UI zeigt einfach keine Badges.
+
+---
+
+## Planner QA Pass — Abgeschlossen
+
+**Stand:** 2026-03-19
+
+### QA-Ergebnis
+
+Der Planner-Workstream ist abgeschlossen. Die QA hat drei kleine Defekte identifiziert und behoben:
+
+**F1: Duplicate Insight bei Leads-Goal (behoben)**
+- `analyzeWeek()` in WeeklyIntelligenceCard erzeugte zwei fast identische "LinkedIn fehlt"-Insights: einmal aus der generischen Platform-Gap-Prüfung (Abschnitt 2), einmal aus der goal-spezifischen Leads-Heuristik (Abschnitt 6).
+- Fix: Die Leads-spezifische Prüfung überspringt LinkedIn jetzt, wenn der generische Check es bereits gemeldet hat.
+
+**F2: Unused variable `hasCta` (behoben)**
+- In der Leads-Heuristik wurde `hasCta` deklariert aber nie verwendet.
+- Fix: Entfernt.
+
+**F3: Unused `FUNNEL_LABELS` const + `FunnelStage` import (behoben)**
+- `FUNNEL_LABELS` war deklariert aber nie referenziert. `FunnelStage` war nur dafür importiert.
+- Fix: Beides entfernt.
+
+### Was als korrekt und stabil bestätigt wurde
+
+- **StrategyBar:** Goal-Switcher, Frequency-Control, Campaign-Inline-Input, Pillar-Mix mit "abgeleitet"-Indikator — alles korrekt und brand-konsistent
+- **WeeklyIntelligenceCard:** Gap-Analyse, goal-aware Heuristiken, Action-Buttons, Collapsed-State — alles korrekt, keine Duplikate mehr
+- **WeekView Cards:** Pillar/Funnel/Campaign-Badges sind calm, nicht überladen, korrekt bedingt angezeigt
+- **WeekView Hover-Preview:** Strategy-Metadata-Row sauber vor Content-Text eingefügt
+- **ContentSlotEditor:** Pillar/Funnel-Selects funktionieren, setzen beide Felder korrekt, Disclaimer ist akkurat
+- **Persistence Bridge:** Write (`buildContentJsonb`) und Read (`convertToContentSlot`) korrekt gepaart. Alte Posts ohne Metadata degradieren graceful
+- **Scheduling/Publishing:** Unverändert und intakt
+
+### Planner-Workstream: Finale Statusübersicht
+
+| Bereich | Status | Anmerkung |
+|---------|--------|-----------|
+| StrategyBar (Goal, Frequency, Campaign, Pillar Mix) | Fertig | Campaign ist session-ephemeral auf PlannerContext-Ebene |
+| WeeklyIntelligenceCard (Gap Analysis, Actions) | Fertig | Goal-aware, mit Lücken füllen + Alle freigeben |
+| PlannerHeader (Toolbar, Filters) | Fertig | Seit Phase 1 stabil |
+| WeekView (Off-days, Cards, Metadata, Hover) | Fertig | Pillar/Funnel/Campaign sichtbar |
+| ContentSlotEditor (Metadata Selects) | Fertig | Pillar + Funnel editierbar |
+| Persistence (CalendarService Bridge) | Fertig | pillar, funnel_stage, campaign in JSONB |
+| Fill Gaps / Generate Week | Fertig | Mock-Generierung mit Pillar/Funnel-Awareness |
+| Bulk Approve Drafts | Fertig | Via WeeklyIntelligenceCard |
+
+### Follow-up-Items (keine Defekte, sondern Erweiterungen)
+
+1. **PlannerContext-Persistenz:** goal, frequency, campaign auf User-Ebene in Supabase speichern (eigener Settings-Eintrag)
+2. **contentScore-Persistenz:** Wenn echte Scoring-Engine existiert, `buildContentJsonb` um Score-Felder erweitern
+3. **Echte KI-Generierung:** Mock-Funktionen durch n8n-Webhook-Calls ersetzen
+4. **MonthView Strategy-Layer:** MonthView zeigt noch keine Pillar/Funnel/Campaign-Daten
+5. **Analytics-Feedback-Loop:** Performance-Daten in Intelligence-Card einfließen lassen
+6. **Campaign-History:** Historische Kampagnen-Liste statt nur aktuelle Session
 
 ---
 
