@@ -662,14 +662,27 @@ const ChatContainer: React.FC = () => {
                     </div>
                   </div>
                 )}
-                {messages.map((message) => (
-                  <ChatBubble
-                    key={message.id}
-                    message={message}
-                    onActionClick={handleActionClick}
-                    onRetry={handleRetry}
-                  />
-                ))}
+                {messages.map((message, index) => {
+                  // Find the previous user message for single-caption intent detection
+                  let prevUserMsg: string | undefined;
+                  if (message.type === 'ai') {
+                    for (let pi = index - 1; pi >= 0; pi--) {
+                      if (messages[pi].type === 'user') {
+                        prevUserMsg = messages[pi].content;
+                        break;
+                      }
+                    }
+                  }
+                  return (
+                    <ChatBubble
+                      key={message.id}
+                      message={message}
+                      onActionClick={handleActionClick}
+                      onRetry={handleRetry}
+                      previousUserMessage={prevUserMsg}
+                    />
+                  );
+                })}
 
                 {isTyping && <VektrusLoadingBubble isVisible={isTyping} />}
                 <div ref={messagesEndRef} />

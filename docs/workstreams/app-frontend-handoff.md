@@ -1,7 +1,531 @@
 # Vektrus App Frontend — Handoff für den nächsten Chat
 
 **Stand:** 2026-03-20
-**Kontext:** AP-01 bis AP-08 vollständig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik. **Posting Popup Redesign Phase 1 + Phase 2 + QA Pass abgeschlossen.**
+**Kontext:** AP-01 bis AP-08 vollstaendig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik. **Posting Popup Redesign Phase 1 + Phase 2 + QA Pass abgeschlossen. Chat-to-Planner Handoff V1 + Corrective Pass + QA Pass + Single-Caption Bugfix + QA + Robustness Pass + Robustness QA Pass abgeschlossen. Composer Handoff V2 (Three-State Model + Source-Material Mode) implementiert.**
+
+---
+
+## Chat -> Composer Handoff V2 — Three-State Model + Source-Material Mode
+
+**Stand:** 2026-03-20
+
+### Problem
+
+Die bisherige Chat-to-Composer-Uebergabe kannte nur zwei Zustaende: entweder wurde ein Post-Kandidat erkannt (Block oder Single-Caption), oder es wurde "Kein eindeutiger Post-Vorschlag erkannt" angezeigt. Das war problematisch, weil sozial relevante Antworten (Strategie, Rohideen, gemischte Erklaerungen) weder als Posts transferierbar waren noch als nuetzliches Ausgangsmaterial fuer die Content-Erstellung genutzt werden konnten.
+
+### Loesung: Drei-Zustaende-Modell
+
+**STATE 1 — Direkt post-ready:**
+Wenn `extractCaptionBlocks()` oder `detectSingleCaption()` einen oder mehrere Post-Kandidaten erkennen, werden Block-Level-Transfer-Buttons angezeigt ("Als Post uebernehmen"). Der Composer wird mit vorausgefuelltem Body/Hashtags/CTA geoeffnet.
+
+**STATE 2 — Sozial relevant, nicht post-ready (Grundlage):**
+Wenn keine Post-Kandidaten erkannt werden, aber `shouldShowContentActions()` die Antwort als sozial relevant einstuft, wird ein einzelner Button "Als Grundlage oeffnen" angezeigt. Der Composer wird im Source-Material-Modus geoeffnet: Die Chat-Antwort wird als `sourceMaterial` uebergeben, NICHT in das Body-Feld geschrieben.
+
+**STATE 3 — Nicht transferierbar:**
+Wenn weder Post-Kandidaten noch soziale Relevanz erkannt werden, wird kein Content-Action-Bereich angezeigt.
+
+### Source-Material-Modus im Composer
+
+- Dediziertes Source-Panel zeigt die Chat-Antwort als Grundlage (max 1200 Zeichen Vorschau)
+- Header zeigt "Post aus Grundlage erstellen" und Erklaerung
+- Body-Feld bleibt leer (kein Roh-Strategie-Text im Caption-Feld)
+- "Posting ready machen"-Button transformiert die Grundlage via KI in Caption + Hashtags + CTA
+- Source-Panel kann ausgeblendet werden
+- "KI Umschreiben"-Funktion bleibt verfuegbar fuer Nachbearbeitung
+
+### Geaenderte Dateien
+
+| Datei | Aenderung |
+|-------|-----------|
+| `src/components/planner/types.ts` | `sourceMaterial?: string` zu `ContentSlot` hinzugefuegt |
+| `src/components/chat/ChatBubble.tsx` | Drei-Zustaende-Modell: `hasPostCandidates`, `isSourceMaterial`, `showContentActions`. Neuer `handleOpenAsSource()` fuer Source-Material-Modus. `Info`-Import durch `FileText` ersetzt. Non-transferable-Hint entfernt (STATE 3 zeigt gar nichts). Button-Label von "In Contentplan uebernehmen" zu "Als Post uebernehmen" geaendert. |
+| `src/components/planner/ContentSlotEditor.tsx` | Source-Material-Panel mit "Posting ready machen"-Button. `isSourceMode` Detection. Header-Text fuer Source-Modus. `isNewPost` erweitert fuer `chat-`-Prefix. `ArrowRight` Import hinzugefuegt. `isTransformingSource` und `showSourcePanel` State. |
+
+### Nicht geaendert
+
+- `captionBlockExtractor.ts`: unveraendert (Block-Erkennung und Single-Caption-Detection bleiben gleich)
+- `messageClassifier.ts`: unveraendert (entscheidet jetzt ob STATE 2 greift)
+- `ChatContainer.tsx`: unveraendert
+- `DemoChatContainer.tsx`: unveraendert (nutzt ChatBubble mit dem neuen Drei-Zustaende-Modell automatisch)
+- Supabase-Persistierung: unveraendert (`sourceMaterial` ist nicht im DB-Schema und wird nicht gespeichert)
+
+### Entscheidungslogik
+
+```
+captionBlocks.length > 0?
+  -> STATE 1: Zeige Block-Transfer-Buttons
+  -> Kein Source-Material-Button
+shouldShowContentActions(message)?
+  -> STATE 2: Zeige "Als Grundlage oeffnen"
+  -> Composer im Source-Material-Modus
+else
+  -> STATE 3: Kein Content-Action-Bereich
+```
+
+### Verbleibende Edge Cases
+
+1. **Grenzfall: Strategie-Antwort mit einem eingebetteten Post-Entwurf.** Wenn der Post-Entwurf strukturiert genug ist, erkennt `extractCaptionBlocks` ihn -> STATE 1. Wenn nicht, faellt die gesamte Antwort in STATE 2 -> Source-Material. Das ist akzeptabel.
+
+2. **simulateAIRewrite als Transformation.** Die "Posting ready machen"-Funktion nutzt aktuell die Mock-`simulateAIRewrite`-Funktion. Fuer produktive Nutzung sollte dies durch einen echten AI-Endpunkt ersetzt werden, der Source-Material in Caption + Hashtags + CTA transformiert.
+
+3. **Sehr lange Antworten als Source-Material.** Das Source-Panel zeigt maximal 1200 Zeichen in der Vorschau, uebergibt aber den vollstaendigen Text an die Transformation.
+
+4. **messageClassifier Schwelle.** Die `shouldShowContentActions()`-Funktion entscheidet ueber STATE 2 vs STATE 3. Deren Confidence-Schwelle (0.5) ist relativ niedrig, was bedeutet, dass auch moderat relevante Antworten den Source-Button zeigen. Das ist gewollt, weil false positives hier weniger schaedlich sind als bei STATE 1 (Direct Transfer).
+
+### Workstream-Status
+
+**Chat -> Composer Handoff V2 ist fuer den aktuellen Frontend-Scope implementiert.**
+
+Offene optionale Verbesserungen (kein aktiver Workstream):
+- Echter AI-Endpunkt fuer "Posting ready machen" statt Mock
+- Backend-strukturierte Response-Annotationen (STATE 1/2/3 direkt vom Backend)
+- Erweiterte Transformation mit Platform-spezifischen Anpassungen
+
+---
+
+## Chat -> Composer Handoff V2 — QA Pass (Abschluss)
+
+**Stand:** 2026-03-20
+
+### QA Ergebnis
+
+7 Szenarien geprueft. 2 Defekte gefunden und behoben. Alle Szenarien bestanden.
+
+| # | Szenario | Ergebnis |
+|---|----------|----------|
+| 1 | Klare post-ready Antwort (## Instagram Post + Body + Hashtags) | PASS — extractCaptionBlocks erkennt Block, "Als Post uebernehmen" angezeigt, nur Block-Body prefilled |
+| 2 | Sozial relevante Strategie-Antwort (Bullet-Points, Content-Keywords, keine Caption) | PASS — kein Block erkannt, shouldShowContentActions = true, "Als Grundlage oeffnen" angezeigt |
+| 3 | Irrelevante Antwort (kurzer Satz ohne Social-Keywords) | PASS — kein Block, shouldShowContentActions = false, kein Action-Bereich |
+| 4 | Multi-Suggestion-Antwort (## Vorschlag 1 + ## Vorschlag 2) | PASS — 2 Blocks erkannt, 2 per-Block-Buttons, kein Source-Material-Button |
+| 5 | Source-Material-Transformation end-to-end | PASS — Composer im Source-Modus, Body leer, "Posting ready machen" -> Body gefuellt, Hashtags extrahiert |
+| 6 | Entwurf-Speichern aus Source-Material-Modus | PASS — handleComposerSave speichert transformierten Body, sourceMaterial nicht im DB-Payload |
+| 7 | Planen aus Source-Material-Modus nach Transformation | PASS — postToSocialMedia erhaelt transformierten Body, sourceMaterial nicht im Posting-Payload |
+
+### Behobene Defekte
+
+**DEFEKT 1 (Medium): Doppelter Backdrop bei Composer-Modal.**
+ChatBubble wrappte den ContentSlotEditor in einen eigenen `fixed inset-0 z-50 bg-black/50 backdrop-blur-sm` Container. ContentSlotEditor rendert bereits selbst einen Backdrop (z-500) und ein zentriertes Modal (z-501). Das fuehrte zu doppeltem Backdrop (uebermaessig dunkler Hintergrund) und einem redundanten `overflow-y-auto` Scroll-Container.
+**Fix:** Wrapper in ChatBubble entfernt. ContentSlotEditor wird direkt gerendert.
+**Geaenderte Datei:** `src/components/chat/ChatBubble.tsx` (5 Zeilen entfernt)
+
+**DEFEKT 2 (Minor): "Ideen fuer deinen Post" Empty-State im Source-Modus sichtbar.**
+Wenn der Composer im Source-Material-Modus geoeffnet wurde, war das Body-Feld leer (`isContentEmpty === true`), was die generischen "Ideen fuer deinen Post"-Vorschlaege angezeigt hat. Das war irrefuehrend, weil der User "Posting ready machen" nutzen soll, nicht eine generische Idee waehlen.
+**Fix:** Empty-State-Ideen werden im Source-Modus unterdrueckt (`isContentEmpty && !isSourceMode`).
+**Geaenderte Datei:** `src/components/planner/ContentSlotEditor.tsx` (1 Bedingung ergaenzt)
+
+### Geprueft ohne Defekt
+
+- STATE 1 → STATE 2 Exklusivitaet: korrekt, nie gleichzeitig
+- STATE 3: kein Action-Bereich, kein irrelevanter Hint
+- Source-Material nie im Body-Feld vor Transformation
+- Supabase-Persistierung: sourceMaterial nicht im Insert-Payload
+- hasUnsavedChanges: kein falscher Trigger im Source-Modus
+- isNewPost: korrekt fuer chat- und chat-source-Prefixe
+- Header-Text: wechselt korrekt zwischen Source-Modus / Neuer Post / Post bearbeiten
+- Kein alter Popup-Pfad erreichbar
+- Kein Message-Level Direct-Transfer-Verhalten
+
+### Workstream-Status
+
+**Chat -> Composer Handoff V2 Workstream ist fuer den aktuellen Frontend-Scope abgeschlossen.**
+
+Phasen:
+1. V2 Implementation: Drei-Zustaende-Modell, Source-Material-Modus, "Posting ready machen"
+2. QA Pass: 7 Szenarien, 2 Defekte (Doppel-Backdrop, Empty-State im Source-Modus) behoben
+
+---
+
+## Chat -> Content Planner Handoff — Robustness QA Pass (Abschluss)
+
+**Stand:** 2026-03-20
+
+### QA Ergebnis
+
+12 Szenarien geprueft. 1 Minor-Defekt gefunden und behoben. Alle Szenarien bestanden.
+
+| # | Szenario | Ergebnis |
+|---|----------|----------|
+| 1 | "Schreibe nur eine Caption fuer LinkedIn" → Fliesstext | PASS — Score 8, user intent + hashtags |
+| 2 | "Schreibe einen Instagram-Post fuer mein Cafe" → kurze Caption | PASS — Score 6, user intent + emoji |
+| 3 | "Kannst du mir einen Social Media Post schreiben?" → kohaerente Caption | PASS — Score 6, user intent + emoji |
+| 4 | AI startet mit "Klar, hier ist dein LinkedIn-Post:" + Caption | PASS — strukturelle Erkennung via Intro-Heading |
+| 5 | AI startet mit "Gerne!" + Caption ohne Hashtags | PASS — Intro gestrippt, Score 7 mit User-Intent |
+| 6 | Caption mit Emoji aber ohne Hashtags, mit User-Intent | PASS — Score 6, korrekt rejected ohne Intent |
+| 7 | Strategische Antwort mit Bullet-Points | PASS — korrekt non-transferable |
+| 8 | Lange analytische Antwort mit Headings | PASS — korrekt non-transferable |
+| 9 | Q&A-Antwort mit 4 Fragezeichen | PASS — korrekt non-transferable |
+| 10 | Generische kurze Antwort ohne Caption-Signale | PASS — korrekt non-transferable |
+| 11 | Gemischte Antwort: Analyse-Intro + Caption | PASS nach Fix — "Vorschlag:" wird jetzt als Intro erkannt |
+| 12 | Strukturierte Multi-Suggestion-Antwort | PASS — korrekt via extractCaptionBlocks |
+
+### Behobener Defekt
+
+**Intro-Fallback-Keywords fehlten "vorschlag" und "entwurf":** Zeilen die mit "Vorschlag:" oder "Entwurf:" enden, wurden nicht als Intro-Zeilen erkannt und blieben im Body. Fix: `vorschlag|entwurf` zu den Intro-Fallback-Keywords hinzugefuegt.
+
+**Geaenderte Datei:** `src/lib/captionBlockExtractor.ts` (1 Regex-Zeile)
+
+### Workstream-Status
+
+**Chat -> Content Planner Handoff Workstream ist fuer den aktuellen Frontend-Scope abgeschlossen.**
+
+Vollstaendige Phasen-Historie:
+1. V1: Caption-Block-Extraktion, neuer Composer, Supabase-Persistierung
+2. Corrective Pass: Whole-Message-Fallback entfernt, Non-Transferable-State
+3. QA Pass: 6 Bereiche, 1 Defekt (Hashtag/CTA-Reihenfolge)
+4. Single-Caption Bugfix: detectSingleCaption(), previousUserMessage Prop
+5. Single-Caption QA: 8 Szenarien, 1 Defekt (Akkusativ "einen")
+6. Robustness Pass: Intro-Stripping, breitere Intent-Patterns, Score-Tuning
+7. Robustness QA: 12 Szenarien, 1 Defekt (Intro-Keywords "vorschlag/entwurf")
+
+### Optionale zukuenftige Verbesserungen (kein offener Workstream)
+
+- Backend-strukturierte Post-Bloecke in Chat-Antworten
+- ContentplanScheduler.tsx kann entfernt werden (keine Importe mehr)
+- Emoji-basierte Detection koennte erweitert werden (breitere Unicode-Ranges)
+
+---
+
+## Chat -> Content Planner Handoff — Detection Robustness Pass
+
+**Stand:** 2026-03-20
+
+### Problem
+
+Manuelle Tests zeigten, dass nur der erste Testfall (User fragt "Schreibe nur eine Caption", AI antwortet mit Text + Hashtags) zuverlaessig erkannt wurde. Alle anderen realen Chat-Antworten scheiterten:
+- Captions ohne Hashtags wurden nicht erkannt (Score zu hoch)
+- AI-Intro-Zeilen wie "Klar, hier ist dein Post:" wurden nicht gestrippt und blockierten teilweise die Erkennung
+- Plattformspezifische Anfragen ("Post fuer Instagram") wurden nicht als User-Intent erkannt
+- Natuerliche AI-Pseudo-Headings ("Hier ist dein LinkedIn-Post:") wurden nicht als Block-Start erkannt
+
+### Aenderungen
+
+Alle in `src/lib/captionBlockExtractor.ts`:
+
+**1. Intro-Line-Stripping**
+- Neue `stripIntroLines()` Funktion erkennt und entfernt AI-Preambles wie "Klar, hier ist dein Post:", "Gerne! Hier ist ein Instagram-Post:", "Natuerlich, so koennte dein Beitrag aussehen:"
+- Bis zu 2 Intro-Zeilen werden entfernt
+- Plattform-Hint wird aus der Intro-Zeile extrahiert (z.B. "LinkedIn-Post" → platform: linkedin)
+- Intro-Stripping zaehlt als positives Caption-Signal (+2 Score)
+
+**2. Natuerliche Intro-Zeilen als Block-Start**
+- Neuer BLOCK_START_PATTERN fuer natuerlichsprachliche Intros: "Hier ist dein Post:", "Hier kommt eine Caption:", "Klar, hier ist ein LinkedIn-Post:"
+- Diese werden jetzt von `extractCaptionBlocks` (strukturierte Erkennung) als Block-Heading behandelt
+- Plattform-Hint wird aus der gesamten Zeile extrahiert
+
+**3. Breitere User-Intent-Erkennung**
+- Plattformspezifische Anfragen: "Instagram-Post", "LinkedIn-Beitrag", "Post fuer Instagram"
+- "social media post/beitrag/content"
+- "kannst du mir einen Post schreiben/erstellen"
+- Generische Caption-Anfragen: "schreib mir eine Caption"
+- Insgesamt 13 statt vorher 8 Patterns
+
+**4. Score-Threshold gesenkt**
+- Von 3 auf 2 gesenkt
+- Aber: mindestens ein caption-spezifisches Signal erforderlich (User-Intent, Hashtags, Intro-Stripping)
+- Reine Kompaktheits-Signale allein reichen nicht
+
+**5. Neue Scoring-Signale**
+- Intro-Stripping: +2 (AI hat explizit "hier ist dein Post" gesagt)
+- Kurzer Text (unter 600 Zeichen): +1
+- Einzelne Hashtags (>= 1 statt >= 2): +1
+
+**6. Verbesserte EXPLANATION_INDICATORS**
+- "hier sind einige" Pattern praezisiert (erfordert jetzt Folgewort wie "tipps", "empfehlungen" etc.)
+- Neue Indikatoren: "beachte dabei", "wichtig ist dabei"
+- Max-Laenge auf 2000 Zeichen erhoeht (LinkedIn-Posts koennen laenger sein)
+- Fragezeichen-Schwelle auf 3 erhoeht (1 Frage in einer Caption ist normal)
+
+### Nicht geaendert
+
+- ChatBubble.tsx: unveraendert
+- ChatContainer.tsx / DemoChatContainer.tsx: unveraendert
+- ContentSlotEditor / Composer: unveraendert
+- Supabase-Persistierung: unveraendert
+- Strukturierte Block-Erkennung (extractCaptionBlocks): unveraendert ausser neuer Block-Start-Pattern
+
+### Vorher / Nachher
+
+| Szenario | Vorher | Nachher |
+|---|---|---|
+| "Schreibe nur eine Caption" → Text + Hashtags | Erkannt | Erkannt |
+| "Schreibe nur einen LinkedIn-Post" → "Klar, hier ist dein LinkedIn-Post:" + Text | Nicht erkannt | Erkannt (strukturiert + Intro-Heading) |
+| "Post fuer Instagram" → "Gerne! Hier ist ein Instagram-Post:" + Text ohne Hashtags | Nicht erkannt | Erkannt (Intro-Strip + User-Intent) |
+| "Caption fuer mein Cafe" → kurzer Text ohne Hashtags | Nicht erkannt | Erkannt (User-Intent + kompakt) |
+| "Social Media Post erstellen" → Text mit Emojis | Nicht erkannt | Erkannt (User-Intent + Emoji) |
+| Strategie-/Analyse-Antwort | Nicht erkannt | Nicht erkannt (korrekt) |
+| Kurze Antwort ohne jedes Caption-Signal | Nicht erkannt | Nicht erkannt (korrekt, kein Caption-Signal) |
+
+### Sicherheitsregeln (unveraendert)
+
+- Hard Reject: Markdown-Headings, 3+ Bullets/Nummern, >2000 Zeichen, <40 Zeichen Body
+- Hard Reject: Erklaerungssprache ("zusammenfassend", "folgende Tipps", nummerierte Bold-Listen)
+- Caption-Signal erforderlich: reine Kompaktheit allein reicht nicht
+- Kein Whole-Message-Import: Body wird immer bereinigt (Intro gestrippt, Hashtags separiert)
+- Strukturierte Erkennung hat Prioritaet
+
+---
+
+## Chat -> Content Planner Handoff — Single-Caption QA Pass (Abschluss)
+
+**Stand:** 2026-03-20
+
+### QA Ergebnis
+
+8 Szenarien geprueft. 1 Defekt gefunden und behoben. Alle Szenarien bestanden.
+
+| # | Szenario | Ergebnis |
+|---|----------|----------|
+| 1 | User fragt "Schreibe nur eine Caption", AI liefert Fliesstext + Hashtags | PASS — erkannt, Score 8 |
+| 2 | User fragt "Schreibe nur einen LinkedIn-Post", AI liefert Fliesstext | PASS nach Fix — Intent-Pattern erkannte "einen" nicht |
+| 3 | Strukturierte Multi-Suggestion-Antwort | PASS — handled by extractCaptionBlocks |
+| 4 | Strategische / analytische Antwort | PASS — korrekt disqualifiziert |
+| 5 | Gemischte Antwort (kurzer Intro + Caption-Block) | AKZEPTABEL — Intro-Zeile wird mitgenommen, im Composer trimmbar |
+| 6 | Fragment / zu kurz | PASS — korrekt abgelehnt (< 40 Zeichen) |
+| 7 | Hashtag-Separation | PASS — Trailing Hashtags korrekt separiert |
+| 8 | Composer-Integration | PASS — ContentSlotEditor oeffnet, Prefill korrekt |
+
+### Behobener Defekt: Deutsche Akkusativ-Form "einen" in User-Intent-Patterns
+
+**Problem:** 4 von 8 `USER_CAPTION_INTENT_PATTERNS` nutzten `eine?` was nur "ein"/"eine" matcht, aber nicht "einen" (maskuliner Akkusativ). Saetze wie "Schreibe nur einen Post" oder "Erstelle einen Beitrag" wurden nicht als Caption-Intent erkannt.
+
+**Fix:** `eine?` zu `eine?n?` in den 4 betroffenen Patterns geaendert. Die anderen 4 Patterns (formuliere, mach, caption fuer, post-text fuer) waren bereits korrekt.
+
+**Geaenderte Datei:** `src/lib/captionBlockExtractor.ts` (nur die 4 Regex-Patterns)
+
+### Akzeptierte Limitierung: Intro-Zeilen in gemischten Antworten
+
+Wenn die AI mit einer kurzen Meta-Zeile antwortet ("Klar, hier ist eine Caption:") gefolgt vom eigentlichen Caption-Text, wird die Intro-Zeile mit in den Body uebernommen. Das ist akzeptabel weil:
+- Der Nutzer kann sie im Composer leicht entfernen
+- Die Alternative (Intro-Erkennung) waere fragil und fehleranfaellig
+- Nur kurze Intro-Zeilen koennen passieren, keine langen Erklaerungen (die werden durch EXPLANATION_INDICATORS blockiert)
+
+### Workstream-Status
+
+**Chat -> Content Planner Handoff — Single-Caption Detection Bugfix ist fuer den aktuellen Frontend-Scope abgeschlossen.**
+
+Phasen:
+- Single-Caption Bugfix: `detectSingleCaption()` eingefuehrt, `previousUserMessage` Prop hinzugefuegt
+- QA Pass: 8 Szenarien geprueft, 1 Defekt (Akkusativ-Pattern) behoben
+
+---
+
+## Chat -> Content Planner Handoff — Single-Caption Detection Bugfix
+
+**Stand:** 2026-03-20
+
+### Problem
+
+Wenn der Nutzer im Chat nach "nur einer Caption" fragt und die AI eine einzelne Caption als Fliesstext (ohne Heading, ohne Label) zurueckgibt, wurde diese nicht als transferierbarer Block erkannt. Stattdessen erschien faelschlich "Kein eindeutiger Post-Vorschlag erkannt".
+
+### Loesung
+
+Neue Funktion `detectSingleCaption(message, previousUserMessage?)` in `captionBlockExtractor.ts`. Sie wird nur aufgerufen, wenn `extractCaptionBlocks()` keine strukturierten Bloecke findet.
+
+**Positive Signale (muessen Score-Threshold erreichen):**
+- Vorherige User-Nachricht fragt explizit nach Caption/Post (+3 Punkte)
+- Hashtag-Cluster am Ende der Nachricht (+2)
+- Inline-Hashtags vorhanden (+1)
+- Emojis vorhanden (+1)
+- Wenige Absaetze / kompakte Struktur (+1)
+
+**Mindest-Score: 3 Punkte** (z.B. User fragte nach Caption + Hashtags vorhanden, oder Hashtags am Ende + Emojis + kompakte Struktur)
+
+**Disqualifizierende Signale (harter Ausschluss):**
+- Markdown-Headings vorhanden
+- 3+ Aufzaehlungspunkte oder nummerierte Listen
+- Nachricht laenger als 1500 Zeichen
+- Erklaerungssprache ("hier sind einige tipps", "zusammenfassend", "strategie")
+- 2+ Fragezeichen
+
+**Hashtag-Separation:** Trailing Hashtag-Zeilen werden aus dem Body extrahiert und als separate Hashtag-Liste uebergeben — nicht blind in den Post-Text importiert.
+
+### Geaenderte Dateien
+
+1. `src/lib/captionBlockExtractor.ts` — `detectSingleCaption()` hinzugefuegt
+2. `src/components/chat/ChatBubble.tsx` — neuer optionaler Prop `previousUserMessage`, Fallback auf `detectSingleCaption` wenn keine strukturierten Bloecke
+3. `src/components/chat/ChatContainer.tsx` — uebergibt `previousUserMessage` an ChatBubble
+4. `src/components/chat/DemoChatContainer.tsx` — uebergibt `previousUserMessage` an ChatBubble
+
+### Nicht geaendert
+
+- Strukturierte Block-Erkennung: unveraendert, hat weiterhin Prioritaet
+- ContentSlotEditor / Composer: unveraendert
+- Supabase-Persistierung: unveraendert
+- Non-Transferable-State: weiterhin aktiv wenn weder Bloecke noch Single-Caption erkannt
+
+### Erkannte vs. nicht erkannte Faelle
+
+| Situation | Erkannt? |
+|---|---|
+| User fragt "Schreibe nur eine Caption", AI antwortet mit Fliesstext + Hashtags | Ja |
+| User fragt "Erstelle mir einen Post", AI antwortet als kompakter Text mit Emojis + Hashtags | Ja |
+| AI antwortet mit 2 Absaetzen + Hashtags am Ende, ohne Heading | Ja (wenn Score >= 3) |
+| AI antwortet mit langer Analyse + Tipps + Bullet Points | Nein (disqualifiziert) |
+| AI antwortet mit Heading-basierten Bloecken | Ja (via strukturierte Erkennung, nicht Single-Caption) |
+| AI antwortet mit kurzem "Klar, hier ist deine Caption:" + Fliesstext ohne Hashtags und ohne User-Intent-Signal | Nein (Score zu niedrig) |
+
+---
+
+## Chat -> Content Planner Handoff — QA Pass (Abschluss)
+
+**Stand:** 2026-03-20
+
+### QA Ergebnis
+
+6 Pruefbereiche. 1 Defekt gefunden und behoben. Alle anderen Bereiche bestanden.
+
+| Bereich | Ergebnis |
+|---------|----------|
+| Recognized-block transfer | Korrekt. Nur erkannte Bloecke erhalten Transfer-Buttons. Nur Block-Inhalt wird uebergeben. |
+| No-valid-block state | Korrekt. Kein Transfer moeglich, ruhiger Info-Hinweis, kein Button. |
+| Multi-block handling | Korrekt. Count-Label, pro-Block-Buttons, korrektes Label pro Block. |
+| Field extraction quality | **1 Defekt behoben** (siehe unten). Nach Fix korrekt. |
+| Composer integration | Korrekt. ContentSlotEditor ist einziges Ziel. Supabase-Persistierung funktional. |
+| Conservative parsing safety | Korrekt. 40-Zeichen-Minimum, heading-only Detection, Fliesstext = nicht transferierbar. |
+
+### Behobener Defekt: Hashtag-/CTA-Zeilen mit Bold-Formatierung gingen verloren
+
+**Problem:** Im Inner Loop von `extractCaptionBlocks` wurde die Block-End-Pruefung (`isBlockEndLine`) VOR der Hashtag- und CTA-Extraktion ausgefuehrt. Da `BLOCK_END_PATTERNS` ein generisches Bold-Label-Pattern (`^\*\*[^*]+:\*\*`) enthaelt, wurden Zeilen wie `**Hashtags:** #tag1 #tag2` und `**CTA:** Mehr erfahren` faelschlich als Block-Ende erkannt, bevor sie extrahiert werden konnten.
+
+**Fix:** Hashtag- und CTA-Checks werden jetzt VOR der Block-End-Pruefung ausgefuehrt. Keine neue Logik, nur korrekte Prioritaet.
+
+**Zusaetzlich:** Ungenutzter Parameter `currentBlockLabel` aus `isBlockEndLine` entfernt.
+
+**Geaenderte Datei:** `src/lib/captionBlockExtractor.ts`
+
+### Workstream-Status
+
+**Chat -> Content Planner Handoff Workstream ist fuer den aktuellen Frontend-Scope abgeschlossen.**
+
+Phasen-Zusammenfassung:
+- V1: Caption-Block-Extraktion, neuer Composer als Ziel, Supabase-Persistierung, alte ContentplanScheduler-Referenz entfernt
+- Corrective Pass: Whole-Message-Fallback entfernt, Non-Transferable-State eingefuehrt, Min-Body-Laenge auf 40 Zeichen erhoeht
+- QA Pass: 6 Bereiche geprueft, 1 Defekt (Hashtag/CTA-Reihenfolge) behoben, keine weiteren Defekte
+
+### Verbleibende Parsing-Limitierungen (kein Defekt, by Design)
+
+- Unstrukturierte Freitextantworten ohne Heading/Label werden nicht als Bloecke erkannt — das ist gewollt (konservativ statt uebereifrig)
+- Pattern-basierte Erkennung deckt gaengige AI-Antwort-Formate ab, aber nicht jede denkbare Formatierung
+- 100% zuverlaessige Erkennung waere nur mit backend-strukturierten Antworten moeglich
+
+### Optionale zukuenftige Verbesserungen (kein offener Workstream)
+
+- Backend-seitig strukturierte Post-Bloecke in Chat-Antworten (JSON oder spezielle Marker)
+- Inline-Preview des erkannten Caption-Blocks vor dem Transfer
+- "Alle Vorschlaege uebernehmen"-Batch-Aktion bei mehreren Bloecken
+- ContentplanScheduler.tsx kann entfernt werden (keine Importe mehr vorhanden)
+
+---
+
+## Chat -> Content Planner Handoff — Corrective Pass
+
+**Stand:** 2026-03-20
+
+### Problem
+
+V1 enthielt einen Fallback-Pfad: wenn keine strukturierten Caption-Bloecke erkannt wurden, konnte die gesamte Assistant-Nachricht (inkl. Erklaerungen, Analyse, Strategie-Notizen) per "In Contentplan uebernehmen"-Button in den Composer uebernommen werden. Das widerspricht der Produktintention — nur klar erkannte Post-/Caption-Bloecke sollen transferierbar sein.
+
+### Aenderungen
+
+**`src/components/chat/ChatBubble.tsx`:**
+- `handleTransferFullMessage` komplett entfernt (war der Fallback-Transfer der gesamten Nachricht)
+- `hasContentActions` umbenannt zu `isContentMessage` fuer Klarheit
+- Fallback-Transfer-Button entfernt
+- Neuer Zustand bei keinem erkannten Block: ruhiger Hinweis "Kein eindeutiger Post-Vorschlag erkannt. Bitte den Chat nach einer konkreten Caption oder einem Post-Entwurf fragen."
+- Hinweis nutzt Info-Icon, Mint-White-Hintergrund (#F4FCFE), dezente Typografie — kein Button, keine Aktion
+- "Bild zum Posting erstellen"-Button bleibt weiterhin sichtbar wenn die Nachricht als Social-Media-Content klassifiziert wird
+- `shouldShowContentActions` bleibt als Bedingung fuer die Sichtbarkeit des Content-Actions-Bereichs (inkl. Bild-Button), aber nicht mehr fuer Transfer-Eligibility
+
+**`src/lib/captionBlockExtractor.ts`:**
+- Minimum-Body-Laenge von 20 auf 40 Zeichen erhoeht, um Fragmente zuverlaessiger auszufiltern
+
+### Nicht geaendert
+
+- Erkannte-Block-Transfer: unveraendert, funktioniert wie in V1
+- Composer (ContentSlotEditor): unveraendert
+- Supabase-Persistierung: unveraendert
+- AI Image Generation: unveraendert
+- Alle anderen Chat-Features: unveraendert
+
+### Verhalten nach dem Corrective Pass
+
+| Situation | Verhalten |
+|---|---|
+| AI-Antwort mit strukturierten Post-Bloecken | Transfer-Buttons pro Block, Composer oeffnet mit Block-Inhalt |
+| AI-Antwort ohne klare Bloecke, aber Social-Media-Inhalt erkannt | Hinweis "Kein eindeutiger Post-Vorschlag erkannt", Bild-Button bleibt sichtbar |
+| AI-Antwort ohne Social-Media-Bezug | Kein Content-Actions-Bereich, nur Standard-Chat-Aktionen |
+
+---
+
+## Chat -> Content Planner Handoff — V1
+
+**Stand:** 2026-03-20
+
+### Problem
+
+Zwei Defekte im bestehenden "In Contentplan uebernehmen"-Flow im Chat:
+1. Klick oeffnete den alten `ContentplanScheduler` (Tab-basiertes Modal) statt den neuen Two-Column Composer (`ContentSlotEditor`)
+2. Die gesamte Chat-Nachricht (inkl. Erklaerungen, Strategie-Notizen, Kontext) wurde als Post-Inhalt uebergeben statt nur der eigentlichen Caption/Post-Block
+
+### Loesung
+
+**Neue Datei: `src/lib/captionBlockExtractor.ts`**
+- Extrahiert strukturierte Caption/Post-Bloecke aus AI-Chat-Antworten
+- Erkennt Bloecke anhand von Markdown-Headings, Bold-Labels, nummerierten Vorschlaegen, Platform-Tags
+- Unterstuetzte Patterns: `## Caption`, `## Instagram Post`, `**Post-Text:**`, `Vorschlag 1:`, `[LinkedIn]` etc.
+- Extrahiert pro Block: body, hashtags, CTA, platform-hint
+- Gibt leeres Array zurueck wenn keine strukturierten Bloecke erkannt werden
+
+**Geaenderte Datei: `src/components/chat/ChatBubble.tsx`**
+- `ContentplanScheduler` Import und Verwendung entfernt
+- Tote State-Variablen entfernt (`showPlannerModal`, `contentSlot`, `plannerColors`)
+- Caption-Block-Extraktion via `useMemo` bei jeder AI-Nachricht
+- Wenn strukturierte Bloecke erkannt: pro Block ein eigener Transfer-Button ("Vorschlag 1 uebernehmen", "Vorschlag 2 uebernehmen")
+- Wenn keine Bloecke erkannt: Fallback-Button fuer die gesamte Nachricht (bisheriges Verhalten, aber mit neuem Composer)
+- Transfer oeffnet jetzt den neuen `ContentSlotEditor` (Two-Column Composer) statt `ContentplanScheduler`
+- `onUpdate`-Callback persistiert direkt in Supabase (`pulse_generated_content` Tabelle, source: 'chat')
+- Supabase-Insert-Logik identisch mit der aus `ContentplanScheduler.handleSchedule`
+
+### Nicht geaendert
+
+- `ContentplanScheduler.tsx` — Datei bleibt bestehen, wird aber nicht mehr aus ChatBubble importiert
+- `ContentSlotEditor.tsx` — Keine Aenderungen
+- `ContentPlanner.tsx` — Keine Aenderungen
+- `messageClassifier.ts` — Keine Aenderungen (wird weiterhin als Fallback fuer die Erkennung von Social-Media-Content genutzt)
+- `contentParser.ts` — Keine Aenderungen
+
+### Erhaltene Logik
+
+- Supabase-Persistierung: identisches Insert-Schema wie vorher
+- AI Image Generation Modal: unveraendert
+- Message-Klassifizierung: weiterhin aktiv als Fallback
+- Alle anderen Chat-Features (Kopieren, Feedback, Retry, Streaming): unveraendert
+
+### Unterstuetzte Nachrichtentypen
+
+| Nachrichtenformat | Erkennung | Transfer |
+|---|---|---|
+| `## Caption` / `## Post` / `## Beitrag` Heading | Ja | Nur Block-Inhalt |
+| `**Post-Text:**` / `**Caption:**` Bold-Label | Ja | Nur Block-Inhalt |
+| `Vorschlag 1:` / `Caption 1:` nummeriert | Ja | Nur Block-Inhalt |
+| `## Instagram Post` / `[LinkedIn]` mit Platform | Ja | Block + Platform-Hint |
+| Hashtag-Zeilen (`#hashtag1 #hashtag2`) | Ja | Separiert als Hashtags |
+| `**CTA:**` / `**Call-to-Action:**` | Ja | Als CTA-Feld |
+| Mehrere Bloecke in einer Nachricht | Ja | Je ein Button pro Block |
+| Keine klare Struktur (Fliesstext mit Hashtags) | Fallback auf messageClassifier | Gesamte Nachricht |
+
+### Edge Cases
+
+- Wenn AI-Antwort keine strukturierten Bloecke hat, aber vom messageClassifier als Social-Media erkannt wird: Fallback-Button uebergibt gesamte Nachricht (Nutzer muss im Composer kuerzen)
+- Bloecke unter 20 Zeichen werden ignoriert (zu kurz fuer einen sinnvollen Post)
+- Platform-Hints werden als Default-Plattform im Composer vorgewaehlt, koennen aber geaendert werden
+
+### Optionale zukuenftige Verbesserungen
+
+- Backend-seitig strukturierte Bloecke in der Chat-Antwort (z.B. JSON-Blöcke oder spezielle Marker) fuer 100% zuverlaessige Erkennung
+- Inline-Preview des erkannten Caption-Blocks vor dem Transfer
+- "Alle Vorschlaege uebernehmen"-Batch-Aktion bei mehreren Bloecken
+- ContentplanScheduler.tsx kann entfernt werden wenn keine andere Nutzung besteht (aktuell nur aus ChatBubble importiert — dieser Import wurde entfernt)
 
 ---
 

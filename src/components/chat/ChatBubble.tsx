@@ -1,39 +1,170 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Message, ChatAction } from './types';
-import { Copy, ThumbsUp, ThumbsDown, Clock, CheckCircle, AlertCircle, Check, MoreHorizontal, RefreshCw, Calendar, CalendarPlus, Sparkles } from 'lucide-react';
+import { Copy, ThumbsUp, ThumbsDown, CheckCircle, Check, RefreshCw, CalendarPlus, Sparkles, FileText } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useAnimatedText } from '../ui/animated-text';
 import ImageMessage from './ImageMessage';
 import LoadingMessage from './LoadingMessage';
 import ContentSlotEditor from '../planner/ContentSlotEditor';
-import ContentplanScheduler from './ContentplanScheduler';
 import AiImageGenerationModal from '../planner/AiImageGenerationModal';
 import { ContentSlot } from '../planner/types';
-import { useModuleColors } from '../../hooks/useModuleColors';
 import { shouldShowContentActions } from '../../services/messageClassifier';
 import { getDisplayName } from '../../lib/utils';
+import { supabase } from '../../lib/supabase';
+import { useToast } from '../ui/toast';
+import { extractCaptionBlocks, detectSingleCaption, captionBlockToSlotData, CaptionBlock } from '../../lib/captionBlockExtractor';
 
 interface ChatBubbleProps {
   message: Message;
   onActionClick: (actionId: string, messageId: string) => void;
   onRetry?: (messageId: string) => void;
   isStreaming?: boolean;
+  /** The previous user message content, used for single-caption intent detection */
+  previousUserMessage?: string;
 }
 
-const ChatBubble: React.FC<ChatBubbleProps> = ({ message, onActionClick, onRetry, isStreaming = false }) => {
+const ChatBubble: React.FC<ChatBubbleProps> = ({ message, onActionClick, onRetry, isStreaming = false, previousUserMessage }) => {
   const isUser = message.type === 'user';
   const { user, userProfile } = useAuth();
+  const { addToast } = useToast();
   const [copied, setCopied] = useState(false);
   const [liked, setLiked] = useState<boolean | null>(null);
-  const [showPlannerModal, setShowPlannerModal] = useState(false);
-  const [showScheduler, setShowScheduler] = useState(false);
+  const [showComposer, setShowComposer] = useState(false);
+  const [composerSlot, setComposerSlot] = useState<ContentSlot | null>(null);
   const [showImageModal, setShowImageModal] = useState(false);
   const [imageGenerated, setImageGenerated] = useState(false);
-  const [contentSlot, setContentSlot] = useState<ContentSlot | null>(null);
 
-  const plannerColors = useModuleColors('planner');
+  // Extract caption blocks from AI message for targeted transfer.
+  // Falls back to single-caption detection if no structured blocks found.
+  const captionBlocks = useMemo(() => {
+    if (isUser || isStreaming || message.messageType === 'loading') return [];
+    const structured = extractCaptionBlocks(message.content);
+    if (structured.length > 0) return structured;
+    const single = detectSingleCaption(message.content, previousUserMessage);
+    return single ? [single] : [];
+  }, [message.content, isUser, isStreaming, message.messageType, previousUserMessage]);
+
+  // Three-state response classification:
+  // STATE 1: captionBlocks.length > 0 -> direct post transfer (block-level)
+  // STATE 2: no blocks but socially relevant -> source-material mode
+  // STATE 3: not relevant -> no content actions
+  const isSociallyRelevant = useMemo(() => {
+    if (isUser || isStreaming || message.messageType === 'loading') return false;
+    return shouldShowContentActions(message.content);
+  }, [message.content, isUser, isStreaming, message.messageType]);
+
+  const hasPostCandidates = captionBlocks.length > 0;
+  const isSourceMaterial = !hasPostCandidates && isSociallyRelevant;
+  const showContentActions = hasPostCandidates || isSourceMaterial;
+
+  // Open new composer with a specific caption block (STATE 1: direct transfer)
+  const handleTransferBlock = useCallback((block: CaptionBlock) => {
+    const slotData = captionBlockToSlotData(block);
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(9, 0, 0, 0);
+
+    const newSlot: ContentSlot = {
+      id: `chat-${Date.now()}`,
+      date: tomorrow,
+      time: '09:00',
+      platform: slotData.platform,
+      status: 'draft',
+      title: block.label,
+      body: slotData.body,
+      content: slotData.content,
+      contentType: 'post',
+      hashtags: slotData.hashtags,
+      cta: slotData.cta || undefined,
+      source: 'manual',
+      generatedBy: 'ai',
+    };
+    setComposerSlot(newSlot);
+    setShowComposer(true);
+  }, []);
+
+  // Open new composer in source-material mode (STATE 2: not post-ready)
+  const handleOpenAsSource = useCallback(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(9, 0, 0, 0);
+
+    const newSlot: ContentSlot = {
+      id: `chat-source-${Date.now()}`,
+      date: tomorrow,
+      time: '09:00',
+      platform: 'instagram',
+      status: 'draft',
+      title: '',
+      body: '',
+      content: '',
+      contentType: 'post',
+      hashtags: [],
+      source: 'manual',
+      generatedBy: 'ai',
+      sourceMaterial: message.content,
+    };
+    setComposerSlot(newSlot);
+    setShowComposer(true);
+  }, [message.content]);
+
+  // Save to Supabase when composer saves
+  const handleComposerSave = useCallback(async (updatedSlot: ContentSlot) => {
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) throw new Error('Nicht authentifiziert');
+
+      const scheduledDate = new Date(updatedSlot.date);
+      if (updatedSlot.time) {
+        const [h, m] = updatedSlot.time.split(':');
+        scheduledDate.setHours(parseInt(h), parseInt(m), 0, 0);
+      }
+
+      const contentJsonb: Record<string, any> = {
+        primary_text: updatedSlot.body || updatedSlot.content || '',
+        hashtags: updatedSlot.hashtags || [],
+        cta: updatedSlot.cta || '',
+        hook: (updatedSlot.body || updatedSlot.content || '').substring(0, 50) || 'Neuer Post',
+      };
+      if (updatedSlot.media?.url) {
+        contentJsonb.media_urls = [updatedSlot.media.url];
+      }
+
+      const { error } = await supabase
+        .from('pulse_generated_content')
+        .insert({
+          user_id: session.user.id,
+          platform: updatedSlot.platform,
+          content: contentJsonb,
+          scheduled_date: scheduledDate.toISOString(),
+          status: 'draft',
+          source: 'chat',
+          content_type: updatedSlot.contentType || 'post',
+          post_number: 1,
+        });
+
+      if (error) throw error;
+
+      addToast({
+        type: 'success',
+        title: 'Erfolgreich!',
+        description: 'Post wurde zum Contentplan hinzugefuegt',
+        duration: 3000,
+      });
+      setShowComposer(false);
+      setComposerSlot(null);
+    } catch (err: any) {
+      console.error('Failed to save content:', err);
+      addToast({
+        type: 'error',
+        title: 'Fehler',
+        description: err.message || 'Konnte Post nicht hinzufuegen',
+        duration: 3000,
+      });
+    }
+  }, [addToast]);
 
   const shouldAnimate = !isUser && (isStreaming || message.isAnimating);
 
@@ -118,27 +249,61 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ message, onActionClick, onRetry
                       {getMessageStatus()}
                     </div>
                     {/* Content Actions — inside glass card */}
-                    {!isStreaming && message.messageType !== 'loading' && shouldShowContentActions(message.content) && (
+                    {!isStreaming && message.messageType !== 'loading' && showContentActions && (
                       <div className="mt-5 pt-4 border-t border-black/[0.06]">
-                        <div className="grid grid-cols-2 gap-3">
+                        {/* STATE 1: Recognized caption block transfer buttons */}
+                        {hasPostCandidates && (
+                          <div className="space-y-2 mb-3">
+                            {captionBlocks.length > 1 && (
+                              <p className="text-xs text-[#7A7A7A] font-medium mb-2">
+                                {captionBlocks.length} Post-Vorschlaege erkannt
+                              </p>
+                            )}
+                            {captionBlocks.map((block, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => handleTransferBlock(block)}
+                                className="w-full chat-ai-action-btn px-4 py-2.5 text-[#111111] text-sm font-semibold rounded-[var(--vektrus-radius-sm)] transition-all duration-200 flex items-center space-x-2"
+                              >
+                                <CalendarPlus className="w-4 h-4 text-[#49B7E3] flex-shrink-0" />
+                                <span className="truncate">
+                                  {captionBlocks.length === 1
+                                    ? 'Als Post uebernehmen'
+                                    : `${block.label} uebernehmen`
+                                  }
+                                </span>
+                                {block.platformHint && (
+                                  <span className="ml-auto text-[10px] text-[#7A7A7A] bg-[#F4FCFE] px-1.5 py-0.5 rounded-full flex-shrink-0">
+                                    {block.platformHint}
+                                  </span>
+                                )}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* STATE 2: Socially relevant but not post-ready — source-material */}
+                        {isSourceMaterial && (
                           <button
-                            onClick={() => setShowScheduler(!showScheduler)}
-                            className="w-full chat-ai-action-btn px-4 py-2.5 text-[#111111] text-sm font-semibold rounded-[var(--vektrus-radius-sm)] transition-all duration-200 flex items-center justify-center space-x-2"
+                            onClick={handleOpenAsSource}
+                            className="w-full chat-ai-action-btn px-4 py-2.5 text-[#111111] text-sm font-semibold rounded-[var(--vektrus-radius-sm)] transition-all duration-200 flex items-center space-x-2 mb-3"
                           >
-                            <CalendarPlus className="w-4 h-4 text-[#49B7E3]" />
-                            <span>In Contentplan übernehmen</span>
+                            <FileText className="w-4 h-4 text-[#49B7E3] flex-shrink-0" />
+                            <span>Als Grundlage oeffnen</span>
                           </button>
-                          <button
-                            onClick={() => setShowImageModal(true)}
-                            className="w-full group relative chat-ai-action-btn px-4 py-2.5 text-[var(--vektrus-ai-violet)] text-sm font-semibold rounded-[var(--vektrus-radius-sm)] transition-all duration-200 flex items-center justify-center space-x-2"
-                          >
-                            <Sparkles className="w-4 h-4 group-hover:animate-pulse" />
-                            <span>Bild zum Posting erstellen</span>
-                            <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-[#49D69E] text-white text-[10px] font-bold rounded-full shadow-sm">
-                              NEU
-                            </span>
-                          </button>
-                        </div>
+                        )}
+
+                        {/* Image generation button */}
+                        <button
+                          onClick={() => setShowImageModal(true)}
+                          className="w-full group relative chat-ai-action-btn px-4 py-2.5 text-[var(--vektrus-ai-violet)] text-sm font-semibold rounded-[var(--vektrus-radius-sm)] transition-all duration-200 flex items-center justify-center space-x-2"
+                        >
+                          <Sparkles className="w-4 h-4 group-hover:animate-pulse" />
+                          <span>Bild zum Posting erstellen</span>
+                          <span className="absolute -top-1 -right-1 px-1.5 py-0.5 bg-[#49D69E] text-white text-[10px] font-bold rounded-full shadow-sm">
+                            NEU
+                          </span>
+                        </button>
                       </div>
                     )}
 
@@ -212,12 +377,15 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ message, onActionClick, onRetry
                 </div>
               )}
 
-              {/* Content Planner Scheduler Modal */}
-              {showScheduler && (
-                <ContentplanScheduler
-                  message={message.content}
-                  onClose={() => setShowScheduler(false)}
-                  onSuccess={() => setShowScheduler(false)}
+              {/* New Composer Modal — Chat to Planner Handoff */}
+              {showComposer && composerSlot && (
+                <ContentSlotEditor
+                  slot={composerSlot}
+                  onUpdate={handleComposerSave}
+                  onClose={() => {
+                    setShowComposer(false);
+                    setComposerSlot(null);
+                  }}
                 />
               )}
 
@@ -245,27 +413,12 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ message, onActionClick, onRetry
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-semibold text-[#111111]">Bild erfolgreich generiert!</p>
-                      <p className="text-xs text-[#7A7A7A] mt-0.5">Das Bild wurde zu deinem Post hinzugefügt.</p>
+                      <p className="text-xs text-[#7A7A7A] mt-0.5">Das Bild wurde zu deinem Post hinzugefuegt.</p>
                     </div>
                   </div>
                 </div>
               )}
 
-              {/* Content Planner Modal */}
-              {showPlannerModal && contentSlot && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                  <div className="w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-                    <ContentSlotEditor
-                      slot={contentSlot}
-                      onUpdate={(updatedSlot) => {
-                        console.log('Content saved:', updatedSlot);
-                        setShowPlannerModal(false);
-                      }}
-                      onClose={() => setShowPlannerModal(false)}
-                    />
-                  </div>
-                </div>
-              )}
               </div>
           </div>
         )}

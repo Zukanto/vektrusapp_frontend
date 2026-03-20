@@ -46,6 +46,8 @@ export interface ContentSlot {
   estimatedEngagement?: 'low' | 'medium' | 'high';
   reasoning?: string;
   emojiSuggestions?: string[];
+  /** Source material from chat (not post-ready yet, needs transformation) */
+  sourceMaterial?: string;
 }
 
 export interface PlannerContext {

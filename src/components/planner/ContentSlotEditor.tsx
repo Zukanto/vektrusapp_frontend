@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { X, Save, Copy, Wand2, Clock, Hash, Image, Type, Zap, MessageSquare, Upload, Sparkles, Check, Send, ChevronDown, CalendarClock, AlertCircle, Loader2, FileText, BookOpen, Film, Layers, Briefcase, Smile, GraduationCap } from 'lucide-react';
+import { X, Save, Copy, Wand2, Clock, Hash, Image, Type, Zap, MessageSquare, Upload, Sparkles, Check, Send, ChevronDown, CalendarClock, AlertCircle, Loader2, FileText, BookOpen, Film, Layers, Briefcase, Smile, GraduationCap, ArrowRight } from 'lucide-react';
 import { ContentSlot } from './types';
 import AiImageGenerationModal from './AiImageGenerationModal';
 import AIRewritePanel from './AIRewritePanel';
@@ -68,6 +68,8 @@ const ContentSlotEditor: React.FC<ContentSlotEditorProps> = ({ slot, onUpdate, o
   const [uploadProgress, setUploadProgress] = useState(0);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [isTransformingSource, setIsTransformingSource] = useState(false);
+  const [showSourcePanel, setShowSourcePanel] = useState(!!slot.sourceMaterial);
   const initialSlotRef = useRef(slot);
   const postDropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -449,7 +451,7 @@ const ContentSlotEditor: React.FC<ContentSlotEditorProps> = ({ slot, onUpdate, o
 
   // ── Status & layout helpers ──
 
-  const isNewPost = editedSlot.id.startsWith('temp-');
+  const isNewPost = editedSlot.id.startsWith('temp-') || editedSlot.id.startsWith('chat-');
 
   const getStatusLabel = (status: string) => {
     const labels: Record<string, string> = {
@@ -554,6 +556,56 @@ const ContentSlotEditor: React.FC<ContentSlotEditorProps> = ({ slot, onUpdate, o
 
   const isContentEmpty = currentCharCount === 0;
 
+  // Source-material mode: content was passed from chat as raw material, not as a finished caption
+  const isSourceMode = !!editedSlot.sourceMaterial && showSourcePanel;
+
+  // Transform source material into post content via AI simulation
+  // Uses the same pattern as AIRewritePanel's simulateAIRewrite but focused on caption generation
+  const handleTransformSource = useCallback(async () => {
+    if (!editedSlot.sourceMaterial) return;
+    setIsTransformingSource(true);
+
+    try {
+      // Import the same AI rewrite service used by the existing rewrite panel
+      const { simulateAIRewrite } = await import('../../services/plannerDemoContent');
+      const result = await simulateAIRewrite(
+        editedSlot.sourceMaterial,
+        'professional',
+        undefined
+      );
+
+      // Extract hashtags from the result if present
+      const hashtagMatches = result.match(/#(\w+)/g) || [];
+      const extractedHashtags = hashtagMatches.map((h: string) => h.replace(/^#/, ''));
+      const bodyWithoutHashtags = result.replace(/\s*(?:#\w+[\s,]*)+\s*$/, '').trim();
+
+      setEditedSlot(prev => ({
+        ...prev,
+        body: bodyWithoutHashtags,
+        content: bodyWithoutHashtags,
+        hashtags: extractedHashtags.length > 0 ? extractedHashtags : prev.hashtags,
+        title: prev.title || 'Neuer Post',
+      }));
+
+      addToast({
+        type: 'success',
+        title: 'Posting erstellt',
+        description: 'Die Grundlage wurde in Post-Inhalt umgewandelt.',
+        duration: 3000,
+      });
+    } catch (err) {
+      console.error('Source transform error:', err);
+      addToast({
+        type: 'error',
+        title: 'Fehler',
+        description: 'Konnte die Grundlage nicht umwandeln. Bitte versuche es erneut.',
+        duration: 3000,
+      });
+    } finally {
+      setIsTransformingSource(false);
+    }
+  }, [editedSlot.sourceMaterial, addToast]);
+
   // Platform data for compact chips
   const platformOptions = [
     { id: 'instagram', label: 'Instagram', icon: (
@@ -616,10 +668,10 @@ const ContentSlotEditor: React.FC<ContentSlotEditorProps> = ({ slot, onUpdate, o
                 </div>
                 <div className="min-w-0">
                   <h2 className="text-lg font-bold text-[#111111] font-manrope leading-tight">
-                    {isNewPost ? 'Neuen Post erstellen' : 'Post bearbeiten'}
+                    {isSourceMode ? 'Post aus Grundlage erstellen' : isNewPost ? 'Neuen Post erstellen' : 'Post bearbeiten'}
                   </h2>
                   <p className="text-xs text-[#7A7A7A] leading-tight mt-0.5 truncate">
-                    {isNewPost ? 'Erstelle und plane deinen Post' : editedSlot.title}
+                    {isSourceMode ? 'Diese Antwort wurde als Grundlage aus dem Chat uebernommen.' : isNewPost ? 'Erstelle und plane deinen Post' : editedSlot.title}
                   </p>
                 </div>
                 <span className={`ml-1 px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap flex-shrink-0 ${getStatusColor(editedSlot.status)}`}>
@@ -720,6 +772,56 @@ const ContentSlotEditor: React.FC<ContentSlotEditorProps> = ({ slot, onUpdate, o
                 />
               </div>
 
+              {/* Source Material Panel — shown when composer opened from chat as source */}
+              {isSourceMode && editedSlot.sourceMaterial && (
+                <div className="rounded-[var(--vektrus-radius-md)] border border-[rgba(73,183,227,0.20)] bg-[#F4FCFE] overflow-hidden">
+                  <div className="px-4 py-3 border-b border-[rgba(73,183,227,0.12)] flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-3.5 h-3.5 text-[#49B7E3]" />
+                      <span className="text-xs font-semibold text-[#111111]">Grundlage aus dem Chat</span>
+                    </div>
+                    <button
+                      onClick={() => setShowSourcePanel(false)}
+                      className="text-[10px] font-medium text-[#7A7A7A] hover:text-[#111111] px-2 py-0.5 rounded-[var(--vektrus-radius-sm)] hover:bg-white/60 transition-colors"
+                    >
+                      Ausblenden
+                    </button>
+                  </div>
+                  <div className="px-4 py-3 max-h-[180px] overflow-y-auto">
+                    <p className="text-xs text-[#374151] leading-relaxed whitespace-pre-wrap">
+                      {editedSlot.sourceMaterial.length > 1200
+                        ? editedSlot.sourceMaterial.substring(0, 1200) + '...'
+                        : editedSlot.sourceMaterial
+                      }
+                    </p>
+                  </div>
+                  <div className="px-4 py-3 border-t border-[rgba(73,183,227,0.12)] bg-white/50">
+                    <button
+                      onClick={handleTransformSource}
+                      disabled={isTransformingSource}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-[var(--vektrus-radius-sm)] text-sm font-semibold text-white transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-60"
+                      style={{ background: 'var(--vektrus-ai-violet)' }}
+                    >
+                      {isTransformingSource ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span>Wird umgewandelt...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 className="w-4 h-4" />
+                          <span>Posting ready machen</span>
+                          <ArrowRight className="w-3.5 h-3.5" />
+                        </>
+                      )}
+                    </button>
+                    <p className="text-[10px] text-[#AAAAAA] text-center mt-2">
+                      Die KI erstellt daraus Caption, Hashtags und CTA.
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* Content Editor */}
               <div>
                 <div className="flex items-center justify-between mb-2.5">
@@ -781,8 +883,8 @@ const ContentSlotEditor: React.FC<ContentSlotEditorProps> = ({ slot, onUpdate, o
                   </div>
                 )}
 
-                {/* Smart empty state + Textarea */}
-                {isContentEmpty && (
+                {/* Smart empty state + Textarea (suppressed in source mode — user should use "Posting ready machen") */}
+                {isContentEmpty && !isSourceMode && (
                   <div className="mb-3 p-4 bg-[#FAFEFF] rounded-[var(--vektrus-radius-md)] border border-[rgba(73,183,227,0.12)]">
                     <div className="flex items-center gap-2 mb-3">
                       <Sparkles className="w-3.5 h-3.5 text-[var(--vektrus-ai-violet)]" />

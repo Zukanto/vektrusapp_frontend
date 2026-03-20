@@ -309,7 +309,15 @@ const DemoChatContainer: React.FC<DemoChatContainerProps> = ({ onModuleChange })
                 )}
               </div>
             ) : (
-              messages.map(msg => <ChatBubble key={msg.id} message={msg} onActionClick={() => {}} onRetry={handleRetry} />)
+              messages.map((msg, idx) => {
+                let prevUserMsg: string | undefined;
+                if (msg.type === 'ai') {
+                  for (let pi = idx - 1; pi >= 0; pi--) {
+                    if (messages[pi].type === 'user') { prevUserMsg = messages[pi].content; break; }
+                  }
+                }
+                return <ChatBubble key={msg.id} message={msg} onActionClick={() => {}} onRetry={handleRetry} previousUserMessage={prevUserMsg} />;
+              })
             )}
             <VektrusLoadingBubble isVisible={isTyping} />
             <div ref={messagesEndRef} />
