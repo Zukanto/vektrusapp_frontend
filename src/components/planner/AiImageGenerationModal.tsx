@@ -260,7 +260,7 @@ const AiImageGenerationModal: React.FC<AiImageGenerationModalProps> = ({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[600] p-4">
         <div className="bg-white rounded-[var(--vektrus-radius-lg)] w-full max-w-[580px] max-h-[92vh] flex flex-col shadow-modal overflow-hidden">
 
           {/* ── Header ── */}

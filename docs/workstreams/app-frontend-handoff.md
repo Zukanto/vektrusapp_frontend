@@ -1,7 +1,228 @@
 # Vektrus App Frontend — Handoff für den nächsten Chat
 
-**Stand:** 2026-03-19
-**Kontext:** AP-01 bis AP-08 vollständig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik.
+**Stand:** 2026-03-20
+**Kontext:** AP-01 bis AP-08 vollständig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik. **Posting Popup Redesign Phase 1 + Phase 2 + QA Pass abgeschlossen.**
+
+---
+
+## Posting Popup / Composer Modal — QA + Stabilization Pass (Abschluss)
+
+**Stand:** 2026-03-20
+
+### QA Ergebnis
+
+Alle 6 QA-Bereiche geprueft. **Keine Defekte gefunden.** Alle Flows funktional korrekt.
+
+| Bereich | Ergebnis |
+|---------|----------|
+| Unsaved-Changes Protection | Korrekt. Alle 3 Close-Pfade (Backdrop, X, Cancel) pruefen. Dialog zeigt 3 Optionen. Kein False Positive. |
+| Save / Publish / Schedule | Kein Regression. handleSave, handlePost(true/false), Statusupdates identisch. |
+| Media Upload (Click + D&D) | Korrekt. processFileUpload wird von beiden Pfaden genutzt. Validierungen aktiv. Drag-State resettet korrekt. |
+| Layout / Responsiveness | Kein Overflow, kein Scroll-Trap. Two-Column + Mobile-Stack funktional. |
+| Preview | Reaktiv auf alle Felder (Text, Titel, Media, Hashtags, CTA, Tone, ContentType). |
+| Hierarchie / Calmness | Kein CTA-Wettbewerb. AI-Support ruhig positioniert. |
+
+### Ausgefuehrter Mini-Fix: Dead Code Cleanup
+
+Entfernt:
+- Unused Lucide imports: `Trash2`, `RefreshCw`, `Palette`, `ExternalLink`
+- Unused component import: `MediaDetailSidebar`
+- Unused hook: `useModuleColors` (+ `plannerColors` Variable)
+- Dead state: `aiSuggestions`, `showAiOptions`, `isVideoPlaying` (Relikte der alten Tab-UI und pre-Phase-2 AI Suggestions)
+- Dead functions: `handleAIEnhance`, `enhanceContentWithAI`, `generateAISuggestions`
+- Dead effect: `useEffect(() => generateAISuggestions(), [editedSlot.platform])`
+
+Bundle-Reduktion: ~360 Bytes (1,884.79 → 1,884.43 KB gzipped)
+
+### Workstream-Status
+
+**Posting Popup Workstream ist fuer den aktuellen Scope abgeschlossen.**
+
+Phasen-Zusammenfassung:
+- Phase 1: Two-Column Composer Workspace (struktureller Umbau)
+- Phase 2: Unsaved-Changes, Smart Empty State, Fake Controls entfernt, Preview verbessert, Best-Time ehrlich, Drag & Drop
+- QA Pass: Keine Defekte, Dead Code Cleanup
+
+### Optionale zukuenftige Verbesserungen (kein offener Workstream)
+
+Diese sind nicht blockierend und gehoeren nicht zum aktuellen Scope:
+- Plattformspezifische Preview-Frames (Instagram Square, LinkedIn Landscape)
+- Multi-Platform Preview Tabs
+- Inline AI Toolbar (Umschreiben/Kuerzen/Hashtags als kontextuelle Aktionen)
+- Analytics-basierte Best-Time Empfehlung
+- Content-Ideen aus Brand-Profil/Analytics statt statischer Vorschlaege
+- "Text aus Bild generieren" Smart Action
+- Version History UI Verbesserung
+
+---
+
+## Posting Popup / Composer Modal — Phase 2 Refinement + Corrective Pass
+
+**Stand:** 2026-03-20
+
+### Umgesetzte Prioritaeten
+
+**P1 — Unsaved-Changes Protection:**
+- `hasUnsavedChanges` erkennt Aenderungen an: title, body, content, platform, time, date, contentType, tone, cta, hashtags, media, pillar, funnelStage, targetAudience
+- Backdrop-Click, Close-Button, Cancel-Button loesen jetzt `handleCloseAttempt()` aus
+- Confirmation-Dialog mit 3 Optionen: "Zurueck" / "Verwerfen" / "Entwurf speichern"
+- Dialog ist visuell ruhig (kein Vollbild-Overlay, zentriertes Panel mit Warning-Icon)
+- `initialSlotRef` speichert den Ausgangszustand beim Oeffnen
+
+**P2 — Smart Empty State:**
+- Wenn Text leer ist, erscheinen plattformspezifische Content-Ideen oberhalb der Textarea
+- 3 Ideen pro Plattform (Instagram, LinkedIn, TikTok, Facebook, Twitter/X)
+- Jede Idee hat Label + Textvorschlag
+- Klick auf Idee fuellt die Textarea — Empty State verschwindet automatisch
+- Textarea wird auf 3 Zeilen verkleinert wenn leer, 5 Zeilen wenn gefuellt
+- Placeholder-Text passt sich an (Hinweis auf Ideen wenn leer)
+- Keine Backend-Abhaengigkeit — alles clientseitig
+
+**P3 — Fake Controls entfernt:**
+- Carousel "Slide-Ueberschriften" Input (war nicht an State gebunden) — entfernt
+- Reel "Hook-Titel" + "Dauer" Controls (waren nicht an State gebunden) — entfernt
+- Format-Chips (Post/Story/Reel/Carousel) bleiben — diese sind korrekt funktional
+
+**P4 — Preview verbessert:**
+- Platform-Icon im Preview-Header (zeigt das echte Plattform-Logo)
+- Leerer Media-Zustand zeigt dezenten Placeholder statt nichts
+- Titel wird im Preview angezeigt (wenn vorhanden)
+- CTA wird im Preview angezeigt (wenn gesetzt)
+- Interaction-Bar am unteren Rand (Heart, Comment, Share, Bookmark Icons)
+- Content-Type Badge und Tone unterhalb der Preview-Karte
+- line-clamp von 5 auf 6 erweitert
+
+**P5 — Best-Time Empfehlung ehrlich formuliert:**
+- "Empfohlen: 18:00 Uhr" (assertiv) → "18:00 Uhr uebernehmen" + "Oft ein guter Zeitpunkt fuer Engagement" (transparent)
+- Visuell als neutraler Tipp gestaltet (F4FCFE Background, Clock-Icon statt Zap)
+- Kein Anspruch auf datenbasierte Intelligenz
+
+**P6 — Drag & Drop fuer Media Upload:**
+- `onDragOver`, `onDragLeave`, `onDrop` Event-Handler auf der Upload-Zone
+- `isDragging` State fuer visuelles Feedback (blaue Border + Hintergrund + "Datei hier ablegen")
+- `processFileUpload()` extrahiert aus `handleFileUpload()` — wird von beiden Input und Drop genutzt
+- Alle bestehenden Validierungen (Dateityp, Video-Groesse, Video-Dauer, Typ-Konflikte) bleiben aktiv
+
+### Geaenderte Datei
+
+1. `src/components/planner/ContentSlotEditor.tsx` — Alle 6 Prioritaeten in einer Datei
+
+### Nicht geaendert
+
+- Alle anderen Dateien (ContentPlanner, AIRewritePanel, AiImageGenerationModal, types, Services)
+- Keine Parent-Aenderungen
+- Keine neuen Dateien
+
+### Erhaltene Logik
+
+- Save/Publish/Schedule Flows: identisch
+- Media Upload via Supabase: identisch (processFileUpload extrahiert, aber selbe Logik)
+- AI Rewrite/Image Triggers: identisch
+- Account Connection Check: identisch
+
+### Verbleibende Phasen
+
+**Phase 3 (offen):**
+- Live Preview Component mit plattformspezifischen Frames (realistischeres Rendering)
+- "Text aus Bild generieren" Smart Action
+- Multi-Platform Preview Tabs (wenn mehrere Plattformen gewaehlt)
+- Inline AI Toolbar (Umschreiben, Kuerzen, Hashtags als kontextuelle Inline-Aktionen)
+- Version History UI Verbesserung
+- Content-Ideen aus echten Analytics/Brand-Daten statt statischer Vorschlaege
+- Echte Best-Time-Empfehlung aus Analytics-Daten
+
+---
+
+## Posting Popup / Composer Modal Redesign — Phase 1 Umgesetzt
+
+**Stand:** 2026-03-20
+
+### Problem
+
+ContentSlotEditor war ein schmales Single-Column-Modal (max-w-2xl, ~672px) mit 3 Tabs (Inhalt, Medien, Optionen). Die Erfahrung fuehlte sich wie ein "langes Formular mit Tabs" an — keine sofortige visuelle Rueckmeldung, kein Preview, redundante Felder (Datum/Zeit doppelt in Content + Options Tab), fragmentierter Workflow.
+
+### Loesung — Phase 1: Struktureller Umbau
+
+ContentSlotEditor wurde zu einem breiten Two-Column Composer Workspace umgebaut:
+
+**Modal Shell:**
+- `max-w-5xl` (~1024px) statt `max-w-2xl` (~672px)
+- `max-h-[92vh]` fuer optimale Bildschirmnutzung
+- Tabs komplett entfernt — alle Inhalte sichtbar in zwei Spalten
+
+**Header:**
+- Dynamischer Titel: "Neuen Post erstellen" vs "Post bearbeiten"
+- Status-Badge (Entwurf / Geplant / Veroeffentlicht / Fehlgeschlagen)
+- Kompakter Untertitel mit Post-Titel oder Kontext-Info
+
+**Linke Spalte — Composer (flex-1):**
+- Plattform-Chips (kompakte horizontale Reihe statt 2x2 Grid)
+- Format-Chips (Post/Story/Reel/Carousel als kompakte Pills)
+- Titel-Input
+- Content-Textarea mit plattformspezifischem Zeichenzaehler (z.B. 280 fuer Twitter)
+- KI-Umschreiben Button (AI Violet)
+- Pulse-Post Vorschau (wenn source=pulse)
+- KI-Vorschlaege (collapsible)
+- Hashtags mit KI-Generierung
+- Media-Zone: Upload-Dropzone, Hochladen/KI-Bild/Mediathek Buttons
+
+**Rechte Spalte — Preview + Controls (380px):**
+- Live-Vorschau: Social-Post-Frame mit Account-Header, Media, Text, Hashtags
+- Zeitplanung: Datum + Uhrzeit + "Empfohlen: 18:00 Uhr" Quick-Pick
+- Tonalitaet (2x2 kompaktes Grid)
+- Call-to-Action Dropdown
+- Strategie-Kontext: Content-Pillar, Funnel-Stufe, Zielgruppe
+- Content Score (wenn vorhanden)
+- Versionshistorie (wenn vorhanden)
+
+**Footer — Neue Action-Hierarchie:**
+- Abbrechen (sekundaer)
+- Entwurf speichern (sekundaer mit Border)
+- Planen (primaer, Vektrus Blue) mit Dropdown: "Jetzt veroeffentlichen" + "Zum Zeitpunkt planen"
+- Account-Warnung bei nicht verbundenem Account
+
+**Responsive:**
+- `flex flex-col md:flex-row` — auf Mobile werden Spalten gestapelt
+- Rechte Spalte wird unterhalb der linken Spalte angezeigt
+
+### Geaenderte Dateien
+
+1. `src/components/planner/ContentSlotEditor.tsx` — Kompletter Render-Umbau (Tab-System entfernt, Two-Column Layout, neue Header/Footer)
+
+### Nicht geaendert
+
+- `ContentPlanner.tsx` — Keine Aenderungen, alle Props und Callbacks identisch
+- `AIRewritePanel.tsx` — Unveraendert, wird als Overlay eingebunden
+- `AiImageGenerationModal.tsx` — Unveraendert, wird als Overlay eingebunden
+- `types.ts` — Keine Aenderungen an ContentSlot
+- `CalendarService`, `socialPostingService` — Keine Aenderungen
+
+### Erhaltene Logik (keine Aenderungen)
+
+- Save/Update Flow (`handleSave` → `onUpdate`)
+- Publish/Schedule Flow (`handlePost` → `postToSocialMedia`)
+- Status Change Flow (`onPostStatusChange`)
+- Media Upload (`handleFileUpload` → Supabase Storage)
+- AI Image Generation Trigger
+- AI Rewrite Trigger
+- Media Library Selection
+- Account Connection Check
+- Post Dropdown Behavior
+
+### Verbleibende Phasen
+
+**Phase 2 (offen):**
+- Live Preview Component (plattformspezifische Frames mit realistischerem Rendering)
+- Smart Empty State mit KI-Ideen-Generierung
+- Inline AI Toolbar (Umschreiben, Kuerzen, Hashtags als Inline-Aktionen)
+- Best-Time Empfehlung (aus echten Analytics-Daten)
+- Unsaved-Changes Protection Dialog
+
+**Phase 3 (offen):**
+- "Text aus Bild generieren" Smart Action
+- Multi-Platform Preview Tabs
+- Version History UI Verbesserung
+- Drag & Drop Media Zone Upgrade
 
 ---
 
