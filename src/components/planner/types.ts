@@ -48,6 +48,8 @@ export interface ContentSlot {
   emojiSuggestions?: string[];
   /** Source material from chat (not post-ready yet, needs transformation) */
   sourceMaterial?: string;
+  /** ID of the pulse_generated_content record created by the chat-to-post webhook */
+  contentRecordId?: string;
 }
 
 export interface PlannerContext {

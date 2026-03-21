@@ -559,32 +559,68 @@ const ContentSlotEditor: React.FC<ContentSlotEditorProps> = ({ slot, onUpdate, o
   // Source-material mode: content was passed from chat as raw material, not as a finished caption
   const isSourceMode = !!editedSlot.sourceMaterial && showSourcePanel;
 
-  // Transform source material into post content via AI simulation
-  // Uses the same pattern as AIRewritePanel's simulateAIRewrite but focused on caption generation
+  // Transform source material into post content via n8n webhook (vektrus-chat-to-post)
   const handleTransformSource = useCallback(async () => {
     if (!editedSlot.sourceMaterial) return;
     setIsTransformingSource(true);
 
     try {
-      // Import the same AI rewrite service used by the existing rewrite panel
-      const { simulateAIRewrite } = await import('../../services/plannerDemoContent');
-      const result = await simulateAIRewrite(
-        editedSlot.sourceMaterial,
-        'professional',
-        undefined
-      );
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('Nicht eingeloggt.');
+      }
+
+      // Build scheduled_date from editedSlot.date + editedSlot.time
+      let scheduledDate: string | undefined;
+      if (editedSlot.date) {
+        const d = editedSlot.date instanceof Date ? editedSlot.date : new Date(editedSlot.date);
+        if (editedSlot.time) {
+          const [hours, minutes] = editedSlot.time.split(':').map(Number);
+          d.setHours(hours, minutes, 0, 0);
+        }
+        scheduledDate = d.toISOString();
+      }
+
+      const response = await fetch('https://n8n.vektrus.ai/webhook/vektrus-chat-to-post', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          user_id: session.user.id,
+          chat_text: editedSlot.sourceMaterial,
+          platform: (editedSlot.platform || 'instagram').toLowerCase(),
+          scheduled_date: scheduledDate,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.message || 'Webhook-Fehler');
+      }
+
+      const updatedContent = result.updated_content;
+      const primaryText = updatedContent?.primary_text || '';
 
       // Extract hashtags from the result if present
-      const hashtagMatches = result.match(/#(\w+)/g) || [];
+      const hashtagMatches = primaryText.match(/#(\w+)/g) || [];
       const extractedHashtags = hashtagMatches.map((h: string) => h.replace(/^#/, ''));
-      const bodyWithoutHashtags = result.replace(/\s*(?:#\w+[\s,]*)+\s*$/, '').trim();
+      const bodyWithoutHashtags = primaryText.replace(/\s*(?:#\w+[\s,]*)+\s*$/, '').trim();
+
+      // Use hashtags from structured response if available, otherwise extract from text
+      const finalHashtags = updatedContent?.hashtags?.length
+        ? updatedContent.hashtags.map((h: string) => h.replace(/^#/, ''))
+        : extractedHashtags;
 
       setEditedSlot(prev => ({
         ...prev,
         body: bodyWithoutHashtags,
         content: bodyWithoutHashtags,
-        hashtags: extractedHashtags.length > 0 ? extractedHashtags : prev.hashtags,
+        hashtags: finalHashtags.length > 0 ? finalHashtags : prev.hashtags,
         title: prev.title || 'Neuer Post',
+        contentRecordId: result.content_record_id || prev.contentRecordId,
       }));
 
       addToast({
@@ -597,14 +633,14 @@ const ContentSlotEditor: React.FC<ContentSlotEditorProps> = ({ slot, onUpdate, o
       console.error('Source transform error:', err);
       addToast({
         type: 'error',
-        title: 'Fehler',
-        description: 'Konnte die Grundlage nicht umwandeln. Bitte versuche es erneut.',
+        title: 'Post konnte nicht erstellt werden',
+        description: 'Bitte versuche es erneut.',
         duration: 3000,
       });
     } finally {
       setIsTransformingSource(false);
     }
-  }, [editedSlot.sourceMaterial, addToast]);
+  }, [editedSlot.sourceMaterial, editedSlot.platform, editedSlot.date, editedSlot.time, addToast]);
 
   // Platform data for compact chips
   const platformOptions = [
@@ -805,7 +841,7 @@ const ContentSlotEditor: React.FC<ContentSlotEditorProps> = ({ slot, onUpdate, o
                       {isTransformingSource ? (
                         <>
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Wird umgewandelt...</span>
+                          <span>Wird erstellt...</span>
                         </>
                       ) : (
                         <>
