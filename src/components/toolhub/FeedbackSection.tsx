@@ -160,7 +160,7 @@ export const FeedbackSection: React.FC = () => {
         <h2 className="text-2xl font-semibold text-[#111111]">Feedback & Probleme</h2>
       </div>
       <p className="text-sm text-[#7A7A7A] text-center mb-6">
-        Melde Bugs, wünsche dir Features -- und vote fuer Probleme die du auch hast.
+        Melde Bugs, wünsche dir Features -- und vote für Probleme die du auch hast.
       </p>
 
       <div className="flex items-center justify-between mb-4">

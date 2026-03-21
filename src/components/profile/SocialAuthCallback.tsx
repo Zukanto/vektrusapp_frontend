@@ -110,7 +110,7 @@ const SocialAuthCallback: React.FC = () => {
               </p>
             )}
             <p className="text-sm text-[#7A7A7A]">
-              Dieses Fenster schliesst sich automatisch...
+              Dieses Fenster schließt sich automatisch...
             </p>
           </>
         )}

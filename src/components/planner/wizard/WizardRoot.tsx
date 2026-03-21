@@ -423,7 +423,7 @@ const WizardRoot: React.FC<WizardRootProps> = ({ onComplete, onClose }) => {
                 className="flex items-center space-x-2 text-sm text-[#7A7A7A] hover:text-[#111111] transition-colors"
               >
                 <ArrowLeft className="w-4 h-4" />
-                <span>{currentStep === 0 ? (pulse.initialMode ? 'Schliessen' : 'Zur\u00fcck zur Auswahl') : 'Zur\u00fcck'}</span>
+                <span>{currentStep === 0 ? (pulse.initialMode ? 'Schließen' : 'Zur\u00fcck zur Auswahl') : 'Zur\u00fcck'}</span>
               </button>
 
               {currentStep < 3 ? (

@@ -627,7 +627,7 @@ const ContentPlanner: React.FC = () => {
           <BetaHint
             type="demo"
             title="Auto-Posting in Entwicklung"
-            description="Du kannst deine Posts planen und vorbereiten -- die automatische Veroeffentlichung auf Instagram, LinkedIn und Facebook wird in Kürze verfügbar sein."
+            description="Du kannst deine Posts planen und vorbereiten -- die automatische Veröffentlichung auf Instagram, LinkedIn und Facebook wird in Kürze verfügbar sein."
             dismissable
             storageKey="planner-auto-posting-hint"
           />

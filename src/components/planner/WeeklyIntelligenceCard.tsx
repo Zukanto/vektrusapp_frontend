@@ -76,7 +76,7 @@ function analyzeWeek(weekSlots: ContentSlot[], context: PlannerContext): GapInsi
       severity: gap >= 3 ? 'high' : gap >= 2 ? 'medium' : 'low',
       label: `${gap} Posts fehlen`,
       detail: `${actual} von ${recommended} geplant`,
-      actionLabel: 'Mit Pulse fuellen',
+      actionLabel: 'Mit Pulse füllen',
       actionType: 'fillGaps',
     });
   }
@@ -97,7 +97,7 @@ function analyzeWeek(weekSlots: ContentSlot[], context: PlannerContext): GapInsi
         type: 'platform_gap',
         severity: 'medium',
         label: `${emptyPlatforms[0]} noch ohne Content`,
-        detail: goalLabel ? `Fuer dein ${goalLabel}-Ziel empfohlen` : `Kein Content diese Woche`,
+        detail: goalLabel ? `Für dein ${goalLabel}-Ziel empfohlen` : `Kein Content diese Woche`,
         actionLabel: 'Generieren',
         actionType: 'fillGaps',
       });
@@ -175,7 +175,7 @@ function analyzeWeek(weekSlots: ContentSlot[], context: PlannerContext): GapInsi
         type: 'funnel_gap',
         severity: 'low',
         label: 'Kein Bottom-Funnel',
-        detail: 'Ergaenze Posts mit direktem CTA fuer Lead-Conversion',
+        detail: 'Ergänze Posts mit direktem CTA für Lead-Conversion',
       });
     }
   }
@@ -189,7 +189,7 @@ function analyzeWeek(weekSlots: ContentSlot[], context: PlannerContext): GapInsi
         severity: 'low',
         label: 'Reels/Carousels fehlen',
         detail: 'Interaktive Formate erzeugen mehr Engagement',
-        actionLabel: 'Mit Pulse fuellen',
+        actionLabel: 'Mit Pulse füllen',
         actionType: 'fillGaps',
       });
     }
@@ -202,7 +202,7 @@ function analyzeWeek(weekSlots: ContentSlot[], context: PlannerContext): GapInsi
         type: 'platform_gap',
         severity: 'medium',
         label: 'Nur 1 Plattform bespielt',
-        detail: 'Fuer Reichweite lohnt sich Multi-Plattform-Praesenz',
+        detail: 'Für Reichweite lohnt sich Multi-Plattform-Präsenz',
         actionLabel: 'Generieren',
         actionType: 'fillGaps',
       });
@@ -216,8 +216,8 @@ function analyzeWeek(weekSlots: ContentSlot[], context: PlannerContext): GapInsi
         type: 'pillar_imbalance',
         severity: 'medium',
         label: 'Kein Promotional Content',
-        detail: 'Fuer Sales-Ziele braucht es mindestens 1 Promotional Post',
-        actionLabel: 'Mit Pulse fuellen',
+        detail: 'Für Sales-Ziele braucht es mindestens 1 Promotional Post',
+        actionLabel: 'Mit Pulse füllen',
         actionType: 'fillGaps',
       });
     }

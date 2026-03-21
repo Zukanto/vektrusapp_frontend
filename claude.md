@@ -422,6 +422,18 @@ The Vektrus product voice inside the app should feel:
 - product-led
 - useful
 
+### German spelling in user-facing copy
+
+All user-facing German text must use proper German spelling with real umlauts and Eszett:
+
+- Use `ä`, `ö`, `ü`, `Ä`, `Ö`, `Ü` — never ASCII transliterations like `ae`, `oe`, `ue`
+- Use `ß` where correct German spelling requires it — never `ss` as a substitute (e.g. `schließen` not `schliessen`, `Größe` not `Groesse`)
+- This applies to: button labels, modal titles, descriptions, helper texts, toasts, empty states, status texts, dropdown labels, placeholders, and any other text visible to users
+
+Do **not** change technical identifiers, object keys, API fields, route params, file names, CSS classes, enum values, or any machine-readable string. Those may remain ASCII-only.
+
+If a technical constraint forces ASCII in a specific context, keep the ASCII value out of user-facing copy by using a separate display string.
+
 ---
 
 ## What Not To Do

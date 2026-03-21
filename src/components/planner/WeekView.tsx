@@ -699,7 +699,7 @@ const WeekView: React.FC<WeekViewProps> = ({
                                 Empfohlen
                               </span>
                               <span className="text-[9px] text-[#7A7A7A] mt-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
-                                Mit Pulse fuellen
+                                Mit Pulse füllen
                               </span>
                             </button>
                           );

@@ -73,7 +73,7 @@ const emptyBriefing: BriefingData = {
   status: 'okay',
   statusLabel: 'Wird eingerichtet',
   weekLabel: '',
-  text: 'Dein Dashboard wird gerade eingerichtet. Deine Analytics-Daten werden innerhalb von 24 Stunden verfuegbar sein. In der Zwischenzeit kannst du den Chat nutzen oder deinen ersten Content-Plan erstellen.',
+  text: 'Dein Dashboard wird gerade eingerichtet. Deine Analytics-Daten werden innerhalb von 24 Stunden verfügbar sein. In der Zwischenzeit kannst du den Chat nutzen oder deinen ersten Content-Plan erstellen.',
   updatedAt: '',
   kpis: {
     reach: { value: '\u2013', trend: '', direction: 'neutral' },
@@ -85,7 +85,7 @@ const emptyBriefing: BriefingData = {
 
 const emptyNextSteps: NextStep[] = [
   { icon: 'Zap', title: 'Content generieren', description: 'Erstelle deinen ersten Content-Plan mit KI', buttonLabel: 'Starten', route: '/pulse' },
-  { icon: 'MessageSquare', title: 'Chat oeffnen', description: 'Frag Vektrus alles ueber Social Media', buttonLabel: 'Oeffnen', route: '/chat' },
+  { icon: 'MessageSquare', title: 'Chat öffnen', description: 'Frag Vektrus alles über Social Media', buttonLabel: 'Öffnen', route: '/chat' },
   { icon: 'Link', title: 'Konten verbinden', description: 'Verbinde deine Social-Media-Accounts', buttonLabel: 'Verbinden', route: '/profile' },
 ];
 
@@ -170,7 +170,7 @@ export function useDashboardData() {
           activity.push({
             type: 'post_published',
             date: `${formatRelativeDate(d)}, ${formatTime(d)}`,
-            title: 'Post veroeffentlicht',
+            title: 'Post veröffentlicht',
             detail: ((post.content_text || '') as string).substring(0, 60) + ((post.content_text || '').length > 60 ? '...' : ''),
             platform: post.platform,
           });
@@ -182,7 +182,7 @@ export function useDashboardData() {
             type: 'content_generated',
             date: `${formatRelativeDate(d)}, ${formatTime(d)}`,
             title: 'Content erstellt',
-            detail: `Post fuer ${capitalize(item.platform || 'Social Media')}`,
+            detail: `Post für ${capitalize(item.platform || 'Social Media')}`,
             platform: item.platform,
           });
         });
@@ -209,7 +209,7 @@ export function useDashboardData() {
             title: 'Analytics ansehen',
             description: cache.analytics_count > 0
               ? `${cache.analytics_count} Posts mit Performance-Daten`
-              : 'Noch keine Analytics verfuegbar',
+              : 'Noch keine Analytics verfügbar',
             buttonLabel: 'Öffnen',
             route: '/insights',
           },

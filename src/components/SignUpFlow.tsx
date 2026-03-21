@@ -628,7 +628,7 @@ const handleStripeCheckout = async () => {
     <div className="space-y-6">
       <div className="text-center mb-8">
         <h2 className="text-2xl font-bold text-[#111111] mb-2">Fast geschafft!</h2>
-        <p className="text-[#7A7A7A]">Ueberpruefe deine Angaben und starte mit Vektrus</p>
+        <p className="text-[#7A7A7A]">Überprüfe deine Angaben und starte mit Vektrus</p>
       </div>
 
       <div className="bg-white rounded-[var(--vektrus-radius-md)] p-6 border border-[#B6EBF7] space-y-4">
@@ -710,7 +710,7 @@ const handleStripeCheckout = async () => {
               ) : (
                 <span>
                   {!HIDE_PAYMENT_STEP && currentStep === 3 && formData.paymentMethod === 'stripe' ? 'Zur Zahlung' :
-                   currentStep === 4 ? 'Setup abschliessen' : 'Weiter'}
+                   currentStep === 4 ? 'Setup abschließen' : 'Weiter'}
                 </span>
               )}
               <ArrowRight className="w-4 h-4" />

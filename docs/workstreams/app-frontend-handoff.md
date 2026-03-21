@@ -1,7 +1,51 @@
 # Vektrus App Frontend — Handoff für den nächsten Chat
 
-**Stand:** 2026-03-20
+**Stand:** 2026-03-21
 **Kontext:** AP-01 bis AP-08 vollstaendig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik. **Posting Popup Redesign Phase 1 + Phase 2 + QA Pass abgeschlossen. Chat-to-Planner Handoff V1 + Corrective Pass + QA Pass + Single-Caption Bugfix + QA + Robustness Pass + Robustness QA Pass abgeschlossen. Composer Handoff V2 (Three-State Model + Source-Material Mode) implementiert.**
+
+---
+
+## German UI Copy Consistency Pass
+
+**Stand:** 2026-03-21
+
+### Problem
+
+User-facing German strings across the app used ASCII transliterations instead of proper umlauts and Eszett. Examples: "uebernehmen" instead of "Übernehmen", "fuer" instead of "für", "schliessen" instead of "schließen". This affected button labels, descriptions, empty states, activity feed items, modal titles, and helper texts.
+
+### Fix
+
+Audited all `.tsx`/`.ts` files in `src/` for transliterated German in user-facing strings. Fixed 24 transliteration issues across 13 files. Only string literals visible to end users were changed — no technical identifiers, object keys, API fields, routes, or variable names were modified.
+
+### Geänderte Dateien
+
+| Datei | Fixes |
+|-------|-------|
+| `src/hooks/useDashboardData.ts` | `verfügbar` (x2), `öffnen`, `über`, `Öffnen`, `veröffentlicht`, `für` |
+| `src/components/Dashboard.tsx` | `für` |
+| `src/components/chat/ChatBubble.tsx` | `übernehmen` (x2), `öffnen` |
+| `src/components/pulse/PulsePage.tsx` | `für` |
+| `src/components/planner/PulseEntryModal.tsx` | `für` |
+| `src/components/planner/ContentSlotEditor.tsx` | `übernommen` |
+| `src/components/planner/WeeklyIntelligenceCard.tsx` | `Ergänze`, `für` (x3), `Präsenz`, `füllen` (x3) |
+| `src/components/planner/ContentPlanner.tsx` | `Veröffentlichung` |
+| `src/components/planner/WeekView.tsx` | `füllen` |
+| `src/components/planner/wizard/WizardRoot.tsx` | `Schließen` |
+| `src/components/SignUpFlow.tsx` | `Überprüfe`, `abschließen` |
+| `src/components/toolhub/FeedbackSection.tsx` | `für` |
+| `src/components/profile/SocialAuthCallback.tsx` | `schließt` |
+
+### Prävention
+
+A permanent German spelling rule was added to `CLAUDE.md` under "Copy and In-App Communication > German spelling in user-facing copy". This ensures future work uses proper umlauts and ß in all user-facing text.
+
+### Hinweis
+
+The handoff doc itself (`app-frontend-handoff.md`) contains transliterated German throughout (e.g., "Uebergabe", "Zustaende", "verfuegbar"). This is internal documentation and was not changed in this pass, but could be cleaned up in a future housekeeping task.
+
+### Workstream-Status
+
+**German UI Copy Consistency Pass ist abgeschlossen.**
 
 ---
 

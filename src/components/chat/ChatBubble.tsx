@@ -268,8 +268,8 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ message, onActionClick, onRetry
                                 <CalendarPlus className="w-4 h-4 text-[#49B7E3] flex-shrink-0" />
                                 <span className="truncate">
                                   {captionBlocks.length === 1
-                                    ? 'Als Post uebernehmen'
-                                    : `${block.label} uebernehmen`
+                                    ? 'Als Post übernehmen'
+                                    : `${block.label} übernehmen`
                                   }
                                 </span>
                                 {block.platformHint && (
@@ -289,7 +289,7 @@ const ChatBubble: React.FC<ChatBubbleProps> = ({ message, onActionClick, onRetry
                             className="w-full chat-ai-action-btn px-4 py-2.5 text-[#111111] text-sm font-semibold rounded-[var(--vektrus-radius-sm)] transition-all duration-200 flex items-center space-x-2 mb-3"
                           >
                             <FileText className="w-4 h-4 text-[#49B7E3] flex-shrink-0" />
-                            <span>Als Grundlage oeffnen</span>
+                            <span>Als Grundlage öffnen</span>
                           </button>
                         )}
 

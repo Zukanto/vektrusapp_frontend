@@ -707,7 +707,7 @@ const ContentSlotEditor: React.FC<ContentSlotEditorProps> = ({ slot, onUpdate, o
                     {isSourceMode ? 'Post aus Grundlage erstellen' : isNewPost ? 'Neuen Post erstellen' : 'Post bearbeiten'}
                   </h2>
                   <p className="text-xs text-[#7A7A7A] leading-tight mt-0.5 truncate">
-                    {isSourceMode ? 'Diese Antwort wurde als Grundlage aus dem Chat uebernommen.' : isNewPost ? 'Erstelle und plane deinen Post' : editedSlot.title}
+                    {isSourceMode ? 'Diese Antwort wurde als Grundlage aus dem Chat übernommen.' : isNewPost ? 'Erstelle und plane deinen Post' : editedSlot.title}
                   </p>
                 </div>
                 <span className={`ml-1 px-2.5 py-1 rounded-full text-[11px] font-bold whitespace-nowrap flex-shrink-0 ${getStatusColor(editedSlot.status)}`}>

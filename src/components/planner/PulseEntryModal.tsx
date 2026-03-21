@@ -11,7 +11,7 @@ const modes = [
     id: 'theme' as const,
     icon: PenLine,
     title: 'Themen-basiert',
-    description: 'Beschreibe dein Thema und Pulse erstellt passende Posts fuer deine Plattformen.',
+    description: 'Beschreibe dein Thema und Pulse erstellt passende Posts für deine Plattformen.',
   },
   {
     id: 'visual' as const,

@@ -106,7 +106,7 @@ const { user: authUser } = useAuth(); // Echte User-Daten
                 <BetaHint
                   type="demo"
                   title="Du siehst aktuell Demo-Daten."
-                  description="So wird dein Dashboard aussehen, wenn deine Social-Media-Konten verknüpft sind und Vektrus Live ist. Mit echten Performance-Daten, Trends und Empfehlungen fuer dein Unternehmen."
+                  description="So wird dein Dashboard aussehen, wenn deine Social-Media-Konten verknüpft sind und Vektrus Live ist. Mit echten Performance-Daten, Trends und Empfehlungen für dein Unternehmen."
                   className="mb-6"
                 />
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
