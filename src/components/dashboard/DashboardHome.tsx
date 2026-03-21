@@ -1,9 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { Bell } from 'lucide-react';
+import { AlertCircle, RefreshCw } from 'lucide-react';
 import { useDashboardData } from '../../hooks/useDashboardData';
-import BriefingCard from './BriefingCard';
-import ActionCards from './ActionCards';
-import ActivityTimeline from './ActivityTimeline';
+import DashboardSkeleton from './DashboardSkeleton';
+import HeroHeader from './HeroHeader';
+import KpiRow from './KpiRow';
+import InsightRow from './InsightRow';
+import ContentMixChart from './ContentMixChart';
+import PlatformBreakdown from './PlatformBreakdown';
+import TaskFeed from './TaskFeed';
 
 const DashboardHome: React.FC = () => {
   const { data, loading, error } = useDashboardData();
@@ -16,105 +20,69 @@ const DashboardHome: React.FC = () => {
     }
   }, [loading, data]);
 
+  /* --- Loading --------------------------------------------------- */
   if (loading) {
-    return (
-      <div
-        className="flex flex-col h-full overflow-hidden items-center justify-center"
-        style={{ background: '#F4FCFE', minHeight: '80vh' }}
-      >
-        <div className="text-center">
-          <div
-            className="mx-auto mb-4 rounded-full animate-pulse"
-            style={{
-              width: 48,
-              height: 48,
-              background: 'rgba(73, 183, 227, 0.15)',
-            }}
-          />
-          <p className="text-[15px] text-[#7A7A7A]">
-            Dashboard wird geladen...
-          </p>
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
+  /* --- Error ----------------------------------------------------- */
   if (error || !data) {
     return (
-      <div
-        className="flex flex-col h-full overflow-hidden items-center justify-center"
-        style={{ background: '#F4FCFE', minHeight: '80vh' }}
-      >
+      <div className="flex flex-col h-full overflow-hidden bg-[#F4FCFE] items-center justify-center">
         <div className="text-center max-w-md px-6">
-          <div
-            className="mx-auto mb-4 w-12 h-12 rounded-full flex items-center justify-center"
-            style={{ background: 'rgba(250,126,112,0.12)' }}
-          >
-            <Bell size={20} style={{ color: '#FA7E70' }} />
+          <div className="mx-auto mb-4 w-12 h-12 rounded-full bg-[rgba(250,126,112,0.12)] flex items-center justify-center">
+            <AlertCircle size={20} className="text-[#FA7E70]" />
           </div>
           <p className="text-[15px] text-[#FA7E70] font-medium mb-1">
             Dashboard nicht verfügbar
           </p>
-          <p className="text-[13px] text-[#7A7A7A]">
+          <p className="text-[13px] text-[#7A7A7A] mb-4">
             {error || 'Bitte versuche es erneut.'}
           </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[#49B7E3] hover:opacity-70 transition-opacity"
+          >
+            <RefreshCw size={14} />
+            Erneut laden
+          </button>
         </div>
       </div>
     );
   }
 
+  /* --- Content --------------------------------------------------- */
   return (
-    <div
-      className="flex flex-col h-full overflow-hidden"
-      style={{ background: '#F4FCFE' }}
-    >
+    <div className="flex flex-col h-full overflow-hidden bg-[#F4FCFE]">
       <div className="flex-1 overflow-y-auto">
-        <div
-          className="mx-auto w-full"
-          style={{
-            maxWidth: 1280,
-            padding: '32px 40px 40px',
-          }}
-        >
-          <div
-            className="flex items-center justify-between"
-            style={{
-              marginBottom: 28,
-              opacity: visible ? 1 : 0,
-              transition: 'opacity 200ms ease-out',
-            }}
-          >
-            <h1
-              className="font-bold"
-              style={{
-                fontFamily: 'Manrope, system-ui, sans-serif',
-                fontSize: 28,
-                color: '#111111',
-                lineHeight: 1.2,
-              }}
-            >
-              {data.greeting}
-            </h1>
-            <button className="p-2 rounded-[var(--vektrus-radius-sm)] text-[#7A7A7A] hover:bg-[#F4FCFE] transition-colors duration-200">
-              <Bell size={20} strokeWidth={2} />
-            </button>
+        <div className="mx-auto w-full max-w-[1280px] px-6 lg:px-10 pt-8 pb-10">
+
+          {/* ── Layer 1: North Star Hero ────────────────────────── */}
+          <div className="mb-5">
+            <HeroHeader greeting={data.greeting} briefing={data.briefing} visible={visible} />
           </div>
 
-          <div style={{ marginBottom: 28 }}>
-            <BriefingCard visible={visible} briefing={data.briefing} />
+          <div className="mb-7">
+            <KpiRow briefing={data.briefing} visible={visible} />
           </div>
 
-          <div
-            className="grid grid-cols-1 lg:grid-cols-12 gap-6"
-            style={{ alignItems: 'start' }}
-          >
-            <div className="lg:col-span-7">
-              <ActionCards visible={visible} steps={data.nextSteps} />
-            </div>
+          {/* ── Layer 2: Smart Insights ────────────────────────── */}
+          <div className="mb-7">
+            <InsightRow data={data} visible={visible} />
+          </div>
+
+          {/* ── Layer 3: Strategic Visualization ─────────────────── */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 mb-7">
             <div className="lg:col-span-5">
-              <ActivityTimeline visible={visible} items={data.activity} />
+              <ContentMixChart items={data.contentMix} visible={visible} />
+            </div>
+            <div className="lg:col-span-7">
+              <PlatformBreakdown stats={data.platformStats} visible={visible} />
             </div>
           </div>
+
+          {/* ── Layer 4: Operational Task Feed ────────────────── */}
+          <TaskFeed tasks={data.tasks} visible={visible} />
         </div>
       </div>
     </div>

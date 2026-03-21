@@ -3283,6 +3283,1526 @@ Der Planner-Workstream ist abgeschlossen. Die QA hat drei kleine Defekte identif
 
 ---
 
+## Dashboard Redesign Audit
+
+**Stand:** 2026-03-21
+
+### Ziel
+
+Strukturiertes Audit des aktuellen Dashboards vor einer gezielten Redesign-Implementierung. Kein Redesign in diesem Schritt — nur Bestandsaufnahme, Risikobewertung und Phasenplan.
+
+---
+
+### 1. Architektur-Erkenntnis: Zwei Dashboard-Implementierungen
+
+**Kritischer Fund:** Es existieren zwei separate Dashboard-Implementierungen.
+
+#### AKTIV — DashboardHome.tsx (via routes.tsx → AppLayout.tsx)
+
+| Datei | Zweck | Zeilen |
+|-------|-------|--------|
+| `src/components/dashboard/DashboardHome.tsx` | Hauptcontainer, Loading/Error/Success States | ~124 |
+| `src/components/dashboard/BriefingCard.tsx` | Premium KI-Briefing mit animierten KPI-Countern | ~255 |
+| `src/components/dashboard/ActionCards.tsx` | Nächste Schritte mit Navigation | ~90 |
+| `src/components/dashboard/ActivityTimeline.tsx` | Aktivitäts-Feed mit Platform-Badges | ~141 |
+| `src/hooks/useDashboardData.ts` | Supabase-Hook (dashboard_cache, post_analytics, pulse_generated_content) | ~283 |
+
+**Routing:** `routes.tsx:44` → `<DashboardHome />` für `/dashboard`
+**Data:** Echte Supabase-Daten via `useDashboardData` Hook
+**Layout:** Greeting + BriefingCard (volle Breite) + ActionCards (7 cols) + ActivityTimeline (5 cols)
+
+#### TOT / NICHT GEROUTET — Dashboard.tsx + Dash*-Komponenten
+
+| Datei | Status |
+|-------|--------|
+| `src/components/Dashboard.tsx` | Legacy-Shell, ersetzt durch `AppLayout.tsx`. Nicht importiert. |
+| `src/components/dashboard/Header.tsx` | Nicht geroutet (nur von Dashboard.tsx importiert) |
+| `src/components/dashboard/WelcomeBanner.tsx` | Nicht geroutet |
+| `src/components/dashboard/KpiCardList.tsx` + `KpiCard.tsx` | Nicht geroutet |
+| `src/components/dashboard/WeekPreview.tsx` | Nicht geroutet |
+| `src/components/dashboard/AiInsightCard.tsx` | Nicht geroutet |
+| `src/components/dashboard/OnboardingChecklist.tsx` | Nicht geroutet |
+| `src/components/dashboard/DashKpiCards.tsx` | Nirgends importiert (dead code) |
+| `src/components/dashboard/DashTopPosts.tsx` | Nirgends importiert (dead code) |
+| `src/components/dashboard/DashEngagementChart.tsx` | Nirgends importiert (dead code) |
+| `src/components/dashboard/DashPlatformBreakdown.tsx` | Nirgends importiert (dead code) |
+| `src/components/dashboard/DashPostsTable.tsx` | Nirgends importiert (dead code) |
+| `src/components/dashboard/DashAiInsights.tsx` | Nirgends importiert (dead code) |
+| `src/components/dashboard/dashboardData.ts` | Statische Demo-Daten, nicht importiert |
+
+**Konsequenz für Redesign:** Der aktive Dashboard-Code ist kompakt (4 Komponenten + 1 Hook). Die toten Komponenten enthalten nützliche Patterns (WeekPreview, KpiCards, Charts), die beim Redesign wiederverwendet oder als Inspiration dienen können — aber sie sind NICHT live.
+
+---
+
+### 2. Aktives Dashboard — Detailanalyse
+
+#### DashboardHome.tsx
+
+- **Loading State:** Pulsierender Kreis + "Dashboard wird geladen..." — funktional, aber generisch (kein Skeleton)
+- **Error State:** Bell-Icon + Fehlermeldung — vorhanden und klar
+- **Empty/No-Cache State:** Handled in `useDashboardData` mit `emptyBriefing` + `emptyNextSteps` — gut
+- **Styling:** Überwiegend inline styles (`style={{ background: '#F4FCFE', ... }}`) statt Tailwind/Tokens
+- **Layout:** `maxWidth: 1280`, `padding: '32px 40px 40px'` — hardcoded, nicht responsive Token-basiert
+
+#### BriefingCard.tsx (~255 Zeilen)
+
+- **Stärke:** Premiumste Komponente des Dashboards. Animierte Counter, Status-Badge, KPI-Trends, AI-Sparkles-Indikator
+- **Design-Token-Nutzung:** Teilweise — `var(--vektrus-shadow-card)`, `var(--vektrus-ai-violet)` vorhanden, aber viele Werte hardcoded
+- **Linker Border-Gradient:** Violet → Blue (korrekt als AI-Indikator)
+- **Font:** Korrekt Manrope für Headline, Inter für Body (inline gesetzt)
+- **Problem:** Schwere Inline-Styles (Positioning, Transitions, Farben). CountUp-Animation ist custom Hook, nicht wiederverwendbar extrahiert
+
+#### ActionCards.tsx (~90 Zeilen)
+
+- **Zweck:** 3 Aktionskarten mit Icon + Titel + Beschreibung + Button
+- **Navigation:** `useNavigate()` (korrekt, React Router)
+- **Styling:** Hardcoded `#49B7E3` für Icon-Background und Border
+- **Zustand:** Animiertes Einblenden mit gestaffelten Delays
+- **Problem:** Icons via String-Mapping statt direkter Lucide-Imports — fragil
+
+#### ActivityTimeline.tsx (~141 Zeilen)
+
+- **Zweck:** Letzte Aktivitäten (Analytics-Update, Post veröffentlicht, Content erstellt)
+- **Stärke:** Gradient-Timeline-Line, Platform-Badges, guter Empty State
+- **Design-Token-Nutzung:** `var(--vektrus-shadow-subtle)` — gut
+- **Problem:** Plattform-Farben und Aktivitätstyp-Farben als hardcoded Config-Objekte
+- **AI Violet:** Korrekt nur bei `content_generated` Typ
+
+#### useDashboardData.ts (~283 Zeilen)
+
+- **Datenquellen:** `dashboard_cache`, `users`, `post_analytics`, `pulse_generated_content` (Supabase)
+- **Stärke:** Saubere Fehlerbehandlung, Empty-State mit hilfreichen NextSteps, relative Datumsformatierung
+- **Greifting:** Zeitbasiert (Morgen/Tag/Abend)
+- **NextSteps:** Dynamisch basiert auf Pipeline-Status
+- **Risiko:** Kein Refresh/Polling — Daten werden nur einmal beim Mount geladen
+
+---
+
+### 3. Infrastruktur-Status
+
+#### Design Tokens (was existiert und nutzbar ist)
+
+| Token-Typ | Definiert in | Status |
+|-----------|-------------|--------|
+| Shadows (subtle, card, elevated, modal) | `tailwind.config.js` | Definiert, ~40% adoptiert |
+| Radius (vk-sm=12, vk-md=16, vk-lg=20, vk-xl=24) | `tailwind.config.js` | Definiert, duales Naming-Problem |
+| Borders (subtle, default, strong) | `index.css` / `ai-layer.css` | Definiert, nicht in Tailwind exponiert |
+| AI Violet | `ai-layer.css` als CSS Custom Property | Definiert, korrekt genutzt |
+| Pulse Gradient | `ai-layer.css` | Definiert |
+| Glass-Klassen | `ai-layer.css` | 4 Varianten (glass-modal, glass-panel, glass-ai-layer, glass-ai-dark) |
+| Module Colors | `module-colors.ts` | 11 Module definiert, dashboard = Vektrus Blue |
+| Font-System | `index.css` + `tailwind.config.js` | Inter als Body, Manrope via font-manrope Klasse |
+
+#### Navigation-Pattern
+
+- **Custom Events:** `window.dispatchEvent(new CustomEvent('navigate-to-planner'))` etc.
+- **Empfänger:** `AppLayout.tsx` hört auf diese Events und ruft `navigateToModule()` auf
+- **Alternative in ActionCards:** Nutzt `useNavigate()` direkt (besser)
+- **Für Redesign:** Custom Events beibehalten (funktioniert), neue Komponenten können `useNavigate()` nutzen
+
+---
+
+### 4. Was ist bereits kompatibel mit einem Redesign
+
+| Komponente / Pattern | Kompatibel | Begründung |
+|---------------------|-----------|------------|
+| `useDashboardData` Hook | Ja | Saubere Datenstruktur, erweiterbar |
+| BriefingCard Layout-Pattern | Ja | Premium-Qualität, nur Token-Migration nötig |
+| ActivityTimeline Pattern | Ja | Gutes Grunddesign, Token-Migration nötig |
+| ActionCards Pattern | Ja | Solide, nur Token-Migration nötig |
+| Custom-Event-Navigation | Ja | Funktioniert via AppLayout |
+| Module-Colors System | Ja | Dashboard hat eigene Farbe definiert |
+| Shadow/Radius Token-System | Ja | Existiert, muss nur konsequenter genutzt werden |
+| AI-Layer (Glass, Blobs) | Nein (Schutzraum) | Dashboard = Ebene 0, kein Glass-Layer |
+
+---
+
+### 5. Produktlogik-Risiken
+
+| Risiko | Schwere | Erklärung |
+|--------|---------|-----------|
+| `useDashboardData` Supabase-Queries | Hoch | Dürfen nicht verändert werden. Felder in `dashboard_cache` sind fix. |
+| Custom Events (navigate-to-*) | Mittel | Neue Komponenten, die Navigation auslösen, müssen diese Events dispatchen oder `useNavigate()` nutzen |
+| Empty State (kein dashboard_cache) | Mittel | `emptyBriefing` + `emptyNextSteps` müssen weiterhin funktionieren |
+| BriefingCard Datenstruktur | Niedrig | Props-Interface (`BriefingData`) ist fix definiert — Redesign muss diese Struktur konsumieren |
+| Pulse-Status-Integration | Niedrig | ActionCards zeigt Pipeline-Count — muss erhalten bleiben |
+
+**Regel:** Die Hook-Datenstruktur (`DashboardData`, `BriefingData`, `NextStep`, `ActivityItem`) darf nicht verändert werden. Nur die Rendering-Schicht wird angepasst.
+
+---
+
+### 6. Visuelles / Design Debt
+
+| Problem | Schwere | Betroffene Dateien |
+|---------|---------|-------------------|
+| Hardcoded hex colors statt Tokens | Hoch | Alle 4 aktiven Komponenten |
+| Inline styles statt Tailwind | Hoch | DashboardHome, BriefingCard (am stärksten) |
+| Loading State generisch (kein Skeleton) | Mittel | DashboardHome |
+| Kein einheitliches Card-Pattern | Mittel | Jede Karte definiert eigene Shadow/Radius |
+| Font inline gesetzt statt Tailwind-Klassen | Niedrig | BriefingCard, DashboardHome |
+| CountUp-Animation nicht extrahiert | Niedrig | BriefingCard (custom, nicht wiederverwendbar) |
+| 13+ tote Dashboard-Dateien | Niedrig | Dead Code, Cleanup-Kandidat |
+
+---
+
+### 7. Quick Wins vs. Tiefere Refactors
+
+#### Quick Wins (minimal-invasiv, sofort umsetzbar)
+
+1. **Token-Migration:** Alle hardcoded Hex-Werte in den 4 aktiven Komponenten durch CSS-Variablen / Tailwind-Tokens ersetzen (Shadows, Radius, Farben)
+2. **Inline styles → Tailwind:** `style={{ background: '#F4FCFE' }}` → `bg-[#F4FCFE]` oder besser `bg-[var(--vektrus-bg)]`
+3. **Font-Klassen:** `style={{ fontFamily: 'Manrope' }}` → `className="font-manrope"`
+4. **Loading State:** Pulsierenden Kreis durch Skeleton-Cards ersetzen (BriefingCard-Skeleton + ActionCards-Skeleton + Timeline-Skeleton)
+
+#### Mittlerer Aufwand (gezielter Umbau)
+
+5. **WeekPreview integrieren:** Die tote `WeekPreview.tsx` als Inspirationsquelle nutzen, um eine Wochenvorschau in das aktive Dashboard einzubauen
+6. **KPI-Sektion hinzufügen:** Basierend auf BriefingCard-KPIs eine eigenständige KPI-Card-Row erstellen (die toten KpiCard/DashKpiCards als Referenz)
+7. **OnboardingChecklist:** Die tote `OnboardingChecklist.tsx` könnte für Neukunden-Dashboard relevant sein
+
+#### Tieferer Refactor (nur wenn gewünscht)
+
+8. **Dashboard-Layout-System:** Grid-basiertes Widget-Layout mit definierten Breakpoints statt hardcoded col-span
+9. **Dead Code Cleanup:** 13 tote Dashboard-Dateien entfernen
+10. **Data Refresh:** Polling oder Realtime-Subscription für `dashboard_cache` hinzufügen
+
+---
+
+### 8. Empfohlener Phasenplan für Dashboard Redesign
+
+#### Phase 1 — Token-Migration + Loading States (Quick Wins)
+
+**Scope:** Nur die 4 aktiven Komponenten + DashboardHome
+**Ziel:** Bestehende Struktur auf Design-Token-System umstellen, Loading-Skeleton einführen
+**Dateien:**
+- `src/components/dashboard/DashboardHome.tsx`
+- `src/components/dashboard/BriefingCard.tsx`
+- `src/components/dashboard/ActionCards.tsx`
+- `src/components/dashboard/ActivityTimeline.tsx`
+
+**Änderungen:**
+- Hardcoded Farben → CSS-Variablen / Tailwind-Tokens
+- Inline styles → Tailwind-Klassen
+- Loading State → Skeleton-Cards
+- Font inline → `font-manrope` / `font-inter` Klassen
+
+**Produktlogik-Risiko:** Sehr gering (rein visuell)
+**Nicht ändern:** `useDashboardData.ts`, Datenstruktur, Navigation-Events
+
+#### Phase 2 — Layout-Erweiterung (neue Widgets)
+
+**Scope:** Neue Dashboard-Sektionen hinzufügen
+**Ziel:** Dashboard informationsdichter und actionabler machen
+**Mögliche neue Sektionen:**
+- KPI-Row (basierend auf `briefing.kpis` — Daten sind bereits im Hook)
+- Wochenvorschau (Content-Planer-Preview, Navigation zum Planner)
+- AI-Insight-Card (dedizierter AI-Bereich mit Empfehlungen)
+
+**Produktlogik-Risiko:** Gering (neue Rendering-Komponenten, keine Datenlogik-Änderung)
+**Hook-Erweiterung:** Nur wenn zusätzliche Daten benötigt werden (z.B. geplante Posts der Woche)
+
+#### Phase 3 — Responsive + States + Polish
+
+**Scope:** Responsive Verhalten, Edge-Case-States, Hover/Focus, Animationen
+**Ziel:** Premium-Finish auf allen Viewports
+
+**Produktlogik-Risiko:** Minimal
+
+#### Phase 4 — Dead Code Cleanup (optional)
+
+**Scope:** Tote Dashboard-Dateien entfernen
+**Dateien:** Dashboard.tsx, Header.tsx, WelcomeBanner.tsx, KpiCardList.tsx, KpiCard.tsx, WeekPreview.tsx, AiInsightCard.tsx, OnboardingChecklist.tsx, DashKpiCards.tsx, DashTopPosts.tsx, DashEngagementChart.tsx, DashPlatformBreakdown.tsx, DashPostsTable.tsx, DashAiInsights.tsx, dashboardData.ts
+
+**Wichtig:** Erst nach Phase 2, falls Patterns daraus übernommen werden sollen
+
+---
+
+### 9. Dateien, die gelesen wurden
+
+#### Docs
+- `CLAUDE.md`
+- `docs/brand/brand-summary.md`
+- `docs/product/vektrus-pulse-produktbeschreibung.md`
+- `docs/product/Vektrus_Content_Planner_Beschreibung.md`
+- `docs/workstreams/app-frontend-audit.md`
+- `docs/workstreams/app-frontend-rollout-plan.md`
+- `docs/workstreams/app-frontend-final-qa.md`
+- `docs/workstreams/app-frontend-handoff.md`
+
+#### Implementation (aktiv)
+- `src/App.tsx`
+- `src/routes.tsx`
+- `src/components/layout/AppLayout.tsx`
+- `src/components/dashboard/DashboardHome.tsx`
+- `src/components/dashboard/BriefingCard.tsx`
+- `src/components/dashboard/ActionCards.tsx`
+- `src/components/dashboard/ActivityTimeline.tsx`
+- `src/hooks/useDashboardData.ts`
+- `src/index.css`
+
+#### Implementation (tot / Referenz)
+- `src/components/Dashboard.tsx`
+- `src/components/dashboard/Header.tsx`
+- `src/components/dashboard/WelcomeBanner.tsx`
+- `src/components/dashboard/KpiCard.tsx`
+- `src/components/dashboard/KpiCardList.tsx`
+- `src/components/dashboard/WeekPreview.tsx`
+- `src/components/dashboard/AiInsightCard.tsx`
+- `src/components/dashboard/OnboardingChecklist.tsx`
+- `src/components/dashboard/DashKpiCards.tsx`
+- `src/components/dashboard/DashTopPosts.tsx`
+- `src/components/dashboard/DashEngagementChart.tsx`
+- `src/components/dashboard/DashPlatformBreakdown.tsx`
+- `src/components/dashboard/DashPostsTable.tsx`
+- `src/components/dashboard/DashAiInsights.tsx`
+- `src/components/dashboard/dashboardData.ts`
+- `src/components/dashboard/VektrusSidebar.tsx`
+
+### Workstream-Status
+
+**Dashboard Redesign Audit ist abgeschlossen. Target-Architektur definiert. Keine Implementierung durchgeführt.**
+
+---
+
+## Dashboard Redesign — Target-Architektur
+
+**Stand:** 2026-03-21
+**Basis:** Dashboard Redesign Audit (oben), CLAUDE.md, brand-summary.md v2.5, Pulse/Planner-Produktdokumentation, useDashboardData.ts Datenmodell
+
+---
+
+### 1. Design-Philosophie
+
+Das Dashboard ist die erste Seite nach dem Login. Es muss in 3 Sekunden kommunizieren:
+
+1. **Wie läuft es?** (KPIs, Status)
+2. **Was sagt die KI?** (Insights, Empfehlungen)
+3. **Was soll ich als nächstes tun?** (Aktionen, Tasks)
+
+**Visuelles Prinzip:** Ruhig, flach, Ebene 0. Kein Glassmorphism, keine Pulse-Gradient-Blobs. Das Dashboard ist ein Schutzraum (gemäß visual-rules.md). AI Violet darf nur als funktionaler Akzent erscheinen, wo tatsächlich KI-generierter Inhalt angezeigt wird (z.B. das KI-Briefing, KI-Empfehlungen).
+
+**Informationshierarchie:**
+- **Oben:** Orientierung (Wer bin ich? Wie geht es meinem Account?)
+- **Mitte:** Intelligenz (Was hat die KI erkannt? Was empfiehlt sie?)
+- **Unten:** Aktion (Was steht an? Was muss ich tun?)
+
+---
+
+### 2. Komponentenhierarchie
+
+```
+DashboardHome.tsx (Container)
+├── DashboardSkeleton.tsx (Loading State — Skeleton für alle 4 Ebenen)
+├── DashboardError.tsx (Error State)
+│
+├── Layer 1: North Star Hero
+│   ├── HeroHeader (Greeting + Datumslabel + StatusChip)
+│   └── KpiRow
+│       ├── KpiCard × 4 (Sichtbarkeit, Qualität, Aktivität, Ergebnis)
+│       └── (jede Karte: Wert + Trend + Label)
+│
+├── Layer 2: Smart Insights
+│   ├── InsightCard (Typ: warning/gap)
+│   ├── InsightCard (Typ: winner)
+│   └── InsightCard (Typ: next-step)
+│   (jede Karte: Icon + Titel + kurzer Text + 1 CTA-Button)
+│
+├── Layer 3: Strategic Visualization
+│   ├── ContentMixChart (Donut: Content-Pillar-Verteilung)
+│   │   └── AiInterpretation (1-2 Sätze unter dem Chart)
+│   └── PlatformBreakdown (Plattform-Cards mit kompakten Trend-Signalen)
+│
+└── Layer 4: Operational Task Feed
+    └── TaskFeed
+        ├── TaskItem × n (approval / connection / generated-content)
+        └── TaskFeedEmpty (hilfreicher Empty State)
+```
+
+---
+
+### 3. Datenmapping pro Ebene
+
+#### Layer 1: North Star Hero
+
+| UI-Element | Datenquelle | Feld(er) | Fallback |
+|-----------|-------------|----------|----------|
+| Greeting | `useDashboardData` | `data.greeting` | `"Guten Tag"` |
+| Datumslabel | Client-seitig berechnet | `new Date()` → KW + Datumsbereich | Immer verfügbar |
+| StatusChip | `dashboard_cache` via Hook | `briefing.status` + `briefing.statusLabel` | `status: 'okay'`, `label: 'Wird eingerichtet'` |
+| KPI: Sichtbarkeit (Reichweite) | `dashboard_cache` | `briefing.kpis.reach` (.value, .trend, .direction) | `value: '–'`, `trend: ''`, `direction: 'neutral'` |
+| KPI: Qualität (Engagement Rate) | `dashboard_cache` | `briefing.kpis.engagement` | `value: '–'`, `trend: ''`, `direction: 'neutral'` |
+| KPI: Aktivität (Posts veröffentlicht) | `dashboard_cache` | `briefing.kpis.posts` | `value: '0'`, `trend: ''`, `direction: 'neutral'` |
+| KPI: Ergebnis (Beste Plattform) | `dashboard_cache` | `briefing.bestPlatform` (.name, .er) | `name: '–'`, `er: ''` |
+
+**Hinweis:** Alle 4 KPIs sind bereits im bestehenden `BriefingData`-Interface vorhanden. Kein neuer Supabase-Query nötig. Die KPIs werden aus der BriefingCard herausgelöst und als eigenständige Row dargestellt.
+
+#### Layer 2: Smart Insights
+
+| UI-Element | Datenquelle | Feld(er) | Fallback |
+|-----------|-------------|----------|----------|
+| Briefing-Text (KI-Analyse) | `dashboard_cache` | `briefing.text` | Statischer Hilfe-Text |
+| Insight-Typ | Abgeleitet aus `briefing.status` + `briefing.text` | Parsing-Logik im Hook | Default: `next-step` Typ |
+| CTA-Aktion | Abgeleitet aus Kontext | Siehe CTA-Modell (Abschnitt 5) | Route zu `/pulse` |
+
+**Transformation:** Der bestehende `briefing.text` wird in bis zu 3 Insight-Cards aufgesplittet. Die Logik dafür wird im Hook (`useDashboardData`) als neue Transformationsfunktion implementiert:
+
+```typescript
+export interface InsightItem {
+  type: 'warning' | 'winner' | 'next-step';
+  icon: string;           // Lucide icon name
+  title: string;
+  text: string;
+  cta: { label: string; route: string };
+}
+```
+
+**Strategie für Insight-Generierung:**
+1. **Warning/Gap:** Wenn `briefing.status === 'attention'` oder Text enthält Warnsignale → erste Karte
+2. **Winner:** Wenn `briefing.bestPlatform.er` vorhanden → „Deine beste Plattform ist {name} mit {er}% Engagement"
+3. **Next Step:** Immer vorhanden → dynamisch basierend auf Pipeline-Status (Logik bereits in `nextSteps` des Hooks)
+
+**Wenn weniger als 3 Insights verfügbar:** Nur verfügbare anzeigen. Minimum 1 (Next Step ist immer da).
+
+#### Layer 3: Strategic Visualization
+
+| UI-Element | Datenquelle | Feld(er) | Fallback |
+|-----------|-------------|----------|----------|
+| Content-Pillar-Donut | **Neue Query nötig** | `pulse_generated_content` gruppiert nach Content-Typ/Pillar | Placeholder mit „Noch keine Daten" |
+| AI-Interpretation | `briefing.text` (Extrakt) oder statisch | 1-2 Sätze | „Generiere Content, um deine Verteilung zu sehen." |
+| Plattform-Breakdown | `post_analytics` (bereits im Hook) + `dashboard_cache` | Platform + Engagement pro Plattform | „Verbinde Konten für Plattform-Daten." |
+
+**Hook-Erweiterung erforderlich:** Für Layer 3 wird eine Erweiterung von `useDashboardData` benötigt:
+
+```typescript
+// Neue Felder im DashboardData Interface
+contentMix?: { label: string; count: number; color: string }[];
+platformStats?: { platform: string; posts: number; avgEr: number; trend: 'up' | 'down' | 'neutral' }[];
+```
+
+**Neue Supabase-Queries:**
+1. `pulse_generated_content` → `GROUP BY content_type` oder Pillar-Feld (falls vorhanden) → Content-Mix
+2. `post_analytics` → `GROUP BY platform` → Plattform-Breakdown (erweitert die bestehende Query, die bereits `platform` selektiert)
+
+**Risikobewertung:** Mittleres Risiko. Neue Queries müssen performant sein. Limit auf 30 Tage, kein Full-Table-Scan.
+
+#### Layer 4: Operational Task Feed
+
+| UI-Element | Datenquelle | Feld(er) | Fallback |
+|-----------|-------------|----------|----------|
+| Genehmigungs-Tasks | `pulse_generated_content` (status = 'draft') | platform, created_at, content_text | „Keine offenen Entwürfe" |
+| Verbindungs-Tasks | `users` oder separater Check | connected_accounts oder Auth-State | „Alle Konten verbunden" oder Aufforderung |
+| Generierte-Content-Tasks | `pulse_generated_content` (recent) | status, platform, created_at | „Noch kein Content generiert" |
+
+**Hook-Erweiterung erforderlich:**
+
+```typescript
+export interface TaskItem {
+  type: 'approval' | 'connection' | 'generated';
+  title: string;
+  detail: string;
+  platform: string | null;
+  cta: { label: string; route: string };
+  urgency: 'high' | 'medium' | 'low';
+}
+
+// Neues Feld im DashboardData Interface
+tasks?: TaskItem[];
+```
+
+**Neue Supabase-Query:**
+- `pulse_generated_content` mit `status IN ('draft', 'approved')` und `created_at` der letzten 14 Tage → max 10 Items
+
+**Transformation im Hook:** Die rohen Supabase-Daten werden zu TaskItems transformiert. Urgency wird aus Alter und Status abgeleitet (Entwürfe > 3 Tage = high).
+
+---
+
+### 4. State-Strategie
+
+#### Loading State
+
+**Skeleton-Ansatz** statt generischem Spinner. Ein dedizierter `DashboardSkeleton` rendert die gleiche Grid-Struktur wie das fertige Dashboard, aber mit animierten `animate-pulse` Platzhaltern:
+
+```
+DashboardSkeleton
+├── HeroHeader Skeleton (Greeting-Linie + Chip-Rechteck)
+├── KpiRow Skeleton (4 Cards mit Pulse-Rechtecken)
+├── Insights Skeleton (3 Cards mit Pulse-Flächen)
+├── Visualization Skeleton (Donut-Kreis + Platform-Balken)
+└── TaskFeed Skeleton (3 Task-Zeilen)
+```
+
+**Implementierung:** Einzelne Komponente `DashboardSkeleton.tsx` (~60-80 Zeilen). Kein Skeleton pro Sub-Komponente — ein zusammenhängendes Skeleton für das gesamte Dashboard wirkt ruhiger und professioneller.
+
+#### Error State
+
+Bestehender Error-State aus DashboardHome bleibt konzeptionell erhalten. Verbesserungen:
+- Bell-Icon → AlertCircle (semantisch klarer)
+- Retry-Button hinzufügen
+- Kontextuelle Fehlermeldung beibehalten
+
+```typescript
+// Error-Varianten
+| Fehler | Anzeige |
+|--------|---------|
+| Nicht eingeloggt | Redirect zu /login (kein Error-State im Dashboard) |
+| Netzwerkfehler | „Verbindung fehlgeschlagen. Bitte versuche es erneut." + Retry |
+| Unbekannter Fehler | „Dashboard nicht verfügbar. Bitte versuche es erneut." + Retry |
+```
+
+#### Empty State (kein dashboard_cache)
+
+Bereits im Hook als `emptyBriefing` + `emptyNextSteps` implementiert. Im neuen Layout:
+
+| Ebene | Empty-Verhalten |
+|-------|----------------|
+| KPI Row | Alle 4 Karten zeigen „–" mit `direction: neutral`. Keine Trends. |
+| Insights | Eine einzige Karte: „Willkommen bei Vektrus. Erstelle deinen ersten Content-Plan, um personalisierte Empfehlungen zu erhalten." + CTA „Content generieren" → `/pulse` |
+| Visualization | Donut zeigt leeren Ring mit „Noch keine Daten". Platform-Breakdown zeigt Hinweis auf Account-Verbindung. |
+| Task Feed | Onboarding-Tasks: „Konten verbinden" + „Ersten Content-Plan erstellen" + „Brand Studio einrichten" |
+
+#### Partial Data
+
+Jede Ebene rendert unabhängig. Wenn z.B. `contentMix` leer ist aber `briefing` vorhanden:
+- Layer 1 (KPIs): Rendert normal
+- Layer 2 (Insights): Rendert normal
+- Layer 3 (Visualization): Zeigt Empty State nur für sich
+- Layer 4 (Tasks): Rendert normal
+
+**Kein Waterfall:** Kein Layer wartet auf einen anderen. Alle rendern sofort mit verfügbaren Daten.
+
+---
+
+### 5. CTA-Routing / Action-Modell
+
+Jede interaktive Stelle im Dashboard löst genau eine Navigation aus. Navigationen nutzen `useNavigate()` (React Router) direkt — kein Umweg über Custom Events.
+
+| CTA | Route | Kontext |
+|-----|-------|---------|
+| „Content generieren" / „Pulse starten" | `/pulse` | KPI-Cards bei niedrigen Posts, Next-Step-Insight, Empty State |
+| „Planer öffnen" / „Entwürfe prüfen" | `/planner` | Approval-Tasks, Winner-Insight wenn Posts pending |
+| „Analytics ansehen" | `/insights` | KPI-Cards bei gutem Engagement, Winner-Insight |
+| „Chat öffnen" / „Strategie besprechen" | `/chat` | Warning-Insight, strategische Empfehlung |
+| „Konten verbinden" | `/profile` | Connection-Tasks, Empty Platform-Breakdown |
+| „Brand Studio einrichten" | `/brand` | Onboarding-Task wenn kein Brand-Profil |
+
+**Regel:** Jede Insight-Card hat genau 1 CTA. Keine Doppel-Buttons. Die CTA-Route wird im Hook bestimmt, nicht in der UI-Komponente. Das ermöglicht kontextsensitive Routing-Logik.
+
+---
+
+### 6. Grid-Layout
+
+```
+Desktop (≥1024px): max-width 1280px, padding 32px 40px
+─────────────────────────────────────────────────────
+| Layer 1: Hero                                      |
+| [Greeting + Status]                  [Datumslabel] |
+| [KPI] [KPI] [KPI] [KPI]                           |
+|   cols: 3   3   3   3   (12-col grid)             |
+─────────────────────────────────────────────────────
+| Layer 2: Insights                                  |
+| [Warning]    [Winner]    [Next Step]               |
+|   cols: 4      4           4                       |
+─────────────────────────────────────────────────────
+| Layer 3: Visualization                             |
+| [Content-Mix Donut + AI-Text] [Platform-Breakdown] |
+|   cols: 5                       7                  |
+─────────────────────────────────────────────────────
+| Layer 4: Task Feed                                 |
+| [TaskItem] [TaskItem] [TaskItem] ...               |
+|   cols: 12 (full width, stacked list)              |
+─────────────────────────────────────────────────────
+
+Tablet (768–1023px):
+- KPI Row: 2×2 Grid
+- Insights: Stacked (1 Spalte)
+- Visualization: Stacked (Donut oben, Breakdown unten)
+- Tasks: Volle Breite
+
+Mobile (<768px):
+- Alles stacked, volle Breite
+- KPI Row: Horizontale Scroll-Leiste oder 2×2
+```
+
+---
+
+### 7. Wiederverwendung vs. Neue Komponenten
+
+| Komponente | Status | Strategie |
+|-----------|--------|-----------|
+| `DashboardHome.tsx` | Aktiv | **Umbauen:** Container-Struktur beibehalten, Rendering-Logik für neues Layout anpassen |
+| `useDashboardData.ts` | Aktiv | **Erweitern:** Neue Interfaces + Queries für Layer 3/4 hinzufügen. Bestehende Interfaces (`BriefingData`, `NextStep`, `ActivityItem`) NICHT ändern — nur erweitern |
+| `BriefingCard.tsx` | Aktiv | **Aufteilen:** KPI-Daten → neue `KpiCard`-Komponente. Briefing-Text → fließt in Layer 2 Insights. StatusBadge + Greeting → Layer 1 HeroHeader. Die Datei selbst wird nach Umbau nicht mehr benötigt. |
+| `ActionCards.tsx` | Aktiv | **Ersetzen durch:** Layer 2 InsightCards + Layer 4 TaskFeed. Die `NextStep`-Daten fließen in InsightCards (als CTA-Ziele) und TaskFeed. |
+| `ActivityTimeline.tsx` | Aktiv | **Ersetzen durch:** Layer 4 TaskFeed. Die Timeline-Darstellung wird durch eine aufgabenorientierte Feed-Darstellung ersetzt. Aktivitäts-History ist sekundär — Tasks sind primär. |
+| `KpiCard.tsx` (tot) | Dead Code | **Inspirationsquelle:** Pattern für neue KPI-Row, aber nicht direkt wiederverwendbar (zu wenig Token-Nutzung) |
+| `WeekPreview.tsx` (tot) | Dead Code | **Nicht übernehmen** ins neue Dashboard. Content-Planer-Preview wäre Layer 3-Erweiterung in einer späteren Phase. |
+| `AiInsightCard.tsx` (tot) | Dead Code | **Inspirationsquelle:** `border-gradient-ai` + `ai-active` Klassen für Layer 2 InsightCards |
+| `OnboardingChecklist.tsx` (tot) | Dead Code | **Konzept übernehmen** für Task Feed Onboarding-Tasks (Empty State) |
+| `DashboardSkeleton.tsx` | Neu | **Erstellen:** ~60-80 Zeilen, einheitliches Skeleton |
+| `HeroHeader.tsx` | Neu | **Erstellen:** Greeting + Datum + StatusChip. ~40-50 Zeilen |
+| `KpiRow.tsx` + `KpiCard.tsx` | Neu | **Erstellen:** 4er-Grid mit animierten Countern (CountUp aus BriefingCard extrahieren). ~80-100 Zeilen |
+| `InsightCard.tsx` | Neu | **Erstellen:** Wiederverwendbar für alle 3 Typen. ~60-70 Zeilen |
+| `InsightRow.tsx` | Neu | **Erstellen:** Container für 3 InsightCards. ~20 Zeilen |
+| `ContentMixChart.tsx` | Neu | **Erstellen:** Recharts Donut + AI-Text. ~80-100 Zeilen |
+| `PlatformBreakdown.tsx` | Neu | **Erstellen:** Platform-Cards mit Trends. ~60-80 Zeilen |
+| `TaskFeed.tsx` + `TaskItem.tsx` | Neu | **Erstellen:** Aufgabenliste mit CTA-Buttons. ~80-100 Zeilen |
+| `TaskFeedEmpty.tsx` | Neu | **Erstellen:** Onboarding-Tasks-Ansicht. ~40 Zeilen |
+
+**Geschätzter Gesamtaufwand neue Dateien:** ~8-10 neue Komponenten, ~500-700 Zeilen netto.
+
+---
+
+### 8. Styling-Regeln für das Dashboard
+
+#### Was bleibt flach (Ebene 0)
+
+- **Alles.** Das gesamte Dashboard ist ein Schutzraum. Kein Glass-Panel, kein Glass-Modal, keine Glow-Blobs, kein Pulse-Gradient als Hintergrund.
+
+#### Wo AI Violet erscheinen darf
+
+| Stelle | Erlaubt | Begründung |
+|--------|---------|------------|
+| Insight-Card Typ „KI-Empfehlung" | Ja, als linker Border-Streifen (4px) | KI-generierter Inhalt |
+| „Content generieren" CTA auf Insight-Card | Ja, als AI-Action-Button (Violet) | KI-Aktion auslösen |
+| KI-Sparkles-Icon neben Insight-Überschrift | Ja, als dezenter 18px Icon | KI-Herkunft markieren |
+| Aktivitäts-Dot bei „Content erstellt" im TaskFeed | Ja, als 10px Dot | KI-generiertes Event |
+
+#### Wo AI Violet NICHT erscheinen darf
+
+- KPI-Cards (reine Datenanzeige, kein AI-State)
+- Platform-Breakdown (Datenvisualisierung)
+- Content-Mix-Donut (Datenvisualisierung)
+- HeroHeader (Orientierung, kein AI-Moment)
+- Task-Items vom Typ „approval" oder „connection" (User-Aktionen, keine KI)
+
+#### Token-Nutzung (verpflichtend für alle neuen Komponenten)
+
+```
+Farben:         Nur CSS-Variablen oder Tailwind-Token. Kein hardcoded Hex.
+Shadows:        shadow-subtle | shadow-card | shadow-elevated (Tailwind)
+Radius:         rounded-[var(--vektrus-radius-sm|md|lg|xl)]
+Fonts:          font-manrope (Headlines) | font-inter oder Default (Body)
+Spacing:        Tailwind gap/p/m Klassen. Kein inline padding/margin.
+Borders:        border-[rgba(73,183,227,0.10)] via Token oder Tailwind
+Backgrounds:    bg-white (Cards), bg-[#F4FCFE] (Page), bg-[rgba(182,235,247,0.22)] (Icon-Bg)
+```
+
+#### Hover-Verhalten
+
+Alle Hover-States via Tailwind-Klassen, kein `onMouseEnter`/`onMouseLeave` mit inline JS:
+```
+Cards:     hover:shadow-card hover:-translate-y-px transition-all duration-200
+Buttons:   hover:bg-[#49B7E3] hover:text-white (Primary) | hover:opacity-70 (Links)
+TaskItems: hover:bg-[#F4FCFE] transition-colors duration-150
+```
+
+---
+
+### 9. Implementierungs-Reihenfolge
+
+| Phase | Scope | Risiko | Abhängigkeiten |
+|-------|-------|--------|----------------|
+| **1a** | `DashboardSkeleton.tsx` + `DashboardError.tsx` erstellen | Sehr gering | Keine |
+| **1b** | `HeroHeader.tsx` + `KpiRow.tsx` + `KpiCard.tsx` erstellen | Gering | Nutzt bestehende `BriefingData` |
+| **1c** | `InsightCard.tsx` + `InsightRow.tsx` erstellen | Gering | Nutzt bestehende `briefing.text` + `nextSteps` |
+| **2a** | `useDashboardData.ts` erweitern (contentMix, platformStats, tasks) | Mittel | Neue Supabase-Queries |
+| **2b** | `ContentMixChart.tsx` + `PlatformBreakdown.tsx` erstellen | Gering | Abhängig von 2a |
+| **2c** | `TaskFeed.tsx` + `TaskItem.tsx` + `TaskFeedEmpty.tsx` erstellen | Gering | Abhängig von 2a |
+| **3** | `DashboardHome.tsx` umbauen (neues Layout-Grid, alte Imports ersetzen) | Mittel | Abhängig von 1a-2c |
+| **4** | Polish: Animationen, responsive Breakpoints, Edge Cases | Gering | Abhängig von 3 |
+
+**Regel:** Phase 1 (1a-1c) kann komplett ohne Hook-Änderung implementiert werden, da alle Daten bereits im bestehenden Interface vorhanden sind. Phase 2 erfordert Hook-Erweiterung.
+
+---
+
+### 10. Was NICHT getan werden soll
+
+- `useDashboardData.ts` bestehende Interfaces ändern (nur erweitern)
+- Supabase-Tabellen ändern oder neue Tabellen erstellen
+- Custom Events entfernen (AppLayout hört darauf)
+- Produktlogik in Rendering-Komponenten einbauen (Logik bleibt im Hook)
+- Glassmorphism auf dem Dashboard einsetzen
+- Recharts oder andere Chart-Library hinzufügen, bevor Phase 2 erreicht ist
+- Tote Dashboard-Dateien löschen, bevor Patterns daraus übernommen wurden
+- Animierte Gradient-Blobs oder AI-Orb auf dem Dashboard
+
+---
+
+### Workstream-Status
+
+**Dashboard Target-Architektur ist definiert. Layer 1 (North Star Hero) ist implementiert.**
+
+---
+
+## Dashboard Redesign — Layer 1 Implementierung
+
+**Stand:** 2026-03-21
+**Block:** Layer 1 — North Star Hero
+
+---
+
+### Geänderte / neue Dateien
+
+| Datei | Aktion | Zeilen |
+|-------|--------|--------|
+| `src/components/dashboard/HeroHeader.tsx` | Neu | ~81 |
+| `src/components/dashboard/KpiRow.tsx` | Neu | ~188 |
+| `src/components/dashboard/DashboardSkeleton.tsx` | Neu | ~69 |
+| `src/components/dashboard/DashboardHome.tsx` | Umgebaut | ~82 |
+
+### Nicht geänderte Dateien
+
+- `src/hooks/useDashboardData.ts` — kein Interface-Umbau, alle Daten waren vorhanden
+- `src/components/dashboard/BriefingCard.tsx` — nicht mehr importiert, aber nicht gelöscht (kann in Layer 2 als Referenz dienen)
+- `src/components/dashboard/ActionCards.tsx` — weiterhin genutzt als Layer 2-4 Platzhalter
+- `src/components/dashboard/ActivityTimeline.tsx` — weiterhin genutzt als Layer 2-4 Platzhalter
+
+### Datenmapping
+
+| KPI-Karte | Datenfeld | Icon | Fallback |
+|-----------|-----------|------|----------|
+| Sichtbarkeit | `briefing.kpis.reach` | Eye | `–` neutral |
+| Qualität | `briefing.kpis.engagement` | BarChart3 | `–` neutral |
+| Aktivität | `briefing.kpis.posts` | Send | `0` neutral |
+| Ergebnis | `briefing.bestPlatform` (synthetisches KPI) | Award | `–` neutral, Trend zeigt ER% wenn vorhanden |
+
+### Status Chip Mapping
+
+| `briefing.status` | Farbe | Beispiel-Label |
+|-------------------|-------|----------------|
+| `good` | Grün | „Läuft gut" |
+| `okay` | Orange | „Wird eingerichtet" |
+| `attention` | Rot | „Handlungsbedarf" |
+
+### State-Verhalten
+
+| State | Verhalten |
+|-------|-----------|
+| Loading | `DashboardSkeleton` — Skeleton mit 4 KPI-Card-Platzhaltern + Action/Timeline-Platzhalter |
+| Error | `AlertCircle` + Fehlermeldung + „Erneut laden" Button |
+| Empty (kein cache) | Alle 4 KPI-Cards zeigen `–`, StatusChip zeigt „Wird eingerichtet" |
+| Partial (cache aber keine Trends) | Karten zeigen Werte ohne Trend-Indikator |
+
+### Design-Entscheidungen
+
+- **Kein AI Violet** auf Layer 1 — Schutzraum-Regel eingehalten
+- **CountUp-Animation** aus BriefingCard extrahiert und in KpiRow wiederverwendet (identische Logik)
+- **Trend-Sichtbarkeit gestaffelt** — Trends erscheinen ~900ms nach Karteneintritt (Premium-Effekt)
+- **Responsive:** 2 Spalten auf Mobile (< lg), 4 Spalten auf Desktop
+- **Hover:** Tailwind-only (`hover:shadow-card hover:-translate-y-px`)
+- **Date Label:** Fallback auf berechnetes `KW X · DD.MM. – DD.MM.` wenn `briefing.weekLabel` leer
+
+### Produktlogik-Risiken
+
+Keine. Kein Hook, kein Query, keine Supabase-Änderung. Rein visueller Umbau der Rendering-Schicht.
+
+### Offene Punkte für nächste Blöcke
+
+**Layer 2 — Smart Insights** (nächster Block):
+- InsightCard-Komponente erstellen (3 Typen: warning, winner, next-step)
+- `briefing.text` in Insight-Cards transformieren (Parsing-Logik)
+- CTA-Routing-Modell implementieren (useNavigate)
+- BriefingCard.tsx kann als Referenz für AI-Violet-Indikator dienen, wird dann nicht mehr importiert
+- ActionCards.tsx wird durch InsightRow ersetzt
+
+**Layer 3 — Strategic Visualization** (späterer Block):
+- Hook-Erweiterung nötig (contentMix, platformStats)
+- Neue Supabase-Queries
+- Recharts oder eigene Donut-Komponente
+
+**Layer 4 — Operational Task Feed** (späterer Block):
+- Hook-Erweiterung nötig (tasks)
+- Neue Supabase-Query
+- ActivityTimeline.tsx wird durch TaskFeed ersetzt
+
+**Cleanup** (nach allen Layers):
+- BriefingCard.tsx löschen (tot)
+- Dashboard.tsx löschen (Legacy-Shell)
+- Alle Dash*-Prefix-Dateien löschen (dead code)
+- dashboardData.ts löschen (statische Demo-Daten)
+
+### Workstream-Status
+
+**Layer 1 + Layer 2 implementiert. TypeScript kompiliert fehlerfrei. Bereit für Layer 3.**
+
+---
+
+## Dashboard Redesign — Layer 2 Implementierung
+
+**Stand:** 2026-03-21
+**Block:** Layer 2 — Smart Insight Cards
+
+---
+
+### Geänderte / neue Dateien
+
+| Datei | Aktion | Zeilen |
+|-------|--------|--------|
+| `src/components/dashboard/InsightRow.tsx` | Neu | ~220 |
+| `src/components/dashboard/DashboardHome.tsx` | Umgebaut (ActionCards → InsightRow) | ~80 |
+| `src/components/dashboard/DashboardSkeleton.tsx` | Aktualisiert (Layer-2-Skeleton) | ~69 |
+
+### Nicht geänderte Dateien
+
+- `src/hooks/useDashboardData.ts` — keine Änderung, alle Daten waren vorhanden
+- `src/components/dashboard/ActionCards.tsx` — nicht mehr importiert, aber nicht gelöscht
+- `src/components/dashboard/ActivityTimeline.tsx` — weiterhin genutzt als Layer 3-4 Platzhalter
+- Layer-1-Dateien (HeroHeader, KpiRow) — unverändert
+
+### Insight-Derivation aus bestehenden Daten
+
+Alle 3 Insights werden aus dem bestehenden `DashboardData`-Interface abgeleitet. Keine neuen Queries.
+
+#### Karte 1: Warning / Gap
+
+| Bedingung | Titel | CTA | Route |
+|-----------|-------|-----|-------|
+| `briefing.status === 'attention'` | „Handlungsbedarf" | „Strategie besprechen" | `/chat` |
+| `briefing.kpis.reach.direction === 'down'` | „Sichtbarkeit rückläufig" | „Content generieren" | `/pulse` |
+| `briefing.kpis.posts.value === '0'` | „Keine Posts diese Woche" | „Woche planen" | `/pulse` |
+| Fallback | „Dranbleiben" | Planer öffnen | `/planner` |
+
+**v1-Einschränkung:** Die Warning-Karte erkennt nur grobe Signale (Status, Richtung, Null-Wert). Sie kann keine detaillierten Gap-Analysen liefern (z.B. „LinkedIn hat 3 Tage keinen Post" oder „Carousel-Format unterrepräsentiert"), weil diese Daten nicht in `dashboard_cache` existieren.
+
+#### Karte 2: Winner / Success
+
+| Bedingung | Titel | CTA | Route |
+|-----------|-------|-----|-------|
+| `bestPlatform.er` vorhanden | „Stärkste Plattform: {name}" | „Analytics ansehen" | `/insights` |
+| `engagement.direction === 'up'` | „Engagement steigt" | „Planer öffnen" | `/planner` |
+| Fallback | „Performance aufbauen" | „Content generieren" | `/pulse` |
+
+**v1-Einschränkung:** Der Winner kann nur die beste Plattform + ER nennen. Tiefere Erkenntnisse (bester Post, bestes Format, bester Zeitpunkt) sind nicht verfügbar ohne erweiterte Queries.
+
+#### Karte 3: Strategic Next Step
+
+| Bedingung | Titel | CTA | Route |
+|-----------|-------|-----|-------|
+| Erste Woche (posts === '0') | „Erste Woche füllen" | „Jetzt starten" | `/pulse` |
+| Standard | Aus `nextSteps[0]` | Aus `nextSteps[0].buttonLabel` | Aus `nextSteps[0].route` |
+| Ultimativer Fallback | „Content generieren" | „Starten" | `/pulse` |
+
+**v1-Einschränkung:** Der Next Step nutzt die bereits vom Hook berechneten `nextSteps`. Er kann nicht auf detaillierte Planungslücken reagieren (z.B. „Dienstag und Donnerstag sind noch leer").
+
+### Design-Entscheidungen
+
+- **Linker Border als Typ-Indikator:** Warnung rot, Winner grün, Next Step violett (dezent, 3px)
+- **AI Violet nur auf Next-Step-Karte:** Icon-Background (8% Opacity), Sparkles-Icon (13px), CTA-Button (gefüllt). Warning und Winner nutzen semantische Farben.
+- **CTA-Hierarchie:** Next-Step-CTA ist gefüllt (Violet), die anderen beiden sind Outline-Buttons. Das erzeugt visuelle Priorisierung ohne Lautstärke.
+- **Keine Section-Überschrift:** Die Karten sprechen für sich. „Smart Insights" als Überschrift würde generisch wirken und vertikalen Raum verschwenden.
+- **Responsive:** 1 Spalte auf Mobile, 3 Spalten ab md (768px)
+
+### Fallback-Verhalten
+
+| Zustand | Verhalten |
+|---------|-----------|
+| Kein dashboard_cache | Warning: „Keine Posts", Winner: „Performance aufbauen", Next Step: „Content generieren" — alle 3 Karten sichtbar mit Onboarding-Charakter |
+| Nur reach down, rest okay | Warning passt sich an, Winner und Next Step bleiben stabil |
+| Alles gut (status=good, trends up) | Warning wird zu mildem „Dranbleiben", Winner zeigt Plattform-Erfolg, Next Step bleibt kontextuell |
+
+### Produktlogik
+
+Kein Risiko. Kein Hook, kein Query, keine Supabase-Änderung. Rein client-seitige Derivation aus bestehendem `DashboardData`.
+
+### Offene Punkte für nächste Blöcke
+
+**Layer 3 — Strategic Visualization** (nächster Block):
+- ContentMixChart (Donut) + PlatformBreakdown
+- Hook-Erweiterung nötig (contentMix, platformStats)
+- Neue Supabase-Queries
+
+**Layer 4 — Operational Task Feed** (danach):
+- TaskFeed + TaskItem + TaskFeedEmpty
+- Hook-Erweiterung nötig (tasks)
+- ActivityTimeline.tsx wird ersetzt
+
+**Cleanup** (nach allen Layers):
+- ActionCards.tsx löschen (nicht mehr importiert)
+- BriefingCard.tsx löschen (nicht mehr importiert seit Layer 1)
+- Dashboard.tsx löschen (Legacy-Shell)
+- Alle Dash*-Prefix-Dateien löschen
+- dashboardData.ts löschen
+
+**v2-Verbesserungen für Insights** (nach Baseline):
+- Briefing-Text-Parsing für reichere Insights (KI-generierter Text enthält Empfehlungen)
+- Post-Level-Analyse für detaillierte Winner-Insights
+- Planer-Lücken-Erkennung für präzisere Gap-Cards
+
+### Workstream-Status
+
+**Layer 2 (Smart Insight Cards) ist implementiert. Corrective Pass abgeschlossen. Bereit für Layer 3.**
+
+---
+
+## Dashboard Redesign — Corrective Pass (Layer 1 + 2)
+
+**Stand:** 2026-03-21
+**Block:** Corrective Pass vor Layer 3
+
+---
+
+### Geänderte Dateien
+
+| Datei | Änderungen |
+|-------|------------|
+| `src/components/dashboard/KpiRow.tsx` | KPI-Labels, 4. Karte umgebaut, `customDisplay` entfernt |
+| `src/components/dashboard/InsightRow.tsx` | Alle 3 Derivation-Funktionen überarbeitet, Copy + CTA-Routing korrigiert |
+| `src/components/dashboard/DashboardHome.tsx` | Spacing zwischen Layer 1 und 2 gestrafft (mb-8 → mb-6) |
+
+### Layer 1 — Korrekturen
+
+**K1: "Ergebnis" → "Top-Kanal" mit Zahlen-First-Display**
+- **Vorher:** Zeigte Plattform-Name ("LinkedIn") als 24px-Headline, ER% versteckt in der Trend-Zeile
+- **Nachher:** Zeigt ER% ("5.1%") als Headline, Plattform-Name ("LinkedIn") als Kontext in der Trend-Zeile
+- **Begründung:** Alle 4 KPI-Karten zeigen jetzt denselben Datentyp (Zahlen). Die Zeile scannt einheitlich.
+
+**K2: KPI-Labels präzisiert**
+- "Sichtbarkeit" → "Reichweite" (direkter, konkreter)
+- "Qualität" → "Engagement" (das ist, was der Nutzer kennt)
+- "Aktivität" → "Veröffentlicht" (messbar, nicht abstrakt)
+- "Ergebnis" → "Top-Kanal" (beschreibt was die Karte zeigt)
+
+**K3: Spacing gestrafft**
+- KpiRow → InsightRow Gap von `mb-8` (32px) auf `mb-6` (24px) reduziert
+- Die Ebenen gehören enger zusammen — Layer 1 und 2 sind ein zusammenhängendes Orientierungspaket
+
+### Layer 2 — Korrekturen
+
+**K4: Warning-Karte — CTA-Routing korrigiert**
+- **Vorher:** `status === 'attention'` → "Strategie besprechen" → `/chat`
+- **Nachher:** `status === 'attention'` → "Analyse öffnen" → `/insights`
+- **Begründung:** Chat ist kein natürlicher "nächster Klick" bei Performance-Problemen. Die Analyse-Seite zeigt was passiert ist.
+
+**K5: Warning-Fallback — von hohlem Rat zu Planungs-Impuls**
+- **Vorher:** "Dranbleiben" + Calendar-Icon → beliebiger nextSteps-CTA
+- **Nachher:** "Nächste Woche planen" → "Planer öffnen" → `/planner`
+- **Begründung:** Wenn nichts falsch ist, braucht der Nutzer keinen Warnhinweis. Stattdessen: vorausschauende Planung.
+
+**K6: Winner-Karte — CTA von passiv zu aktiv**
+- **Vorher:** "Analytics ansehen" → `/insights` (Beobachtung)
+- **Nachher:** "Mehr Content planen" → `/pulse` (Handlung)
+- **Begründung:** Wenn LinkedIn der stärkste Kanal ist, will der Nutzer dort weitermachen — nicht Charts anstarren.
+
+**K7: Winner-Fallback — ehrliche Formulierung**
+- **Vorher:** "Performance aufbauen" (klingt wie ein Gewinn, ist aber keiner)
+- **Nachher:** "Daten sammeln" (ehrlich: wir haben noch nicht genug Daten)
+
+**K8: Next-Step-Karte — strategische Rahmung statt Hook-Parroting**
+- **Vorher:** Übernahm Title/Description direkt aus `nextSteps[0]` → operationale Beschreibung
+- **Nachher:** Eigene Formulierungen pro Zustand:
+  - Onboarding: "Ersten Content-Plan erstellen" + "unter 5 Minuten"
+  - Leere Woche: "Neue Woche füllen" + "Lass Pulse die nächsten Posts generieren"
+  - Pipeline vorhanden: "Entwürfe prüfen" → `/planner`
+  - Default: "Content nachfüllen" → `/pulse`
+
+**K9: CTA-Routing vereinfacht**
+- `/chat` komplett aus Insight-CTAs entfernt (Chat ist ein Tool, kein Dashboard-Ziel)
+- Nur noch 3 Zielrouten: `/insights` (Problem analysieren), `/pulse` (Content erstellen), `/planner` (Content verwalten)
+
+### Verbleibende temporäre Kompromisse
+
+1. **Insight-Derivation ist signalbasiert (v1).** Erkennt nur: Status gut/schlecht, Richtung hoch/runter, Null/nicht-Null. Kann keine inhaltlichen Empfehlungen geben ("mehr Carousels" oder "poste morgens").
+2. **Warning-Fallback ist kein echter Warnhinweis.** Wenn alles gut läuft, wird die Karte zum Planungs-Impuls umgewidmet. Das ist ein bewusster Kompromiss: lieber nützlich als leer.
+3. **Winner-Fallback "Daten sammeln" ist keine Erfolgsgeschichte.** Der Kartentyp heißt "winner" im Code, aber der Fallback feiert nichts. Das ist ehrlich, könnte aber in v2 durch eine andere Kartenlogik ersetzt werden (z.B. Karte ausblenden wenn kein Winner vorhanden).
+
+### Empfehlung
+
+**Es ist sicher, mit Layer 3 fortzufahren.** Die Top-of-Dashboard-Erfahrung (Layer 1 + 2) ist jetzt:
+- Scanbar in 2 Sekunden (4 Zahlen + 3 Handlungsimpulse)
+- Ehrlich bei fehlenden Daten
+- Konsistent in den CTA-Zielen
+- Frei von hohlen Formulierungen
+- Visuell ruhig und premium
+
+### Workstream-Status
+
+**Corrective Pass abgeschlossen. Layer 1 + 2 + 3 implementiert. Bereit für Layer 4.**
+
+---
+
+## Dashboard Redesign — Layer 3 Implementierung
+
+**Stand:** 2026-03-21
+**Block:** Layer 3 — Strategic Visualization
+
+---
+
+### Geänderte / neue Dateien
+
+| Datei | Aktion | Zeilen |
+|-------|--------|--------|
+| `src/components/dashboard/ContentMixChart.tsx` | Neu | ~145 |
+| `src/components/dashboard/PlatformBreakdown.tsx` | Neu | ~130 |
+| `src/hooks/useDashboardData.ts` | Erweitert | +60 Zeilen (Interfaces, Queries, Transformations) |
+| `src/components/dashboard/DashboardHome.tsx` | Erweitert (Layer 3 Grid) | +10 Zeilen |
+| `src/components/dashboard/DashboardSkeleton.tsx` | Erweitert (Layer 3 Skeleton) | +25 Zeilen |
+
+### Hook-Erweiterung
+
+**Neue Interfaces:**
+```typescript
+export interface ContentMixItem {
+  label: string;   // Plattform-Name (z.B. "LinkedIn")
+  count: number;   // Anzahl Posts
+  color: string;   // Plattform-Farbe
+}
+
+export interface PlatformStat {
+  platform: string;   // Plattform-Name
+  posts: number;      // Anzahl analysierter Posts
+  avgEr: number;      // Durchschnittliche Engagement Rate
+  totalReach: number; // Gesamtreichweite
+}
+```
+
+**Neue Felder in `DashboardData`:**
+- `contentMix: ContentMixItem[]` — Plattform-Verteilung der generierten Inhalte (30 Tage)
+- `platformStats: PlatformStat[]` — Per-Plattform-Performance (30 Tage)
+
+**Neue Queries (2):**
+
+| Query | Tabelle | Felder | Filter | Limit |
+|-------|---------|--------|--------|-------|
+| Content-Mix | `pulse_generated_content` | `platform` | user_id + created_at > 30d | 100 |
+| Platform-Analytics | `post_analytics` | `platform, engagement_rate, reach` | user_id + published_at > 30d | 100 |
+
+Beide Queries nutzen den bestehenden `Promise.all`-Block. Gruppierung erfolgt client-seitig (kein Supabase RPC).
+
+### Content-Mix-Derivation
+
+Der Content-Mix gruppiert `pulse_generated_content` nach Plattform. Dies ist ein **v1-Kompromiss:** Die Tabelle enthält zwar ein `pillar`-Feld im Content-JSONB, aber es ist inkonsistent befüllt. Plattform-Verteilung ist die ehrliche, stabile Metrik.
+
+**Interpretation-Logik:**
+- 1 Plattform: "Dein Content erscheint ausschließlich auf {name}."
+- Starke Dominanz (≥70%): "{name} dominiert deinen Mix mit {pct}%. Mehr Vielfalt kann neue Zielgruppen erschließen."
+- 2 Plattformen: "Dein Content verteilt sich auf {a} und {b}."
+- Standard: "{top} führt deinen Mix ({pct}%), gefolgt von {second}."
+
+### Platform-Breakdown-Derivation
+
+Gruppiert `post_analytics` nach Plattform und berechnet:
+- `posts`: Anzahl analysierter Posts
+- `avgEr`: Durchschnitt der `engagement_rate`-Werte
+- `totalReach`: Summe der `reach`-Werte
+
+Proportionaler Balken zeigt relative Post-Menge. ER und Reichweite als kompakte Metriken rechts.
+
+### Design-Entscheidungen
+
+- **SVG-Donut statt Recharts:** Kein Library-Overhead. Schlanker, kontrollierbarer, product-grade.
+- **Center-Label im Donut:** Zeigt Gesamt-Post-Zahl → sofortige Orientierung
+- **AI-Interpretation mit Sparkles:** Dezent unter dem Chart, durch Border-Top abgegrenzt. AI Violet nur auf dem Sparkles-Icon.
+- **Platform-Rows mit Proportional-Balken:** Visuelle Vergleichbarkeit ohne Zahlen lesen zu müssen
+- **Tabular-Nums:** Alle Zahlen in `tabular-nums` für saubere Ausrichtung
+- **Layout:** 5 Spalten Content-Mix / 7 Spalten Platform-Breakdown (Desktop). Stacked auf Mobile.
+
+### Empty States
+
+| Komponente | Trigger | Anzeige |
+|-----------|---------|---------|
+| ContentMixChart | `items.length === 0` | PieChart-Icon + "Noch keine Daten" + Hilfetext |
+| PlatformBreakdown | `stats.length === 0` | Globe-Icon + "Keine Plattform-Daten" + Hilfetext |
+
+Beide Seiten rendern unabhängig — wenn nur eine Seite Daten hat, zeigt die andere ihren Empty State.
+
+### v1-Einschränkungen
+
+1. **Content-Mix zeigt Plattform-Verteilung, nicht Content-Pillar-Verteilung.** Das `pillar`-Feld ist inkonsistent. Plattform ist die ehrliche Metrik.
+2. **Kein Wochen-Vergleich.** Es gibt keinen Trend-Indikator pro Plattform (kein "letzte Woche vs. diese Woche"). Das würde zwei Perioden-Queries erfordern.
+3. **Kein Top-Post.** Die Breakdown zeigt aggregierte Metriken, nicht einzelne Post-Performance.
+4. **Max 100 Rows pro Query.** Für Nutzer mit >100 Posts in 30 Tagen wäre die Verteilung approximiert. Das ist für v1 akzeptabel.
+
+### Empfehlung
+
+**Es ist sicher, mit Layer 4 (Operational Task Feed) fortzufahren.** Layer 3 ist:
+- Datengetrieben mit echten Supabase-Queries
+- Ehrlich bei fehlenden Daten (Empty States, keine Fake-Metriken)
+- Visuell ruhig und product-grade (SVG-Donut, proportionale Balken)
+- Minimal in der Hook-Erweiterung (2 Queries, client-seitige Gruppierung)
+
+### Workstream-Status
+
+**Layer 3 implementiert + Corrective Pass abgeschlossen. Bereit für Layer 4.**
+
+---
+
+## Dashboard Redesign — Layer 3 Corrective Pass
+
+**Stand:** 2026-03-21
+**Block:** Layer 3 Semantic Correction
+
+---
+
+### Problem
+
+Die beiden Layer-3-Karten hatten semantische Überschneidung:
+- Links "Content-Mix" zeigte Plattform-Verteilung (nicht Content-Typen/Pillars)
+- Rechts "Plattform-Performance" zeigte ebenfalls Plattform-Daten mit Post-Anzahl als Balken
+- Beide Karten beantworteten im Kern dieselbe Frage: "Wo veröffentlichst du?"
+
+### Korrekturen
+
+| # | Datei | Vorher | Nachher | Warum |
+|---|-------|--------|---------|-------|
+| K1 | ContentMixChart.tsx | Titel: "Content-Mix" | Titel: "Kanalverteilung" | Ehrlicher Name — zeigt Plattform-Verteilung, nicht Content-Pillars |
+| K2 | ContentMixChart.tsx | Interpretation: "Content-Mix" Sprache | "Posts gehen an {platform}" / "Hauptkanal" | Keine falsche Pillar-Implikation |
+| K3 | PlatformBreakdown.tsx | Titel: "Plattform-Performance" | Titel: "Kanal-Ergebnisse" | Betont Wirkung/Ergebnis statt generischer Performance |
+| K4 | PlatformBreakdown.tsx | Balken basiert auf Post-Anzahl | Balken basiert auf Reichweite | Differenziert die Karten: links = Volumen, rechts = Impact |
+
+### Resultierende Informationsarchitektur
+
+| Karte | Frage | Metrik-Fokus | Datenquelle |
+|-------|-------|-------------|-------------|
+| Kanalverteilung (links) | Wo geht dein Content hin? | Anzahl generierter Posts pro Plattform | `pulse_generated_content` |
+| Kanal-Ergebnisse (rechts) | Wo kommt Wirkung her? | Reichweite + ER pro Plattform | `post_analytics` |
+
+Die beiden Karten sind jetzt komplementär:
+- **Links = Input** (Verteilung deines Aufwands)
+- **Rechts = Output** (Ergebnis deines Aufwands)
+
+Ein Kanal mit wenigen Posts aber hoher Reichweite hat links einen kleinen Donut-Anteil, aber rechts einen langen Balken. Das ist genuinely unterschiedliche Information.
+
+### Geänderte Dateien
+
+| Datei | Änderungen |
+|-------|------------|
+| `src/components/dashboard/ContentMixChart.tsx` | Titel, Interpretation-Texte, Empty-State-Text |
+| `src/components/dashboard/PlatformBreakdown.tsx` | Titel, Balken-Metrik von Post-Count auf Reichweite |
+
+### Verbleibende v1-Einschränkung
+
+Die linke Karte zeigt Plattform-Verteilung, nicht echte Content-Pillars (Educational, Promotional, etc.). Das `pillar`-Feld in der Datenbank ist inkonsistent befüllt. Sobald Pillar-Daten zuverlässig sind, kann die linke Karte zu einer echten Content-Strategie-Ansicht ausgebaut werden (v2).
+
+### Workstream-Status
+
+**Alle 4 Layers implementiert. Bereit für Cross-Layer-Review und Cleanup.**
+
+---
+
+## Dashboard Redesign — Layer 4 Implementierung
+
+**Stand:** 2026-03-21
+**Block:** Layer 4 — Operational Task Feed
+
+---
+
+### Geänderte / neue Dateien
+
+| Datei | Aktion | Zeilen |
+|-------|--------|--------|
+| `src/components/dashboard/TaskFeed.tsx` | Neu | ~155 |
+| `src/hooks/useDashboardData.ts` | Erweitert | +70 Zeilen (Interface, Queries, buildTasks) |
+| `src/components/dashboard/DashboardHome.tsx` | Umgebaut (ActivityTimeline → TaskFeed) | ~90 |
+| `src/components/dashboard/DashboardSkeleton.tsx` | Aktualisiert (Layer 4 Skeleton) | ~100 |
+
+### Hook-Erweiterung
+
+**Neues Interface:**
+```typescript
+export interface TaskItem {
+  type: 'approval' | 'connection' | 'brand' | 'generate';
+  title: string;
+  detail: string;
+  platform: string | null;
+  cta: { label: string; route: string };
+  urgency: 'high' | 'medium' | 'low';
+}
+```
+
+**Neues Feld in `DashboardData`:** `tasks: TaskItem[]`
+
+**Neue Queries (2):**
+
+| Query | Tabelle | Felder | Filter | Limit |
+|-------|---------|--------|--------|-------|
+| Entwürfe | `pulse_generated_content` | `id, platform, status, created_at` | user_id + status='draft' + 14d | 10 |
+| Brand-Profil | `brand_profiles` | `id` (count, head) | user_id | – |
+
+### Task-Derivation und Priorisierung
+
+Tasks werden aus 4 Quellen abgeleitet und nach Urgency sortiert:
+
+| Typ | Bedingung | Urgency | CTA | Route |
+|-----|-----------|---------|-----|-------|
+| `connection` | `platformStats.length === 0` | high | „Verbinden" | `/profile` |
+| `brand` | Kein Brand-Profil vorhanden | medium | „Einrichten" | `/brand` |
+| `approval` | Drafts vorhanden, >3d alt = high | medium/high | „Prüfen" / „Planer öffnen" | `/planner` |
+| `generate` | posts='0' UND keine Drafts | low | „Pulse starten" | `/pulse` |
+
+**Sortierung:** high → medium → low. Max 5 Tasks angezeigt.
+
+**Approval-Logik:** Bei ≤3 Drafts werden einzelne Zeilen gezeigt (je mit Plattform). Bei >3 Drafts wird zu einer Sammelzeile konsolidiert. Drafts älter als 3 Tage werden als `high` urgency eingestuft.
+
+### Design-Entscheidungen
+
+- **Urgency-Dots statt Badges:** Kleine farbige Punkte (rot=high, orange=medium, unsichtbar=low). Dezent, nicht alarmierend.
+- **Hover-reveal CTA:** Der CTA-Button wird erst bei Hover sichtbar. Die ganze Zeile ist klickbar. Das hält den Feed ruhig bei vollem Scan.
+- **Zeilen-Layout statt Karten:** Tasks sind eine flache Liste mit Dividers, nicht einzelne Karten. Das kommuniziert "Arbeitsliste", nicht "Feature-Showcase".
+- **Empty State:** Grüner Checkmark + "Alles erledigt" — beruhigend, nicht leer.
+
+### CTA-Routing
+
+| Task-Typ | Route | Begründung |
+|----------|-------|------------|
+| connection | `/profile` | Account-Einstellungen → dort wird verbunden |
+| brand | `/brand` | Brand Studio → dort wird eingerichtet |
+| approval | `/planner` | Planer → dort werden Entwürfe geprüft |
+| generate | `/pulse` | Pulse → dort wird Content erstellt |
+
+Jeder Task hat genau eine Route. Keine dynamische Routing-Logik.
+
+### v1-Einschränkungen
+
+1. **Connection-Task ist ein Proxy.** Es gibt keine `social_accounts`-Tabelle — der Task wird aus leeren `platformStats` abgeleitet. Wenn ein User Analytics-Daten hat aber keine Accounts verbunden hat, wird der Task nicht angezeigt.
+2. **Keine "scheduled post about to publish"-Tasks.** Würde eine Zeitvergleichs-Query erfordern (`scheduled_date` vs. jetzt). Für v2.
+3. **Kein per-Post-Detail.** Approval-Tasks zeigen Plattform, aber keinen Text-Preview. Für v2.
+4. **Max 5 Tasks.** Verhindert überlange Feed-Listen. Für Power-User mit vielen Drafts ist das eine Einschränkung.
+
+### Dashboard-Gesamtstruktur (final)
+
+```
+DashboardHome.tsx
+├── DashboardSkeleton (Loading)
+├── Error State
+│
+├── Layer 1: North Star Hero
+│   ├── HeroHeader (Greeting + Status + KW)
+│   └── KpiRow (4 × KpiCard)
+│
+├── Layer 2: Smart Insights
+│   └── InsightRow (3 × InsightCard)
+│
+├── Layer 3: Strategic Visualization
+│   ├── ContentMixChart (Kanalverteilung)
+│   └── PlatformBreakdown (Kanal-Ergebnisse)
+│
+└── Layer 4: Operational Task Feed
+    └── TaskFeed (TaskRow × n | TaskFeedEmpty)
+```
+
+### Empfehlung
+
+**Das Dashboard ist bereit für einen Cross-Layer-Review.** Alle 4 Layers sind implementiert:
+- Layer 1: KPIs + Status (komplett, korrigiert)
+- Layer 2: Insights + CTAs (komplett, korrigiert)
+- Layer 3: Kanalverteilung + Ergebnisse (komplett, korrigiert)
+- Layer 4: Task Feed (komplett)
+
+**Nächste Schritte:**
+1. Cross-Layer-Review: Gesamteindruck, Spacing, Übergänge, Edge Cases
+2. Dead-Code-Cleanup: ActionCards.tsx, ActivityTimeline.tsx, BriefingCard.tsx, Dashboard.tsx, Dash*-Dateien, dashboardData.ts
+3. Final QA
+
+### Workstream-Status
+
+**Alle 4 Layers + Cross-Layer-Review abgeschlossen. Bereit für Cleanup und Final QA.**
+
+---
+
+## Dashboard Redesign — Cross-Layer-Review
+
+**Stand:** 2026-03-21
+**Block:** Holistic Review + Targeted Corrections
+
+---
+
+### Geänderte Dateien
+
+| Datei | Änderungen |
+|-------|------------|
+| `src/components/dashboard/DashboardHome.tsx` | Spacing-Rhythmus vereinheitlicht |
+| `src/components/dashboard/DashboardSkeleton.tsx` | Gaps an reales Layout angepasst, Stale-Kommentar entfernt |
+| `src/components/dashboard/TaskFeed.tsx` | Unused Import entfernt, Copy-Bug behoben |
+| `src/components/dashboard/PlatformBreakdown.tsx` | Prop `maxPosts` → `maxReach` |
+| `src/hooks/useDashboardData.ts` | `generate`-Task-Typ entfernt, `postsValue`-Parameter entfernt |
+
+### Korrekturen
+
+**K1: Spacing-Rhythmus vereinheitlicht**
+- **Vorher:** mb-7, mb-6, mb-8, mb-8 (beliebig)
+- **Nachher:** mb-5 (hero→kpi intern), mb-7 für alle Inter-Layer-Gaps
+- **Begründung:** Ein konsistenter Rhythmus erzeugt visuelle Ruhe. Layer 1 (hero+kpi) ist ein zusammenhängendes Block und braucht einen engeren internen Gap. Alle Layer-Übergänge sind jetzt gleichmäßig.
+
+**K2: Skeleton-Gaps an reales Layout angepasst**
+- Skeleton nutzte mb-8 während reale Komponenten mb-6/mb-7 nutzten → Layout-Sprung beim Laden
+- Alle Skeleton-Gaps jetzt identisch mit den realen Gaps
+
+**K3: "generate"-Task-Typ entfernt**
+- **Vorher:** Layer 2 (Insights) und Layer 4 (Tasks) sagten beide "Dein Kalender ist leer, geh zu Pulse"
+- **Nachher:** Nur Layer 2 Insights kommunizieren "geh zu Pulse". Layer 4 Tasks zeigen nur Setup- und Approval-Aufgaben.
+- **Begründung:** Dreifache Wiederholung desselben Impulses (Warning-Insight + Next-Step-Insight + Generate-Task) bei neuen Nutzern ist Noise. Die Layers haben jetzt klare Zuständigkeiten: Layer 2 = strategische Impulse, Layer 4 = operative Aufgaben.
+
+**K4: PlatformBreakdown Prop-Name korrigiert**
+- `maxPosts` → `maxReach` in Interface und Aufruf (der Wert repräsentiert Reichweite seit dem L3 Corrective Pass)
+
+**K5: TaskFeed Copy-Bug**
+- `{tasks.length === 1 ? 'offen' : 'offen'}` → `{tasks.length} offen` (identischer Ternary war sinnlos)
+
+**K6: Unused Import + staler Kommentar entfernt**
+- `CircleDot` und `Zap` Imports aus TaskFeed entfernt
+- Skeleton-Kommentar "will extend with Layers 2-4" entfernt (alle Layers sind jetzt da)
+
+### Akzeptable v1-Kompromisse
+
+| Kompromiss | Warum akzeptabel | v2-Verbesserung |
+|-----------|-----------------|-----------------|
+| Top-Kanal KPI zeigt "–" wenn keine Daten | Ehrlich, nicht irreführend | Wird automatisch gefüllt sobald Analytics laufen |
+| Connection-Task basiert auf leeren platformStats (Proxy) | Kein `social_accounts`-Table vorhanden. Der Proxy ist korrekt wenn Analytics = 0 | Echte Account-Prüfung wenn Table existiert |
+| Brand-Task erscheint auch wenn der User kein Brand Studio braucht | Dezent (medium urgency), verschwindet nach Einrichtung | Könnte an Pulse-Nutzung gekoppelt werden |
+| Insight-Derivation ist signalbasiert (nicht KI-generiert) | Basiert auf realen Daten-Signalen, nicht auf Hype. Ehrlich. | KI-generierte Insights aus briefing.text parsen |
+| Kanalverteilung zeigt Plattformen, nicht Content-Pillars | pillar-Feld inkonsistent befüllt | Echte Pillar-Verteilung wenn Daten zuverlässig |
+| Keine Week-over-Week-Trends in Layer 3 | Würde doppelte Queries erfordern | Trend-Pfeile pro Plattform in v2 |
+| Warning-Fallback "Nächste Woche planen" ist kein echter Warnhinweis | Besser als ein fake-Warning wenn nichts falsch ist | Könnte Kartentyp dynamisch wechseln |
+
+### Cross-Layer-Bewertung
+
+| Kriterium | Bewertung |
+|-----------|-----------|
+| Liest sich das Dashboard von oben nach unten klar? | Ja. KPIs → Insights → Strategie → Tasks folgt einer natürlichen Hierarchie: Status → Empfehlung → Tiefe → Aktion |
+| Hat jede Ebene einen eigenen Zweck? | Ja. L1=Orientierung, L2=Handlungsimpuls, L3=strategische Tiefe, L4=operative To-dos |
+| Gibt es Redundanz? | Nach K3 nicht mehr. Die "geh zu Pulse"-Redundanz ist eliminiert. |
+| Fühlt es sich an wie "weniger Aufwand, mehr Wirkung"? | Ja. Das Dashboard zeigt was wichtig ist und sagt direkt was zu tun ist. Kein Rauschen. |
+| Ist der Schutzraum gewahrt? | Ja. Kein Glass, keine Blobs, kein Gradient. AI Violet nur auf Insight-Card-3 (border+icon+CTA). |
+| Funktioniert der Onboarding-Zustand? | Ja. KPIs zeigen "–", Insights zeigen Onboarding-Impulse, Layer 3 zeigt Empty States, Tasks zeigen Setup-Aufgaben. |
+| Funktioniert der Low-Data-Zustand? | Ja. Jede Ebene handled fehlende Daten unabhängig. Kein Waterfall. |
+
+### Empfehlung
+
+**Cleanup kann jetzt sicher durchgeführt werden.** Das Dashboard ist als Gesamterlebnis kohärent. Es gibt keine strukturellen Probleme mehr, nur noch tote Dateien zu entfernen.
+
+**Nächste Schritte:**
+1. **Cleanup:** Tote Dashboard-Dateien löschen (ActionCards, ActivityTimeline, BriefingCard, Dashboard.tsx, Dash*-Dateien, dashboardData.ts)
+2. **Final QA:** Holistische Prüfung nach Cleanup
+
+Ein weiterer Corrective Pass ist **nicht nötig.**
+
+### Workstream-Status
+
+**Cross-Layer-Review + Cleanup abgeschlossen. Bereit für Final QA.**
+
+---
+
+## Dashboard Redesign — Cleanup
+
+**Stand:** 2026-03-21
+**Block:** Dead-Code-Entfernung nach Cross-Layer-Review
+
+---
+
+### Gelöschte Dateien (18)
+
+| Datei | Grund |
+|-------|-------|
+| `src/components/Dashboard.tsx` | Legacy-Shell, ersetzt durch AppLayout.tsx |
+| `src/components/dashboard/ActionCards.tsx` | Ersetzt durch InsightRow (Layer 2) |
+| `src/components/dashboard/ActivityTimeline.tsx` | Ersetzt durch TaskFeed (Layer 4) |
+| `src/components/dashboard/BriefingCard.tsx` | Ersetzt durch KpiRow (Layer 1) + InsightRow (Layer 2) |
+| `src/components/dashboard/Header.tsx` | Nur von gelöschtem Dashboard.tsx importiert |
+| `src/components/dashboard/WelcomeBanner.tsx` | Nur von gelöschtem Dashboard.tsx importiert |
+| `src/components/dashboard/KpiCardList.tsx` | Nur von gelöschtem Dashboard.tsx importiert |
+| `src/components/dashboard/KpiCard.tsx` | Nur von gelöschtem KpiCardList.tsx importiert |
+| `src/components/dashboard/WeekPreview.tsx` | Nur von gelöschtem Dashboard.tsx importiert |
+| `src/components/dashboard/AiInsightCard.tsx` | Nur von gelöschtem Dashboard.tsx importiert |
+| `src/components/dashboard/OnboardingChecklist.tsx` | Nur von gelöschtem Dashboard.tsx importiert |
+| `src/components/dashboard/DashKpiCards.tsx` | Nirgends importiert (dead code seit Audit) |
+| `src/components/dashboard/DashTopPosts.tsx` | Nirgends importiert |
+| `src/components/dashboard/DashEngagementChart.tsx` | Nirgends importiert |
+| `src/components/dashboard/DashPlatformBreakdown.tsx` | Nirgends importiert |
+| `src/components/dashboard/DashPostsTable.tsx` | Nirgends importiert |
+| `src/components/dashboard/DashAiInsights.tsx` | Nirgends importiert |
+| `src/components/dashboard/dashboardData.ts` | Nur von gelöschten Dash*-Dateien importiert |
+
+### Bereinigte Stellen in aktiven Dateien
+
+| Datei | Änderung |
+|-------|----------|
+| `src/components/dashboard/KpiRow.tsx` | Stale-Kommentar "(extracted from BriefingCard)" entfernt |
+
+### Verifizierung
+
+- **TypeScript:** Kompiliert fehlerfrei nach Löschung
+- **Import-Suche:** Null verbleibende Referenzen auf gelöschte Dateien
+- **Routes:** `routes.tsx` referenziert nur `DashboardHome`, nicht `Dashboard`
+- **AppLayout:** Referenziert nur `VektrusSidebar`, nicht gelöschte Komponenten
+
+### Intentional beibehalten
+
+| Datei | Grund |
+|-------|-------|
+| `src/services/demoData.ts` | Wird von `src/components/insights/PerformanceOverview.tsx` verwendet — kein Dashboard-spezifischer Dead Code |
+
+### Verbleibende Dashboard-Dateien (9)
+
+```
+src/components/dashboard/
+├── DashboardHome.tsx       ← Container (Layer 1–4)
+├── DashboardSkeleton.tsx   ← Loading state
+├── HeroHeader.tsx          ← Layer 1: Greeting + Status + Datum
+├── KpiRow.tsx              ← Layer 1: 4 KPI-Cards
+├── InsightRow.tsx          ← Layer 2: 3 Insight-Cards
+├── ContentMixChart.tsx     ← Layer 3: Kanalverteilung (Donut)
+├── PlatformBreakdown.tsx   ← Layer 3: Kanal-Ergebnisse
+├── TaskFeed.tsx            ← Layer 4: Operative Aufgaben
+└── VektrusSidebar.tsx      ← Sidebar (unverändert)
+```
+
+### Workstream-Status
+
+**Cleanup + Final QA abgeschlossen. Dashboard-Workstream ist abgeschlossen.**
+
+---
+
+## Dashboard Redesign — Final QA
+
+**Stand:** 2026-03-21
+**Block:** Final QA Pass
+
+---
+
+### QA-Ergebnis
+
+| Prüfbereich | Ergebnis |
+|-------------|----------|
+| Produktlogik (KPIs, Insights, Tasks, Routing) | Bestanden |
+| UX-Qualität (Scanbarkeit, Aktionsorientierung, Klarheit) | Bestanden |
+| State-Robustheit (Loading, Empty, Partial, Onboarding) | Bestanden |
+| Design-Konsistenz (Spacing, Tokens, Icons, Schutzraum) | Bestanden |
+| Deutsche Umlaute/ß in UI-Copy | Bestanden |
+| TypeScript-Kompilierung | Fehlerfrei |
+| Tote Imports/Interfaces | Bereinigt (siehe Fixes) |
+
+### Final Fixes
+
+| # | Datei | Fix | Begründung |
+|---|-------|-----|------------|
+| F1 | `useDashboardData.ts` | `ActivityItem` Interface entfernt | Nicht mehr referenziert nach ActivityTimeline-Löschung |
+| F2 | `useDashboardData.ts` | `activity`-Feld aus `DashboardData` entfernt | Kein Konsument mehr |
+| F3 | `useDashboardData.ts` | Activity-Konstruktionsblock (~35 Zeilen) entfernt | Tote Logik, kein Output-Konsument |
+| F4 | `useDashboardData.ts` | `post_analytics` 7-Tage-Query entfernt (war `postsResult`) | Wurde nur für Activity-Feed genutzt. 30-Tage-Query (`analyticsResult`) deckt Layer 3 ab. |
+| F5 | `useDashboardData.ts` | `sevenDaysAgo`-Variable entfernt | Wurde nur von der gelöschten Query verwendet |
+| F6 | `useDashboardData.ts` | `recentPosts`-Variable entfernt | Keine Referenz mehr |
+
+**Netto-Effekt von F4:** Eine Supabase-Query weniger pro Dashboard-Load. Die Hook führt jetzt 7 statt 8 parallele Queries aus.
+
+### Verbleibende akzeptable v1-Kompromisse
+
+| Kompromiss | Akzeptanz-Begründung |
+|-----------|---------------------|
+| Top-Kanal KPI zeigt "–" ohne Daten | Ehrlich, füllt sich automatisch |
+| Connection-Task = Proxy aus leeren platformStats | Kein `social_accounts`-Table. Proxy ist korrekt genug |
+| Brand-Task pauschal bei fehlendem Profil | Dezent, verschwindet permanent nach Einrichtung |
+| Insight-Derivation signalbasiert, nicht KI-geparst | Basiert auf echten Daten-Signalen, kein Hype |
+| Kanalverteilung statt Content-Pillars | pillar-Feld in DB inkonsistent befüllt |
+| Keine Week-over-Week-Trends in Layer 3 | Würde doppelte Queries erfordern |
+| Warning-Fallback "Nächste Woche planen" ist kein echter Warnhinweis | Nützlicher als ein Fake-Warning bei gutem Status |
+
+### Dashboard-Workstream-Status
+
+**Der Dashboard-Redesign-Workstream ist abgeschlossen.**
+
+Implementiert und geprüft:
+- Layer 1: North Star Hero (Greeting + Status + 4 KPIs)
+- Layer 2: Smart Insights (Warning + Winner + Next Step)
+- Layer 3: Strategic Visualization (Kanalverteilung + Kanal-Ergebnisse)
+- Layer 4: Operational Task Feed (Connection + Brand + Approval Tasks)
+- Loading/Error/Empty/Onboarding States
+- Skeleton, Spacing, Tokens, Schutzraum
+- 18 Dead-Code-Dateien gelöscht + Hook bereinigt (1 Query reduziert)
+- TypeScript kompiliert fehlerfrei
+
+### Empfehlung für den nächsten Chat
+
+Ein neuer Claude-Chat wird empfohlen für das nächste Hauptarbeitsgebiet. Der Dashboard-Kontext ist vollständig im Handoff-Dokument erfasst. Mögliche nächste Arbeitsbereiche:
+- Pulse Module Polish
+- Chat Module Polish
+- Planner Verbesserungen
+- ToolHub Überarbeitung
+- Oder ein anderer Bereich gemäß `app-frontend-rollout-plan.md`
+
+---
+
+## Dashboard Redesign — UI/UX Corrective Pass (Post-QA)
+
+**Stand:** 2026-03-21
+**Block:** Targeted corrections based on visual review feedback
+
+---
+
+### Geänderte Dateien
+
+| Datei | Änderungen |
+|-------|------------|
+| `src/components/dashboard/KpiRow.tsx` | Top-Kanal Doppel-%-Bug behoben, `erValue` mit `replace(/%$/, '')` |
+| `src/components/dashboard/InsightRow.tsx` | Farbige Borders entfernt → einheitlicher subtiler Border. Winner-Titel %-Bug behoben. |
+| `src/components/dashboard/HeroHeader.tsx` | `deriveChipState()` hinzugefügt — Chip wird gegen KPI-Signale validiert |
+| `src/components/dashboard/ContentMixChart.tsx` | Empty State: Ghost-Donut statt generischem Icon, stärkerer Text |
+
+### Korrekturen im Detail
+
+**K1: Top-Kanal "7.3%%" → "7.3%"**
+- `bp.er` kann `"7.3%"` oder `"7.3"` enthalten (abhängig vom Backend)
+- Fix: `bp.er.replace(/%$/, '')` strippt trailing `%`, dann wird genau ein `%` angefügt
+- Betrifft: KpiRow (KPI-Wert) und InsightRow (Winner-Titel)
+
+**K2: Insight-Card-Borders beruhigt**
+- **Vorher:** 3 farbige `borderLeft: 3px solid {rot/grün/violett}` — visuell laut, drei Akzente konkurrieren
+- **Nachher:** Einheitlicher `border border-[var(--vektrus-border-subtle)]` auf allen drei Karten
+- Farbe lebt jetzt nur noch in den Icons und im AI-CTA-Button
+- Das Dashboard wirkt deutlich ruhiger und premiumiger
+
+**K3: Status-Chip validiert gegen KPI-Signale**
+- **Vorher:** Chip zeigte blind `briefing.status` / `briefing.statusLabel` aus dem Cache
+- **Problem:** Cache sagt "Läuft gut" während Reichweite sinkt → kognitiver Widerspruch
+- **Nachher:** `deriveChipState()` prüft KPI-Richtungen und korrigiert:
+  - Cache "good" + reach/engagement down → "Gemischte Signale" (okay)
+  - Cache "good" + declining + no posts → "Leicht hinter Plan" (attention)
+  - Cache "attention" → bleibt (vertraut dem Cache)
+  - Keine Daten → "Wird eingerichtet" (okay)
+
+**K4: Kanalverteilung Empty State aufgewertet**
+- **Vorher:** Generisches PieChart-Icon + "Noch keine Daten" + passiver Text
+- **Nachher:** Ghost-Donut-Ring (gleiche Dimensionen wie echtes Chart, mit blassem "0 Posts" Center) + Text neben dem Ring: "Erstelle deinen ersten Content-Plan, um zu sehen wohin dein Content geht."
+- Das Card behält seine visuelle Form auch im Empty State und kommuniziert "hier wird etwas sein"
+
+### Verbleibende v1-Kompromisse
+
+Alle zuvor dokumentierten v1-Kompromisse bleiben bestehen (Top-Kanal Fallback, Connection-Proxy, Brand-Task-Pauschalität, Signal-basierte Insights, Kanalverteilung statt Pillars). Keine neuen Kompromisse durch diesen Pass.
+
+### Workstream-Status
+
+**Dashboard-Workstream ist abgeschlossen inkl. UI/UX Corrective Pass + Pulse Gradient Fix. TypeScript kompiliert fehlerfrei.**
+
+---
+
+## Dashboard Redesign — Pulse Gradient Consistency Fix
+
+**Stand:** 2026-03-21
+
+### Problem
+
+Der Pulse-CTA auf dem Dashboard (Insight-Card „Pulse starten") nutzte einen soliden AI-Violet-Hintergrund, während Pulse-Buttons überall sonst (Chat, Pulse-Seite, Planner) den Pulse Gradient (`chat-ai-action-btn`) verwenden. Pulse muss überall visuell gleich erkennbar sein.
+
+### Fix
+
+| Datei | Änderung |
+|-------|----------|
+| `src/components/dashboard/InsightRow.tsx` | Pulse-CTAs (route === '/pulse') nutzen jetzt `chat-ai-action-btn` statt solidem Violet-Hintergrund |
+| `CLAUDE.md` | Neue Regel „Pulse Gradient rule" unter „Color logic" dokumentiert |
+
+### Dokumentierte Regel (CLAUDE.md)
+
+Jeder Button oder CTA, der Vektrus Pulse auslöst oder nach `/pulse` routet, **muss** das Pulse-Gradient-Treatment verwenden:
+- CSS-Klasse: `chat-ai-action-btn` (weißer Hintergrund, Pulse Gradient Border on Hover, subtiler Glow)
+- Gradient: `--vektrus-pulse-gradient` = `linear-gradient(135deg, #49B7E3, #7C6CF2, #E8A0D6, #F4BE9D)`
+- Gilt in: Dashboard, Chat, Planner, Sidebar, Pulse-Seite, jedem Modul das Pulse anbietet
+- Kein solider AI-Violet-Button für Pulse-CTAs
+
+### Workstream-Status
+
+**Pulse Gradient Consistency Fix abgeschlossen.**
+
+---
+
 ## Vollständige Dokumentation
 
 - [Audit](./app-frontend-audit.md)

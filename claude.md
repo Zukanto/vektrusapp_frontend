@@ -174,6 +174,19 @@ Important:
 **AI Violet must never dominate the brand.**
 It is a functional accent for AI-related states, not the primary visual identity.
 
+### Pulse Gradient rule
+
+Wherever a CTA or button triggers Vektrus Pulse — content generation, Pulse start, "Pulse starten", or any action that routes to `/pulse` — it **must** use the Pulse Gradient treatment defined in `src/styles/ai-layer.css`.
+
+- Use the CSS class `chat-ai-action-btn` for Pulse action buttons (white background, Pulse Gradient border on hover, subtle glow)
+- Use `pulse-gradient-icon` for icon containers associated with Pulse
+- The Pulse Gradient is: `linear-gradient(135deg, #49B7E3, #7C6CF2, #E8A0D6, #F4BE9D)` — defined as `--vektrus-pulse-gradient`
+- This applies everywhere: Dashboard, Chat, Planner, Sidebar, Pulse page, any module that offers a "start Pulse" action
+- Do **not** use a solid AI Violet button for Pulse CTAs — use the gradient treatment instead
+- Standard (non-Pulse) AI actions may still use AI Violet as an accent color
+
+This ensures Pulse is visually recognizable as a premium AI feature across the entire app.
+
 ---
 
 ## UX Standards

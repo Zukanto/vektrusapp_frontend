@@ -29,19 +29,35 @@ export interface NextStep {
   route: string;
 }
 
-export interface ActivityItem {
-  type: string;
-  date: string;
+export interface ContentMixItem {
+  label: string;
+  count: number;
+  color: string;
+}
+
+export interface PlatformStat {
+  platform: string;
+  posts: number;
+  avgEr: number;
+  totalReach: number;
+}
+
+export interface TaskItem {
+  type: 'approval' | 'connection' | 'brand';
   title: string;
   detail: string;
   platform: string | null;
+  cta: { label: string; route: string };
+  urgency: 'high' | 'medium' | 'low';
 }
 
 export interface DashboardData {
   greeting: string;
   briefing: BriefingData;
   nextSteps: NextStep[];
-  activity: ActivityItem[];
+  contentMix: ContentMixItem[];
+  platformStats: PlatformStat[];
+  tasks: TaskItem[];
 }
 
 function formatRelativeDate(date: Date): string {
@@ -89,6 +105,126 @@ const emptyNextSteps: NextStep[] = [
   { icon: 'Link', title: 'Konten verbinden', description: 'Verbinde deine Social-Media-Accounts', buttonLabel: 'Verbinden', route: '/profile' },
 ];
 
+const platformColorMap: Record<string, string> = {
+  instagram: '#E1306C',
+  linkedin: '#0077B5',
+  facebook: '#1877F2',
+  tiktok: '#111111',
+  twitter: '#1DA1F2',
+};
+
+function buildContentMix(rows: { platform: string }[]): ContentMixItem[] {
+  if (!rows.length) return [];
+  const counts: Record<string, number> = {};
+  for (const r of rows) {
+    const p = (r.platform || 'other').toLowerCase();
+    counts[p] = (counts[p] || 0) + 1;
+  }
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1])
+    .map(([p, count]) => ({
+      label: capitalize(p),
+      count,
+      color: platformColorMap[p] || '#7A7A7A',
+    }));
+}
+
+function buildPlatformStats(rows: { platform: string; engagement_rate: number | null; reach: number | null }[]): PlatformStat[] {
+  if (!rows.length) return [];
+  const groups: Record<string, { ers: number[]; reaches: number[]; count: number }> = {};
+  for (const r of rows) {
+    const p = (r.platform || 'other').toLowerCase();
+    if (!groups[p]) groups[p] = { ers: [], reaches: [], count: 0 };
+    groups[p].count++;
+    if (r.engagement_rate != null) groups[p].ers.push(r.engagement_rate);
+    if (r.reach != null) groups[p].reaches.push(r.reach);
+  }
+  return Object.entries(groups)
+    .sort((a, b) => b[1].count - a[1].count)
+    .map(([p, g]) => ({
+      platform: capitalize(p),
+      posts: g.count,
+      avgEr: g.ers.length ? parseFloat((g.ers.reduce((a, b) => a + b, 0) / g.ers.length).toFixed(1)) : 0,
+      totalReach: g.reaches.reduce((a, b) => a + b, 0),
+    }));
+}
+
+function buildTasks(
+  drafts: { id: string; platform: string; created_at: string }[],
+  hasBrandProfile: boolean,
+  hasPlatformStats: boolean,
+): TaskItem[] {
+  const tasks: TaskItem[] = [];
+
+  // Connection task — highest priority, blocks all analytics
+  if (!hasPlatformStats) {
+    tasks.push({
+      type: 'connection',
+      title: 'Social-Media-Konten verbinden',
+      detail: 'Verknüpfe deine Accounts, um Analytics und Publishing zu aktivieren.',
+      platform: null,
+      cta: { label: 'Verbinden', route: '/profile' },
+      urgency: 'high',
+    });
+  }
+
+  // Brand profile task — important for quality
+  if (!hasBrandProfile) {
+    tasks.push({
+      type: 'brand',
+      title: 'Brand Studio einrichten',
+      detail: 'Lade Referenz-Designs hoch, damit Pulse deinen Markenstil kennt.',
+      platform: null,
+      cta: { label: 'Einrichten', route: '/brand' },
+      urgency: 'medium',
+    });
+  }
+
+  // Draft approval tasks — one per platform group
+  if (drafts.length > 0) {
+    const byPlatform: Record<string, number> = {};
+    for (const d of drafts) {
+      const p = (d.platform || 'other').toLowerCase();
+      byPlatform[p] = (byPlatform[p] || 0) + 1;
+    }
+
+    if (drafts.length <= 3) {
+      // Few drafts — show individual tasks
+      for (const d of drafts) {
+        const age = Date.now() - new Date(d.created_at).getTime();
+        const isOld = age > 3 * 86400000; // >3 days
+        tasks.push({
+          type: 'approval',
+          title: `Entwurf freigeben`,
+          detail: `${capitalize(d.platform || 'Post')} \u2013 wartet auf Freigabe`,
+          platform: d.platform,
+          cta: { label: 'Prüfen', route: '/planner' },
+          urgency: isOld ? 'high' : 'medium',
+        });
+      }
+    } else {
+      // Many drafts — summarize
+      tasks.push({
+        type: 'approval',
+        title: `${drafts.length} Entwürfe freigeben`,
+        detail: 'Offene Posts im Planer warten auf deine Freigabe.',
+        platform: null,
+        cta: { label: 'Planer öffnen', route: '/planner' },
+        urgency: drafts.some(d => Date.now() - new Date(d.created_at).getTime() > 3 * 86400000) ? 'high' : 'medium',
+      });
+    }
+  }
+
+  // Note: "generate content" is NOT a task — Layer 2 insights already
+  // handle the "go to Pulse" prompt. Duplicating it here would be noise.
+
+  // Sort: high > medium > low
+  const urgencyOrder = { high: 0, medium: 1, low: 2 };
+  tasks.sort((a, b) => urgencyOrder[a.urgency] - urgencyOrder[b.urgency]);
+
+  return tasks.slice(0, 5); // max 5 tasks
+}
+
 export function useDashboardData() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -106,9 +242,9 @@ export function useDashboardData() {
         }
 
         const userId = session.user.id;
-        const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
+        const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
 
-        const [cacheResult, userResult, postsResult, pulseResult] = await Promise.all([
+        const [cacheResult, userResult, pulseResult, mixResult, analyticsResult, draftsResult, brandResult] = await Promise.all([
           supabase
             .from('dashboard_cache')
             .select('*')
@@ -120,74 +256,65 @@ export function useDashboardData() {
             .eq('auth_user_id', userId)
             .maybeSingle(),
           supabase
-            .from('post_analytics')
-            .select('platform, content_text, published_at, engagement_rate, likes, reach')
-            .eq('user_id', userId)
-            .gte('published_at', sevenDaysAgo)
-            .order('published_at', { ascending: false })
-            .limit(5),
-          supabase
             .from('pulse_generated_content')
             .select('platform, status, created_at')
             .eq('user_id', userId)
             .order('created_at', { ascending: false })
             .limit(5),
+          // Layer 3: content mix — platform distribution of generated content
+          supabase
+            .from('pulse_generated_content')
+            .select('platform')
+            .eq('user_id', userId)
+            .gte('created_at', thirtyDaysAgo)
+            .limit(100),
+          // Layer 3: platform analytics — per-platform performance
+          supabase
+            .from('post_analytics')
+            .select('platform, engagement_rate, reach')
+            .eq('user_id', userId)
+            .gte('published_at', thirtyDaysAgo)
+            .limit(100),
+          // Layer 4: draft posts awaiting approval
+          supabase
+            .from('pulse_generated_content')
+            .select('id, platform, status, created_at')
+            .eq('user_id', userId)
+            .eq('status', 'draft')
+            .gte('created_at', new Date(Date.now() - 14 * 86400000).toISOString())
+            .order('created_at', { ascending: false })
+            .limit(10),
+          // Layer 4: brand profile existence check
+          supabase
+            .from('brand_profiles')
+            .select('id', { count: 'exact', head: true })
+            .eq('user_id', userId),
         ]);
 
         const cache = cacheResult.data;
         const firstName = userResult.data?.first_name || userResult.data?.company_name || 'there';
-        const recentPosts = postsResult.data || [];
         const recentPulse = pulseResult.data || [];
 
         const greetingPrefix = getGreetingPrefix();
+
+        const mixRows = (mixResult.data || []) as { platform: string }[];
+        const analyticsRows = (analyticsResult.data || []) as { platform: string; engagement_rate: number | null; reach: number | null }[];
+        const draftRows = (draftsResult.data || []) as { id: string; platform: string; created_at: string }[];
+        const hasBrandProfile = (brandResult.count ?? 0) > 0;
+        const computedPlatformStats = buildPlatformStats(analyticsRows);
 
         if (!cache) {
           setData({
             greeting: `${greetingPrefix}, ${firstName}`,
             briefing: emptyBriefing,
             nextSteps: emptyNextSteps,
-            activity: [],
+            contentMix: buildContentMix(mixRows),
+            platformStats: computedPlatformStats,
+            tasks: buildTasks(draftRows, hasBrandProfile, computedPlatformStats.length > 0),
           });
           setLoading(false);
           return;
         }
-
-        const activity: ActivityItem[] = [];
-
-        if (cache.analytics_count > 0) {
-          const updatedDate = new Date(cache.updated_at);
-          activity.push({
-            type: 'analytics_update',
-            date: `${formatRelativeDate(updatedDate)}, ${formatTime(updatedDate)}`,
-            title: 'Analytics aktualisiert',
-            detail: `${cache.analytics_count} Posts analysiert`,
-            platform: null,
-          });
-        }
-
-        recentPosts.forEach((post: any) => {
-          const d = new Date(post.published_at);
-          activity.push({
-            type: 'post_published',
-            date: `${formatRelativeDate(d)}, ${formatTime(d)}`,
-            title: 'Post veröffentlicht',
-            detail: ((post.content_text || '') as string).substring(0, 60) + ((post.content_text || '').length > 60 ? '...' : ''),
-            platform: post.platform,
-          });
-        });
-
-        recentPulse.forEach((item: any) => {
-          const d = new Date(item.created_at);
-          activity.push({
-            type: 'content_generated',
-            date: `${formatRelativeDate(d)}, ${formatTime(d)}`,
-            title: 'Content erstellt',
-            detail: `Post für ${capitalize(item.platform || 'Social Media')}`,
-            platform: item.platform,
-          });
-        });
-
-        const finalActivity = activity.slice(0, 6);
 
         const scheduledPosts = recentPulse.filter((p: any) =>
           p.status === 'draft' || p.status === 'approved' || p.status === 'scheduled'
@@ -265,7 +392,9 @@ export function useDashboardData() {
             },
           },
           nextSteps,
-          activity: finalActivity,
+          contentMix: buildContentMix(mixRows),
+          platformStats: computedPlatformStats,
+          tasks: buildTasks(draftRows, hasBrandProfile, computedPlatformStats.length > 0),
         });
       } catch (err) {
         console.error('Dashboard load error:', err);
