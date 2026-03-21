@@ -28,6 +28,20 @@
    ============================================================ */
 
 :root {
+  /* -- Brand Palette ------------------------------------------
+     Core colors used across the entire app.
+     Use these instead of hardcoded hex values. */
+  --vektrus-blue: #49B7E3;
+  --vektrus-blue-light: #B6EBF7;
+  --vektrus-mint: #F4FCFE;
+  --vektrus-anthrazit: #111111;
+  --vektrus-gray: #7A7A7A;
+  --vektrus-success: #49D69E;
+  --vektrus-error: #FA7E70;
+  --vektrus-warning: #F4BE9D;
+  --vektrus-warning-dark: #D97706;
+  --vektrus-neutral: #E5E7EB;
+
   /* -- Vektrus Pulse Gradient -------------------------------- */
   --vektrus-pulse-gradient: linear-gradient(
     135deg,

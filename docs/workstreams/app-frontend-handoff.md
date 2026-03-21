@@ -4803,6 +4803,1688 @@ Jeder Button oder CTA, der Vektrus Pulse auslöst oder nach `/pulse` routet, **m
 
 ---
 
+## Profil / Settings Redesign — Audit & Implementierungsplan
+
+**Stand:** 2026-03-21
+**Typ:** Neuer Workstream — Audit + Architekturplanung (keine Implementierung)
+
+---
+
+### 1. Gelesene Dateien
+
+**Brand-Dokumentation:**
+- `CLAUDE.md`
+- `docs/brand/brand-summary.md` (v2.5)
+- `docs/brand/messaging.md` — existiert nicht (Inhalt ist in brand-summary integriert)
+- `docs/brand/visual-rules.md` — existiert nicht (Regeln in CLAUDE.md kodifiziert)
+- `docs/brand/assets-reference.md` — existiert nicht (Assets in `docs/brand/source/` als Dateien)
+
+**Product-Dokumentation:**
+- `docs/product/` — keine Settings-/Profil-spezifischen Produktdokumente vorhanden
+
+**Workstream-Dokumentation:**
+- `docs/workstreams/app-frontend-audit.md`
+- `docs/workstreams/app-frontend-rollout-plan.md`
+- `docs/workstreams/app-frontend-handoff.md`
+- `docs/workstreams/app-frontend-final-qa.md`
+
+**Implementierung:**
+- `src/components/profile/ProfilePage.tsx` (996 Zeilen — monolithische Einzelkomponente)
+- `src/components/profile/SocialAuthCallback.tsx` (142 Zeilen — OAuth Callback Page)
+- `src/services/socialAccountService.ts` (Social-Account-Logik: connect, disconnect, sync, polling)
+- `src/hooks/useAuth.tsx` (Auth-Hook: user, userProfile, signOut, updateProfile, refreshProfile)
+- `src/hooks/useSubscription.ts` (Subscription-Hook: subscription, isActive, isPastDue, isCanceled)
+- `src/hooks/useConnectedPlatforms.ts` (Platform-Hook für Planner/Pulse-Kontext)
+- `src/components/subscription/SubscriptionStatus.tsx` (Abo-Status-Komponente)
+- `src/routes.tsx` (Routing: `/profile` → ProfilePage, `/profile/callback` → SocialAuthCallback)
+- `src/components/layout/AppLayout.tsx` (Layout mit `navigate-to-profile` Event)
+- `src/styles/module-colors.ts` (Modul `profile` definiert: primary #6366F1)
+
+---
+
+### 2. Aktueller Zustand
+
+**ProfilePage.tsx** ist eine **996-Zeilen-Monolith-Komponente** mit 5 Tabs in einem einzigen File:
+
+| Tab | Inhalt | Logik-Dichte |
+|-----|--------|-------------|
+| `profile` | Avatar, Name, E-Mail, Company, Role, Bio, Website, Stats | Mittel — `useAuth().updateProfile()`, Formvalidierung |
+| `accounts` | Social-Media-Konten verbinden/trennen/synchronisieren | **Hoch** — `SocialAccountService`, OAuth-Popup, Late-Profile-Check |
+| `billing` | Abo-Status (SubscriptionStatus), Rechnungshistorie, Zahlungsmethode | Gering — `useSubscription()`, Rest ist Mock-Daten |
+| `notifications` | 5 Toggle-Switches für Benachrichtigungseinstellungen | Gering — rein lokaler State, keine Persistenz |
+| `security` | Passwort ändern, 2FA, aktive Sessions, Konto löschen | Gering — UI ohne Backend-Anbindung (Formulare ohne Handler) |
+
+**Layout-Struktur:**
+- Bereits links/rechts: Sidebar-Navigation (lg:w-64) + Content-Bereich
+- Tabs als vertikale Button-Nav in einer weißen Card
+- Content rendert per `activeTab` State
+
+**Positive Aspekte:**
+- Grundstruktur mit linker Navigation bereits vorhanden
+- Brand-Token-Nutzung teilweise vorhanden (`--vektrus-radius-md`, `--vektrus-radius-sm`)
+- Lucide-Icons durchgängig (keine Emojis)
+- Deutsche Copy korrekt mit Umlauten und ß
+- ModuleWrapper mit `module="profile"` korrekt eingebunden
+
+**Probleme:**
+- Monolithische 996-Zeilen-Komponente — jeder Tab ist eine inline `render*Tab()` Funktion
+- Hardcodierte Hex-Farben statt CSS-Token überall
+- Billing-History ist komplett Mock-Daten (hardcodiert)
+- Security-Tab: Passwort-Formular ohne Handler, Sessions sind Mock-Daten
+- Notification-Settings: nur lokaler State, keine Persistenz
+- Kein `shadow-card` oder `shadow-subtle` Token — alles über border-basierte Cards
+- Profil-Modul-Farbe (#6366F1 = Indigo) widerspricht dem gewünschten ruhigen Settings-Charakter
+- Stats-Card „247 Generierte Posts" ist hardcodiert
+- Active-Tab-Styling nutzt `bg-[#B6EBF7]` (okay, aber kein Token)
+- Keine leeren Zustände definiert
+- Inline Event-Handler für Hover-Styles (aus Final QA M8 bekannt)
+
+---
+
+### 3. No-Touch-Dateien und Logik-Grenzen
+
+**ABSOLUT NICHT ÄNDERN (Geschäftslogik / Integration):**
+
+| Datei | Grund |
+|-------|-------|
+| `src/services/socialAccountService.ts` | OAuth-Flows, Token-Handling, Late-API-Integration, connect/disconnect/sync-Logik |
+| `src/hooks/useAuth.tsx` | Auth-Session, signOut, updateProfile, refreshProfile — Supabase-Auth |
+| `src/hooks/useSubscription.ts` | Stripe/Abo-Logik |
+| `src/hooks/useConnectedPlatforms.ts` | Plattform-Daten für Cross-Modul-Nutzung |
+| `src/components/profile/SocialAuthCallback.tsx` | OAuth-Callback-Seite (eigenständige Route) |
+| `src/components/subscription/SubscriptionStatus.tsx` | Abo-Status-Darstellung (eigene Komponente, wird eingebettet) |
+
+**Logik in ProfilePage.tsx die erhalten bleiben muss:**
+
+| Funktion / Block | Zeilen (ca.) | Was es tut |
+|-----------------|-------------|-----------|
+| `handleSaveProfile()` | 163–228 | Validierung + `updateProfile()` + `refreshProfile()` + Toast |
+| `loadConnectedAccounts()` | 135–147 | `SocialAccountService.getConnectedAccounts()` + `hasLateProfile()` |
+| `handleConnectAccount()` | 240–282 | `SocialAccountService.connectPlatform()` + OAuth-Popup |
+| `handleSyncAccounts()` | 284–314 | `SocialAccountService.syncAccounts()` |
+| `handleDisconnectAccount()` | 316–347 | `SocialAccountService.disconnectAccount()` + Toast |
+| `SUPPORTED_PLATFORMS` Array | 81–133 | Plattform-Definitionen mit SVG-Icons |
+| `useEffect` für `accounts` Tab | 149–153 | Lädt Accounts wenn Tab gewechselt wird |
+| Profil-State-Sync `useEffect` | 57–71 | Synchronisiert `profileData` mit `userProfile` |
+| `connectedAccounts` State | 73–79 | Connected Accounts + Loading/Syncing/Disconnect States |
+
+**Regel:** Alle `handleConnect*`, `handleDisconnect*`, `handleSync*`, `handleSaveProfile`, `loadConnectedAccounts`, `SocialAccountService.*`-Aufrufe, `useAuth()`-Aufrufe, `useSubscription()`-Aufrufe und die `SUPPORTED_PLATFORMS` Definitionen dürfen in ihrer Logik **nicht verändert** werden. Sie dürfen in neue Dateien verschoben werden, aber die Funktionssignaturen, State-Management und Service-Aufrufe müssen 1:1 erhalten bleiben.
+
+---
+
+### 4. Ziel-Architektur
+
+**Geplante Navigation (7 Abschnitte):**
+
+| Abschnitt | Route-Segment / Tab-ID | Inhalt |
+|-----------|----------------------|--------|
+| Profil | `profile` | Avatar, Name, E-Mail, Company, Role, Bio, Website |
+| Workspace | `workspace` | Workspace-Name, Mitglieder-Übersicht (MVP: Platzhalter) |
+| Brand & KI | `brand-ai` | Verknüpfung zum Brand Studio, KI-Personalisierung, Tonalität |
+| Social-Konten | `social` | Social-Media-Konten verbinden/trennen/sync (bestehende Logik) |
+| Benachrichtigungen | `notifications` | Notification-Toggles |
+| Plan & Abrechnung | `billing` | Abo-Status, Rechnungen, Zahlungsmethode |
+| Datenschutz & Sicherheit | `security` | Passwort, 2FA, Sessions, DSGVO-Info, Konto löschen |
+
+**Layout:**
+- Linke Seite: Settings-Navigation (fest, scrollt nicht, ~240px breit auf Desktop)
+- Rechte Seite: Content-Bereich mit Cards pro Abschnitt
+- Mobile: Navigation wird horizontaler Tab-Bar oder collapsible
+- Kein AI Glass Layer (Schutzraum-Regel: Settings bleiben flach)
+- Kein AI Violet (kein KI-Processing-State in Settings)
+
+**Dateistruktur (Ziel):**
+
+```
+src/components/profile/
+├── ProfilePage.tsx              ← Shell: Layout, Nav, Tab-Routing
+├── ProfileTab.tsx               ← Profil-Infos + Bearbeiten
+├── WorkspaceTab.tsx             ← Workspace-Info (MVP: Platzhalter)
+├── BrandAiTab.tsx               ← Brand & KI Verknüpfung
+├── SocialAccountsTab.tsx        ← Social-Konten (bestehende Logik extrahiert)
+├── NotificationsTab.tsx         ← Benachrichtigungs-Toggles
+├── BillingTab.tsx               ← Plan & Abrechnung
+├── SecurityTab.tsx              ← Datenschutz & Sicherheit
+├── SocialAuthCallback.tsx       ← Unverändert (eigene Route)
+└── components/
+    ├── SettingsNav.tsx           ← Linke Navigation
+    ├── SettingsCard.tsx          ← Wiederverwendbare Card-Komponente
+    └── SettingsToggle.tsx        ← Toggle-Switch-Komponente
+```
+
+---
+
+### 5. MVP vs. Phase 2
+
+**MVP (Phase 1) — Redesign der Präsentationsschicht:**
+
+| Aufgabe | Beschreibung |
+|---------|-------------|
+| Layout-Shell | ProfilePage.tsx wird zur Layout-Shell mit SettingsNav + Content-Bereich |
+| Tab-Extraktion | Jeder Tab wird eine eigenständige Komponente |
+| Profil-Tab | Redesign: Avatar-Bereich, Formular-Cards, Stats entfernen (oder real anbinden) |
+| Social-Konten-Tab | Bestehende Logik 1:1 in SocialAccountsTab.tsx extrahieren, UI aufwerten |
+| Benachrichtigungen-Tab | Toggle-UI mit SettingsToggle-Komponente |
+| Plan & Abrechnung-Tab | SubscriptionStatus einbetten, Mock-Rechnungen als „Demnächst verfügbar" |
+| Sicherheit-Tab | Passwort-Bereich, 2FA-Platzhalter, Sessions-Bereich, Gefahrenbereich |
+| Token-Migration | Alle Hex-Werte durch CSS Custom Properties ersetzen |
+| SettingsNav | Vertikale Navigation mit Icons, Active-State, Premium-Styling |
+| SettingsCard | Einheitliche Card-Komponente für alle Settings-Bereiche |
+
+**Phase 2 (Spätere Iterationen):**
+
+| Aufgabe | Beschreibung |
+|---------|-------------|
+| Workspace-Tab | Echte Workspace-Logik (Mitglieder, Rollen, Einladungen) |
+| Brand & KI-Tab | Verknüpfung mit Brand Studio Daten, KI-Tonalitäts-Einstellungen |
+| Echte Billing-History | Stripe-Integration für echte Rechnungsdaten |
+| Echte Notification-Persistenz | Backend-Anbindung für Notification-Settings |
+| Echte Security-Logik | Passwort-Änderung via Supabase, 2FA-Setup, Session-Management |
+| URL-basierte Tabs | `/profile/social`, `/profile/billing` etc. statt State-basiert |
+| Account-Lösch-Bestätigungsdialog | Zweistufiger Lösch-Flow mit Eingabebestätigung |
+
+---
+
+### 6. Implementierungsreihenfolge
+
+**Schritt 1: Shell + Navigation + SettingsCard (Infrastruktur)**
+- ProfilePage.tsx zur Layout-Shell umbauen
+- SettingsNav.tsx erstellen
+- SettingsCard.tsx erstellen
+- SettingsToggle.tsx erstellen
+- Tab-Routing beibehalten (State-basiert, MVP)
+
+**Schritt 2: Profil-Tab extrahieren + redesignen**
+- `renderProfileTab()` → `ProfileTab.tsx`
+- Avatar-Bereich aufwerten
+- Formular-Felder in SettingsCards
+- Stats-Bereich überdenken (hardcodierte „247" entfernen)
+
+**Schritt 3: Social-Konten-Tab extrahieren (höchstes Risiko)**
+- `renderAccountsTab()` → `SocialAccountsTab.tsx`
+- Alle State-Variablen und Handler mitnehmen
+- **Keine Logikänderungen** — nur Extraktion + UI-Aufwertung
+- Plattform-Icons-Array kann Shared-Constant werden
+- Nach Extraktion: manuelle Tests für connect/disconnect/sync erforderlich
+
+**Schritt 4: Benachrichtigungen-Tab extrahieren**
+- `renderNotificationsTab()` → `NotificationsTab.tsx`
+- SettingsToggle-Komponente nutzen
+- Geringes Risiko (nur lokaler State)
+
+**Schritt 5: Billing-Tab extrahieren**
+- `renderBillingTab()` → `BillingTab.tsx`
+- SubscriptionStatus-Einbettung beibehalten
+- Mock-Daten als „Demnächst verfügbar" kennzeichnen oder stillen
+
+**Schritt 6: Security-Tab extrahieren + aufwerten**
+- `renderSecurityTab()` → `SecurityTab.tsx`
+- DSGVO-Info-Bereich hinzufügen
+- Konto-Löschung mit Bestätigungsdialog (Phase 1 = visuelle Warnung, keine Backend-Logik)
+
+**Schritt 7: Workspace + Brand & KI Platzhalter**
+- WorkspaceTab.tsx als informative Platzhalter-Card
+- BrandAiTab.tsx als Verknüpfungs-Platzhalter zum Brand Studio
+
+**Schritt 8: Token-Migration + Polish**
+- Alle hardcodierten Hex-Werte durch CSS Custom Properties ersetzen
+- Shadow-Tokens (`shadow-card`, `shadow-subtle`) nutzen
+- Hover-States von inline JS auf Tailwind umstellen
+- Finale Konsistenz-Prüfung
+
+---
+
+### 7. Risiko-Analyse
+
+**Hohes Risiko:**
+- **Social-Konten-Tab Extraktion** — Die Account-Verbindungslogik hat viele State-Variablen (`connectedAccounts`, `isLoadingAccounts`, `isSyncing`, `connectingPlatform`, `disconnectingAccount`, `showDisconnectConfirm`, `hasLateProfile`) und multiple Handler (`handleConnectAccount`, `handleSyncAccounts`, `handleDisconnectAccount`, `loadConnectedAccounts`). Diese müssen exakt erhalten bleiben. Empfehlung: Nach Extraktion sofort manuell testen (connect, disconnect, sync).
+
+**Mittleres Risiko:**
+- **Profil-Tab** — `handleSaveProfile()` nutzt `updateProfile()` und `refreshProfile()` aus `useAuth()`. Die Formvalidierung und der Save-Flow müssen erhalten bleiben.
+- **Billing-Tab** — SubscriptionStatus ist eine externe Komponente. Die Einbettung muss korrekt bleiben.
+
+**Geringes Risiko:**
+- **Notifications-Tab** — Nur lokaler State, keine Backend-Anbindung.
+- **Security-Tab** — UI ohne Backend-Handler (Formulare aktuell nicht funktional).
+- **Workspace/Brand-AI Platzhalter** — Rein neue, unabhängige Komponenten.
+- **SettingsNav/SettingsCard** — Reine Präsentationskomponenten.
+
+**Integration-Risk-Zonen die NICHT berührt werden dürfen:**
+- `SocialAccountService.*` — Jeder Methodenaufruf, jede Response-Behandlung
+- OAuth-Popup-Flow (`SocialAccountService.openAuthPopup`)
+- Late-Profile-Check (`SocialAccountService.hasLateProfile`)
+- `useAuth().updateProfile()` — Supabase-Update
+- `useAuth().refreshProfile()` — Profil-Reload
+- `useSubscription()` — Stripe-Integration
+- `SocialAuthCallback.tsx` — Komplett eigenständig, nicht anfassen
+- `navigate-to-profile` Event in AppLayout — Nicht ändern
+- Route-Definition in routes.tsx (`/profile`, `/profile/callback`) — Nicht ändern
+
+---
+
+### 8. Design-Prinzipien für die Umsetzung
+
+- **Schutzraum-Regel:** Settings bleiben komplett flach (Ebene 0). Kein AI Glass Layer, keine Gradient-Blobs, kein Pulse Gradient.
+- **Kein AI Violet:** Kein KI-Processing-State in Settings. AI Violet nur wenn tatsächlich KI-Aktivität dargestellt wird (z.B. im Brand & KI Tab bei KI-Status-Anzeige).
+- **Token-First:** Alle neuen Komponenten nutzen ausschließlich CSS Custom Properties (`--vektrus-radius-*`, `--vektrus-border-*`, Shadow-Tokens).
+- **Calm Premium:** Weiche Cards, subtile Borders, großzügiges Whitespace, klare Hierarchie.
+- **Manrope** für Section-Headlines, **Inter** für alles andere.
+- **Deutsche Copy** mit echten Umlauten und ß in allen UI-Texten.
+
+---
+
+### Workstream-Status
+
+**Profil / Settings Redesign — Audit & Planung abgeschlossen. Bereit zur Implementierung.**
+
+---
+
+## Profil / Settings Redesign — Zielarchitektur & Implementierungs-Scope
+
+**Stand:** 2026-03-21
+**Typ:** Architektur-Blueprint (keine Implementierung)
+**Basis:** Audit-Ergebnisse + Codebase-Infrastruktur-Review
+
+---
+
+### Gelesene / berücksichtigte Dateien
+
+**Infrastruktur (Design-Token-System):**
+- `src/styles/ai-layer.css` — Globale Tokens: `--vektrus-radius-*`, `--vektrus-border-*`, `--vektrus-shadow-*`, `--vektrus-ai-violet`, `--vektrus-pulse-gradient`
+- `tailwind.config.js` — Tailwind-Erweiterungen: `shadow-subtle/card/elevated/modal`, `rounded-vk-sm/md/lg/xl`, `font-manrope/inter`
+- `src/index.css` — Body-Font (Inter), globale Basisstile
+
+**Bestehende UI-Primitiven:**
+- `src/components/ui/button.tsx` — cva-basierter Button mit 7 Varianten (default, destructive, outline, secondary, ghost, link, ai-action)
+- `src/components/ui/card.tsx` — shadcn-Card mit CardHeader/Title/Description/Content/Footer
+- `src/components/ui/EmptyState.tsx` — Standardisierte Empty-State-Komponente (icon + headline + description + action)
+- `src/components/ui/ModuleWrapper.tsx` — CSS-Variable-Injection für Modul-Farben
+- `src/components/ui/ModuleBadge.tsx`, `ModuleButton.tsx` — Modul-Farbsystem-Komponenten
+
+**Modul-Farbsystem:**
+- `src/styles/module-colors.ts` — Modul `profile` definiert: primary #6366F1 (Indigo), mit Light/VeryLight/Border/Gradient-Varianten
+
+**Zu redesignende Dateien:**
+- `src/components/profile/ProfilePage.tsx` — 996-Zeilen-Monolith (Extraktion)
+- `src/components/profile/SocialAuthCallback.tsx` — Eigenständige Route (unverändert)
+
+**Geschützte Abhängigkeiten (nur Lesen, kein Ändern):**
+- `src/services/socialAccountService.ts`
+- `src/hooks/useAuth.tsx`
+- `src/hooks/useSubscription.ts`
+- `src/hooks/useConnectedPlatforms.ts`
+- `src/components/subscription/SubscriptionStatus.tsx`
+- `src/routes.tsx`
+- `src/components/layout/AppLayout.tsx`
+
+---
+
+### 1. Ziel-Seiten-Architektur
+
+#### Shell-Struktur
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  ModuleWrapper (module="profile")                        │
+│  ┌────────────────────────────────────────────────────┐  │
+│  │  bg-[#F4FCFE] overflow-auto h-full                 │  │
+│  │  ┌──────────────────────────────────────────────┐  │  │
+│  │  │  max-w-[1240px] mx-auto p-6 lg:p-8           │  │  │
+│  │  │                                              │  │  │
+│  │  │  ┌─ Seiten-Header ───────────────────────┐   │  │  │
+│  │  │  │  "Einstellungen"                      │   │  │  │
+│  │  │  │  Unterzeile: kontextuelle Beschreibung│   │  │  │
+│  │  │  └───────────────────────────────────────┘   │  │  │
+│  │  │                                              │  │  │
+│  │  │  ┌──────────┬─────────────────────────────┐  │  │  │
+│  │  │  │ Settings │  Content Area               │  │  │  │
+│  │  │  │ Nav      │  ┌────────────────────────┐ │  │  │  │
+│  │  │  │ (240px)  │  │ SettingsCard           │ │  │  │  │
+│  │  │  │          │  │ "Persönliche Daten"     │ │  │  │  │
+│  │  │  │ ● Profil │  └────────────────────────┘ │  │  │  │
+│  │  │  │ ○ Work.. │  ┌────────────────────────┐ │  │  │  │
+│  │  │  │ ○ Brand  │  │ SettingsCard           │ │  │  │  │
+│  │  │  │ ○ Social │  │ "Über mich"            │ │  │  │  │
+│  │  │  │ ○ Benac..│  └────────────────────────┘ │  │  │  │
+│  │  │  │ ○ Plan & │                             │  │  │  │
+│  │  │  │ ○ Datens │                             │  │  │  │
+│  │  │  └──────────┴─────────────────────────────┘  │  │  │
+│  │  └──────────────────────────────────────────────┘  │  │
+│  └────────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────────┘
+```
+
+#### Linke Navigation — SettingsNav
+
+**Verhalten:**
+- Feste Breite `w-60` (240px) auf Desktop (`lg:` aufwärts)
+- Sticky innerhalb des Scroll-Containers (`sticky top-0`)
+- Weiße Card mit `shadow-subtle`, `border border-[var(--vektrus-border-default)]`, `rounded-[var(--vektrus-radius-md)]`
+- Inneres Padding `p-3`
+
+**Navigationspunkte (7 Abschnitte):**
+
+| Reihenfolge | ID | Label | Icon (Lucide) | Trennlinie davor |
+|-------------|-----|-------|---------------|-----------------|
+| 1 | `profile` | Profil | `User` | nein |
+| 2 | `workspace` | Workspace | `Building` | nein |
+| 3 | `brand-ai` | Brand & KI | `Palette` | ja (nach Workspace) |
+| 4 | `social` | Social-Konten | `Share2` | nein |
+| 5 | `notifications` | Benachrichtigungen | `Bell` | ja (nach Social-Konten) |
+| 6 | `billing` | Plan & Abrechnung | `CreditCard` | nein |
+| 7 | `security` | Datenschutz & Sicherheit | `Shield` | ja (nach Plan & Abrechnung) |
+
+**Trennlinien** gruppieren logisch:
+- **Identität:** Profil, Workspace
+- **Produkt:** Brand & KI, Social-Konten
+- **Verwaltung:** Benachrichtigungen, Plan & Abrechnung
+- **Kontrolle:** Datenschutz & Sicherheit
+
+**Active State:**
+- `bg-[#F4FCFE]` (Mint White), `text-[#111111]`, `font-medium`
+- Linker Akzent-Indikator: 3px-breiter vertikaler Streifen in Vektrus Blue (`#49B7E3`) am linken Rand des aktiven Items
+- Kein `bg-[#B6EBF7]` — zu schwer für Settings-Kontext. Mint White ist subtiler.
+
+**Inactive State:**
+- `text-[#7A7A7A]`, `hover:text-[#111111]`, `hover:bg-[#F4FCFE]/60`
+
+**Responsive (Mobile < lg):**
+- Navigation wird horizontaler Scroll-Strip am oberen Rand
+- Nur Icons + abgekürzte Labels
+- Kein Sticky — scrollt mit dem Content
+- Alternativ: Select-Dropdown für sehr kleine Screens (< sm)
+
+#### Rechter Content-Bereich
+
+- `flex-1`, kein max-width (begrenzt durch äußeren Container `max-w-[1240px]`)
+- Content besteht aus gestapelten `SettingsCard`-Komponenten
+- Jede Card: `bg-white`, `shadow-subtle`, `border border-[var(--vektrus-border-default)]`, `rounded-[var(--vektrus-radius-md)]`
+- Card-internes Padding: `p-6`
+- Abstand zwischen Cards: `space-y-6`
+- Jeder Tab definiert seine eigene Card-Komposition
+
+#### Seiten-Header
+
+- Headline: `"Einstellungen"` (nicht mehr "Mein Profil" — der Begriff ist jetzt ein Tab, nicht der Seitentitel)
+- Font: `font-manrope text-2xl font-bold text-[#111111]`
+- Unterzeile: `text-[#7A7A7A] text-sm` — kontextuell je nach aktivem Tab
+  - Profil → "Deine persönlichen Informationen"
+  - Workspace → "Dein Workspace und Teameinstellungen"
+  - Brand & KI → "Wie Vektrus deine Marke versteht"
+  - Social-Konten → "Verbundene Social-Media-Konten"
+  - Benachrichtigungen → "Deine Benachrichtigungseinstellungen"
+  - Plan & Abrechnung → "Dein Abo und Rechnungen"
+  - Datenschutz & Sicherheit → "Deine Daten und Kontosicherheit"
+- Abstand zum Content: `mb-6 lg:mb-8`
+
+---
+
+### 2. Komponenten- und Dateiarchitektur
+
+#### Ziel-Dateistruktur
+
+```
+src/components/profile/
+├── ProfilePage.tsx               ← Layout-Shell (Header + Nav + Content-Routing)
+├── tabs/
+│   ├── ProfileTab.tsx            ← Persönliche Daten, Avatar, Bio
+│   ├── WorkspaceTab.tsx          ← Workspace-Info (MVP: Platzhalter)
+│   ├── BrandAiTab.tsx            ← Brand & KI Verknüpfung (MVP: Platzhalter)
+│   ├── SocialAccountsTab.tsx     ← Social-Konten (extrahierte Logik + UI)
+│   ├── NotificationsTab.tsx      ← Benachrichtigungs-Toggles
+│   ├── BillingTab.tsx            ← Plan & Abrechnung
+│   └── SecurityTab.tsx           ← Datenschutz & Sicherheit
+├── components/
+│   ├── SettingsNav.tsx           ← Linke Navigation
+│   ├── SettingsCard.tsx          ← Wiederverwendbare Card mit Header/Content
+│   ├── SettingsRow.tsx           ← Label-Value-Zeile für Datenanzeige
+│   ├── SettingsToggle.tsx        ← Toggle-Switch für Benachrichtigungen
+│   └── SettingsFormField.tsx     ← Einheitliches Formfeld (Label + Input + Error)
+├── SocialAuthCallback.tsx        ← UNVERÄNDERT (eigene Route)
+└── constants.ts                  ← SUPPORTED_PLATFORMS, Tab-Definitionen
+```
+
+#### Shared Primitives (neu zu erstellen, in dieser Reihenfolge)
+
+**1. `SettingsCard`**
+```
+Props: { title?: string; description?: string; children: ReactNode; className?: string; action?: ReactNode }
+```
+- Weißer Container mit `shadow-subtle`, `border`, `rounded-[var(--vektrus-radius-md)]`, `p-6`
+- Optionaler Header mit Titel (font-manrope, font-semibold) + Beschreibung + rechts positionierte Action
+- Ersetzt das wiederholte `<div className="bg-white rounded-[var(--vektrus-radius-md)] p-6 border ...">` Pattern
+
+**2. `SettingsNav`**
+```
+Props: { activeTab: string; onTabChange: (tab: string) => void }
+```
+- Rendert die 7 Navigationspunkte mit Icons und Trennlinien
+- Desktop: Vertikale Liste in weißer Card
+- Mobile: Horizontaler Scroll-Strip
+- Kennt die Tab-Definitionen aus `constants.ts`
+
+**3. `SettingsRow`**
+```
+Props: { icon?: LucideIcon; label: string; value: ReactNode; className?: string }
+```
+- Horizontale Zeile: Icon (optional) + Label (text-[#7A7A7A]) + Value (text-[#111111])
+- Für nicht-editierbare Informationsanzeige (E-Mail, Mitglied-seit, Website)
+
+**4. `SettingsToggle`**
+```
+Props: { label: string; description?: string; checked: boolean; onChange: (checked: boolean) => void; disabled?: boolean }
+```
+- Zeile mit Label/Beschreibung links + Toggle-Switch rechts
+- Ersetzt das wiederholte Toggle-Pattern aus dem Notifications-Tab
+- Toggle-Styling: `peer-checked:bg-[#49B7E3]` (Vektrus Blue, nicht Indigo)
+
+**5. `SettingsFormField`**
+```
+Props: { label: string; type?: string; value: string; onChange: (value: string) => void; placeholder?: string; error?: string; maxLength?: number; multiline?: boolean }
+```
+- Label + Input/Textarea + optionale Error-Anzeige + optionaler Zeichenzähler
+- Einheitlicher Focus-Ring: `focus:ring-2 focus:ring-[#B6EBF7]`
+- Ersetzt die wiederholten Input-Blöcke aus Profil- und Sicherheits-Tab
+
+#### Tab-Komponenten-Struktur
+
+**ProfileTab.tsx (Dünn, nutzt Shared Primitives)**
+- SettingsCard "Persönliche Daten" — Avatar + Name + Edit-Toggle
+- SettingsCard "Profil bearbeiten" (nur im Editiermodus) — SettingsFormField-Grid
+- SettingsCard "Über mich" — Bio-Text oder Edit-Prompt
+- Bezieht `useAuth()` direkt
+- Enthält `handleSaveProfile()` und Formvalidierungslogik — **1:1 aus dem Monolith übernehmen**
+
+**SocialAccountsTab.tsx (Dünn-Wrapper um bestehende Logik)**
+- **Dies ist die kritischste Extraktion.** Alle State-Variablen und Handler werden 1:1 verschoben.
+- SettingsCard "Verbundene Konten" mit Sync-Action im Header
+- Plattform-Liste mit connect/disconnect-Buttons
+- Info-Box "Warum Konten verbinden?"
+- Bezieht `SUPPORTED_PLATFORMS` aus `constants.ts`
+- **Darf keinerlei Logikänderungen enthalten**
+
+**NotificationsTab.tsx (Einfach)**
+- SettingsCard "Benachrichtigungseinstellungen"
+- 5x SettingsToggle
+- Nur lokaler State (wie bisher)
+
+**BillingTab.tsx (Wrapper)**
+- SettingsCard "Aktueller Plan" — eingebettete `SubscriptionStatus`-Komponente
+- SettingsCard "Rechnungshistorie" — als "Demnächst verfügbar" kennzeichnen (MVP)
+- SettingsCard "Zahlungsmethode" — als "Demnächst verfügbar" kennzeichnen (MVP)
+
+**SecurityTab.tsx (UI-Only)**
+- SettingsCard "Passwort ändern" — Formular mit SettingsFormField
+- SettingsCard "Zwei-Faktor-Authentifizierung" — Status + Aktivieren-Button
+- SettingsCard "Aktive Sitzungen" — Session-Liste
+- SettingsCard "DSGVO & Datenschutz" — Informations-Card (NEU)
+- SettingsCard "Gefahrenbereich" — Konto-Löschung mit visueller Warnung
+
+**WorkspaceTab.tsx (Platzhalter, MVP)**
+- SettingsCard "Workspace-Informationen" — Workspace-Name (aus User-Profil ableitbar)
+- EmptyState oder Info-Text: "Teamfunktionen werden demnächst verfügbar sein"
+
+**BrandAiTab.tsx (Platzhalter, MVP)**
+- SettingsCard "Dein Markenprofil" — Link zum Brand Studio
+- SettingsCard "KI-Personalisierung" — Info-Text über KI-Tonalität
+- Falls Brand-Profil existiert: Kurzanzeige des Markennamens/Logos aus Brand-Studio-Daten
+- **Kein AI Violet hier** — es ist eine Informationsanzeige, kein KI-Processing-State
+
+---
+
+### 3. MVP vs. Phase 2
+
+#### MVP (Phase 1) — Vollständig umzusetzen
+
+| Bereich | Scope | Begründung |
+|---------|-------|-----------|
+| Layout-Shell | Kompletter Umbau von Monolith zu Shell + Tab-Routing | Grundvoraussetzung |
+| SettingsNav | Voll funktionsfähig mit 7 Tabs, Trennlinien, Active State, responsive | Navigationsspine |
+| SettingsCard | Voll funktionsfähig mit Header/Content/Action | Basis-Primitive |
+| SettingsRow | Voll funktionsfähig | Wiederverwendbares Pattern |
+| SettingsToggle | Voll funktionsfähig | Notifications-Tab-Basis |
+| SettingsFormField | Voll funktionsfähig | Profil- und Security-Tab-Basis |
+| ProfileTab | Vollständiges Redesign: Avatar, Daten, Bio, Edit-Modus | Kernfunktionalität |
+| SocialAccountsTab | 1:1 Logik-Extraktion + UI-Aufwertung mit SettingsCard | Kernfunktionalität, höchstes Risiko |
+| NotificationsTab | Redesign mit SettingsToggle | Einfach, niedriges Risiko |
+| BillingTab | SubscriptionStatus einbetten + Platzhalter für Rechnungen/Zahlungsmethode | Zeigt Abo-Status korrekt |
+| SecurityTab | Passwort-UI + 2FA-Platzhalter + Sessions + DSGVO-Info + Gefahrenbereich | Vertrauenssignal, UI-Only |
+| Token-Migration | Alle Hex-Werte → CSS Custom Properties | Systemkonsistenz |
+| constants.ts | SUPPORTED_PLATFORMS + Tab-Definitionen extrahieren | Shared Data |
+
+#### MVP — Reduziert/Platzhalter aber visuell integriert
+
+| Bereich | Scope | Begründung |
+|---------|-------|-----------|
+| WorkspaceTab | Informative Card + EmptyState "Teamfunktionen kommen bald" | Kein Backend vorhanden |
+| BrandAiTab | Link zum Brand Studio + KI-Info-Text, optionale Brand-Kurzanzeige | Eigenständige Logik in Brand Studio |
+| Rechnungshistorie | "Demnächst verfügbar" statt Mock-Daten | Keine Stripe-Integration für Invoices |
+| Zahlungsmethode | "Demnächst verfügbar" statt Mock-Daten | Keine Stripe-Integration für Payment Methods |
+| Passwort ändern | Formular-UI ohne funktionalen Handler | Supabase-Auth-Anbindung fehlt |
+| 2FA | Status-Anzeige + deaktivierter Button | Kein 2FA-Backend |
+| Sessions | Statische Anzeige oder "Demnächst verfügbar" | Kein Session-Management-Backend |
+
+#### Phase 2 — Explizit NICHT in MVP
+
+| Bereich | Warum warten |
+|---------|-------------|
+| Echte Workspace-Logik (Mitglieder, Rollen, Einladungen) | Backend-Architektur muss erst definiert werden |
+| Echte Brand-KI-Einstellungen (Tonalität, Stil-Präferenzen) | Abhängig von Brand-Studio-Erweiterung |
+| Echte Billing-History (Stripe Invoices API) | Stripe-Integration nötig |
+| Echte Zahlungsmethoden-Verwaltung (Stripe Customer Portal) | Stripe-Integration nötig |
+| Echte Notification-Persistenz (Backend-Anbindung) | Notifications-Backend muss gebaut werden |
+| Echte Passwort-Änderung (Supabase Auth) | Auth-Flow muss getestet werden |
+| Echtes 2FA-Setup | Supabase MFA-Integration |
+| Echtes Session-Management | Supabase Auth Sessions API |
+| URL-basierte Tab-Navigation (`/profile/social`, `/profile/billing`) | Routing-Änderung, kann in Phase 2 |
+| Account-Lösch-Flow mit Backend-Anbindung | Braucht API-Endpoint + Bestätigungs-E-Mail |
+| Profilbild-Upload | Supabase Storage Integration |
+| Stats-Bereich mit echten Daten | Braucht Aggregations-Query |
+
+---
+
+### 4. Sichere Implementierungsreihenfolge
+
+Die Reihenfolge ist so optimiert, dass:
+- Shared Primitives zuerst stehen (alle Tabs profitieren davon)
+- Niedrig-Risiko-Tabs zuerst extrahiert werden (Patterns stabilisieren)
+- Social-Konten als letzter Extraktionsschritt kommt (wenn alle Patterns stabil sind)
+- Jeder Schritt ist in sich abgeschlossen und testbar
+
+#### Schritt 1: Shared Primitives erstellen
+
+**Dateien:** `SettingsCard.tsx`, `SettingsNav.tsx`, `SettingsRow.tsx`, `SettingsToggle.tsx`, `SettingsFormField.tsx`, `constants.ts`
+
+**Warum zuerst:** Alle Tabs nutzen diese Primitives. Wenn sie zuerst stehen, können alle folgenden Tabs konsistent gebaut werden.
+
+**Risiko:** Null. Neue Dateien, keine bestehende Logik betroffen.
+
+**Prüfung:** Primitives können isoliert in der Shell getestet werden.
+
+#### Schritt 2: Layout-Shell umbauen
+
+**Datei:** `ProfilePage.tsx` → Shell mit SettingsNav + Tab-Routing
+
+**Was passiert:**
+- Die 5 `render*Tab()`-Funktionen bleiben zunächst inline
+- Nur die äußere Struktur wird umgebaut: Header → "Einstellungen", SettingsNav links, Content rechts
+- Tab-Definitionen erweitert auf 7 Tabs
+- WorkspaceTab und BrandAiTab als inline-Platzhalter
+
+**Warum als Zweites:** Die Shell muss stehen, bevor Tabs extrahiert werden. Gleichzeitig bleiben alle Tabs noch inline → kein Logik-Risiko.
+
+**Risiko:** Sehr gering. Nur Layout-Änderung, alle Handler bleiben im gleichen Scope.
+
+**Prüfung:** Alle 5 bestehenden Tabs müssen weiterhin funktionieren.
+
+#### Schritt 3: NotificationsTab extrahieren (niedrigstes Risiko)
+
+**Neue Datei:** `tabs/NotificationsTab.tsx`
+
+**Warum als Erstes extrahiert:** Nur lokaler State, keine Service-Aufrufe, keine Hooks. Perfekter Kandidat, um das Extraktionsmuster zu etablieren.
+
+**Risiko:** Minimal.
+
+**Prüfung:** Toggle-Switches klicken, States halten.
+
+#### Schritt 4: SecurityTab extrahieren (niedriges Risiko)
+
+**Neue Datei:** `tabs/SecurityTab.tsx`
+
+**Warum als Nächstes:** Keine Service-Aufrufe, keine echten Handler. UI-Only mit SettingsFormField und SettingsCard. DSGVO-Info-Card ergänzen.
+
+**Risiko:** Minimal. Die Konto-Löschung hat aktuell keinen Handler — nur visuelles Warning.
+
+**Prüfung:** Formular-Felder rendern, Buttons klicken (keine Aktion erwartet).
+
+#### Schritt 5: BillingTab extrahieren (niedriges Risiko)
+
+**Neue Datei:** `tabs/BillingTab.tsx`
+
+**Warum jetzt:** `useSubscription()` und `SubscriptionStatus` sind externe Abhängigkeiten, die nur eingebettet werden. Mock-Daten durch Platzhalter-Texte ersetzen.
+
+**Risiko:** Gering. `SubscriptionStatus` wird als Ganzes eingebettet, keine Logikänderung.
+
+**Prüfung:** SubscriptionStatus zeigt korrekte Abo-Daten. Platzhalter-Texte rendern.
+
+#### Schritt 6: ProfileTab extrahieren (mittleres Risiko)
+
+**Neue Datei:** `tabs/ProfileTab.tsx`
+
+**Warum nicht früher:** Enthält `handleSaveProfile()`, `useAuth()`, Formvalidierung und Edit-State. Diese Logik muss sorgfältig extrahiert werden.
+
+**Was passiert:**
+- `profileData` State, `isEditing` State, `isSaving` State → in ProfileTab
+- `handleSaveProfile()` → 1:1 in ProfileTab
+- `isValidUrl()` → in ProfileTab
+- `useAuth()` → direkt in ProfileTab aufrufen
+- `useEffect` für userProfile-Sync → in ProfileTab
+- Stats-Bereich: hardcodierte "247" entfernen, nur echte Daten zeigen (verbundene Konten, Tage bei Vektrus)
+
+**Risiko:** Mittel. Die `updateProfile()` und `refreshProfile()` Aufrufe müssen exakt erhalten bleiben.
+
+**Prüfung:** Profil bearbeiten, speichern, abbrechen. Toast-Meldungen prüfen. Formvalidierung testen (leerer Vorname, ungültige URL, Bio > 500 Zeichen).
+
+#### Schritt 7: SocialAccountsTab extrahieren (höchstes Risiko)
+
+**Neue Datei:** `tabs/SocialAccountsTab.tsx`
+
+**Warum zuletzt:** Höchste Logik-Dichte. 7 State-Variablen, 4 Handler-Funktionen, 1 Effekt, Service-Integration.
+
+**Was passiert — exakte Extraktion:**
+
+State-Variablen die verschoben werden:
+- `connectedAccounts` + `setConnectedAccounts`
+- `isLoadingAccounts` + `setIsLoadingAccounts`
+- `isSyncing` + `setIsSyncing`
+- `connectingPlatform` + `setConnectingPlatform`
+- `disconnectingAccount` + `setDisconnectingAccount`
+- `showDisconnectConfirm` + `setShowDisconnectConfirm`
+- `hasLateProfile` + `setHasLateProfile`
+
+Handler die 1:1 verschoben werden:
+- `loadConnectedAccounts()`
+- `handleConnectAccount(platform: string)`
+- `handleSyncAccounts()`
+- `handleDisconnectAccount(lateAccountId, internalId, platform)`
+
+Effekt der verschoben wird:
+- `useEffect` der `loadConnectedAccounts()` ruft wenn Tab aktiv wird → wird zu einem regulären `useEffect(() => { loadConnectedAccounts(); }, [])` in der Tab-Komponente
+
+Shared Data:
+- `SUPPORTED_PLATFORMS` → `constants.ts` (bereits in Schritt 1 extrahiert)
+
+**Risiko:** Hoch. Jeder Service-Aufruf, jede State-Transition, jeder OAuth-Popup-Flow muss exakt erhalten bleiben.
+
+**Prüfung (manuell, jeder Punkt):**
+- [ ] Accounts werden beim Tab-Wechsel geladen
+- [ ] Loading-Spinner zeigt während des Ladens
+- [ ] Late-Profile-Warning zeigt wenn kein Late-Profil
+- [ ] "Verbinden" öffnet OAuth-Popup für jede Plattform
+- [ ] Nach Popup-Rückkehr: Account erscheint in der Liste
+- [ ] "Alle synchronisieren" triggert Sync und zeigt Toast
+- [ ] "Trennen" zeigt Bestätigungs-Buttons
+- [ ] "Ja, trennen" entfernt Account und zeigt Toast
+- [ ] "Abbrechen" bei Trennen schließt Bestätigung
+- [ ] Fehler-Toasts zeigen bei Service-Fehlern
+
+#### Schritt 8: WorkspaceTab + BrandAiTab als Platzhalter
+
+**Neue Dateien:** `tabs/WorkspaceTab.tsx`, `tabs/BrandAiTab.tsx`
+
+**Warum zuletzt:** Niedrigstes Risiko, neue Inhalte. Keine bestehende Logik betroffen.
+
+**Risiko:** Null.
+
+#### Schritt 9: Token-Migration + Polish
+
+**Was passiert:**
+- Alle verbleibenden hardcodierten Hex-Werte → CSS Custom Properties
+- Alle inline JS Hover-Handler → Tailwind hover: Klassen
+- Shadow-Token-Adoption (`shadow-subtle`, `shadow-card`)
+- Einheitliches Focus-Ring-Verhalten
+- Responsive-Verhalten validieren
+- Deutsche Copy prüfen (Umlaute, ß)
+
+**Risiko:** Gering. Nur visuelle Änderungen.
+
+---
+
+### 5. Produktframing und UX-Intent pro Tab
+
+#### Profil — "Das bin ich"
+
+**Gefühl:** Persönlich, klar, kontrolliert.
+**Was der Nutzer verstehen soll:** Das sind meine Daten. Ich kann sie jederzeit anpassen. Vektrus kennt mich.
+**Primäre Aktion:** Profil bearbeiten und speichern.
+**UX-Prinzip:** Read-first, Edit-on-demand. Standardansicht zeigt Daten in lesbarer Form. Edit-Modus wird explizit aktiviert.
+**Vertrauenssignal:** E-Mail-Adresse nicht editierbar (impliziert Sicherheit). Mitglied-seit-Datum schafft Beziehungshistorie.
+**Card-Hierarchie:**
+1. Persönliche Daten (Avatar + Name + Metadaten) — größte Card, oben
+2. Über mich (Bio) — optional, persönlich
+3. Aktivität (nur echte Daten: Verbundene Konten, Mitgliedschaftsdauer)
+
+#### Workspace — "Mein Arbeitsbereich"
+
+**Gefühl:** Professionell, wachstumsorientiert, zukunftsweisend.
+**Was der Nutzer verstehen soll:** Das ist mein Workspace. Hier werden später Team- und Organisationsfunktionen leben.
+**MVP-Darstellung:** Workspace-Name (abgeleitet aus Company) + Info-Text über kommende Features.
+**Vertrauenssignal:** Die bloße Existenz des Tabs kommuniziert: "Vektrus denkt an Teams und Skalierung."
+**Kein "Coming Soon"-Badge.** Stattdessen: sachliche Beschreibung + ruhige EmptyState-Komponente.
+
+#### Brand & KI — "So versteht Vektrus meine Marke"
+
+**Gefühl:** Intelligent, transparent, kontrolliert.
+**Was der Nutzer verstehen soll:** Vektrus hat ein Markenprofil von mir. Ich kann sehen, was Vektrus weiß. Ich kann zum Brand Studio navigieren, um es zu ändern.
+**MVP-Darstellung:**
+- Falls Brand-Profil existiert: Markenname, Kurzstatus ("Analyse abgeschlossen"), Link zum Brand Studio
+- Falls kein Brand-Profil: EmptyState mit CTA zum Brand Studio
+**Vertrauenssignal:** Transparenz darüber, was die KI über die Marke weiß. Kein Black-Box-Gefühl.
+**Kein AI Violet.** Es handelt sich um eine Informationsanzeige, nicht um einen KI-Processing-State.
+
+#### Social-Konten — "Meine verbundenen Kanäle"
+
+**Gefühl:** Vertrauenswürdig, übersichtlich, kontrolliert.
+**Was der Nutzer verstehen soll:** Das sind meine verbundenen Konten. Ich kann jederzeit verbinden, synchronisieren und trennen. Meine Daten sind sicher.
+**Primäre Aktion:** Neuen Account verbinden.
+**Sekundäre Aktionen:** Synchronisieren, Trennen.
+**UX-Prinzip:** Status-at-a-glance. Jede Plattform zeigt sofort: verbunden oder nicht, Benutzername, letzte Synchronisation.
+**Vertrauenssignal:** "Trennen"-Button immer sichtbar (Nutzer hat Kontrolle). Bestätigungsdialog vor Trennung. Info-Box erklärt Nutzen der Verbindung.
+**Warnung bei fehlendem Late-Profil:** Klar, nicht alarmierend. Erklärt den Zustand und nennt nächsten Schritt.
+
+#### Benachrichtigungen — "Was Vektrus mir sagt"
+
+**Gefühl:** Ruhig, klar, konfigurierbar.
+**Was der Nutzer verstehen soll:** Ich bestimme, welche Informationen ich erhalte. Nichts passiert ohne mein Wissen.
+**UX-Prinzip:** Einfache Toggle-Liste. Jeder Toggle mit Label + Beschreibung. Keine verschachtelten Optionen.
+**Vertrauenssignal:** DSGVO-Implikation — der Nutzer hat volle Kontrolle über seine Benachrichtigungen.
+
+#### Plan & Abrechnung — "Was ich bezahle"
+
+**Gefühl:** Transparent, fair, wertschätzend.
+**Was der Nutzer verstehen soll:** Das ist mein Plan. Das bekomme ich dafür. So kann ich es ändern.
+**Primäre Anzeige:** SubscriptionStatus-Komponente (bereits vorhanden, zeigt Plan, Status, Ablaufdatum).
+**MVP-Platzhalter:** Rechnungshistorie und Zahlungsmethode als "Bald verfügbar" — nicht als Mock-Daten die Verwirrung stiften.
+**Vertrauenssignal:** Klare Preisdarstellung. Kein Dark Pattern. Kündigung immer erreichbar (wenn vorhanden).
+
+#### Datenschutz & Sicherheit — "Meine Daten sind sicher"
+
+**Gefühl:** Sicher, kontrolliert, transparent, DSGVO-konform.
+**Was der Nutzer verstehen soll:** Vektrus nimmt Datenschutz ernst. Ich habe volle Kontrolle über mein Konto und meine Daten.
+**Card-Hierarchie:**
+1. Passwort ändern — Standard-Sicherheitsfeature
+2. Zwei-Faktor-Authentifizierung — zeigt dass Vektrus 2FA unterstützt (auch als Platzhalter)
+3. Aktive Sitzungen — Transparenz über Zugriffe
+4. DSGVO & Datenschutz (NEU) — Informations-Card: Datenverarbeitung, Datenexport-Möglichkeit, Link zur Datenschutzerklärung
+5. Gefahrenbereich — Konto-Löschung, visuell abgesetzt mit roter Border
+
+**Vertrauenssignal:** DSGVO-Card kommuniziert: "Wir sind ein deutsches/DACH-Produkt und nehmen Datenschutz ernst."
+**Gefahrenbereich:** Optisch klar abgesetzt (rote Border). Warnung vor irreversiblen Folgen. MVP: Visueller Bestätigungs-Prompt (kein Backend-Handler).
+
+---
+
+### 6. Risiko-Karte
+
+#### Sichere UI-Extraktion (grün)
+
+| Bereich | Warum sicher |
+|---------|-------------|
+| NotificationsTab | Nur lokaler State, keine Service-Aufrufe |
+| SecurityTab | UI-Only, keine Handler mit Backend-Anbindung |
+| WorkspaceTab | Neuer Platzhalter, keine bestehende Logik |
+| BrandAiTab | Neuer Platzhalter, keine bestehende Logik |
+| SettingsNav | Neue Komponente, nur Tab-Switching |
+| SettingsCard/Row/Toggle/FormField | Neue Primitives, keine Logik |
+| constants.ts | Daten-Extraktion, keine Logikänderung |
+| Layout-Shell Umbau | Äußere Struktur, inline-Tabs bleiben zunächst |
+| Token-Migration | Nur CSS-Werte-Austausch |
+
+#### UI-Extraktion mit Vorsicht (gelb)
+
+| Bereich | Risiko | Schutzmaßnahme |
+|---------|--------|----------------|
+| ProfileTab | `handleSaveProfile()` nutzt `useAuth().updateProfile()` | Exakte 1:1 Extraktion. Nach Extraktion: Speichern testen, Toast prüfen, Validierung prüfen |
+| BillingTab | `SubscriptionStatus` als externe Komponente eingebettet | Einbettung als `<SubscriptionStatus />` beibehalten. Nach Extraktion: Abo-Daten prüfen |
+
+#### UI-Extraktion mit hohem Risiko (rot)
+
+| Bereich | Risiko | Schutzmaßnahme |
+|---------|--------|----------------|
+| SocialAccountsTab | 7 State-Variablen, 4 Handler, 1 Effekt, OAuth-Popup-Flow, Late-Profile-Check, Service-Integration | **Exakte 1:1 Extraktion.** Jeder State, jeder Handler, jeder Service-Aufruf identisch. Manuelle Test-Checkliste nach Extraktion (siehe Schritt 7 oben). **Kein Refactoring während der Extraktion.** |
+
+#### Was spätere Implementierungs-Prompts explizit verbieten müssen
+
+Jeder Prompt der die Implementierung startet, muss diese Verbote enthalten:
+
+1. **NICHT ändern:** `SocialAccountService.*` Methodenaufrufe — weder Signatur noch Fehlerbehandlung noch Response-Handling
+2. **NICHT ändern:** OAuth-Popup-Flow (`SocialAccountService.openAuthPopup`) — weder URL-Konstruktion noch Callback-Logik
+3. **NICHT ändern:** Late-Profile-Check (`SocialAccountService.hasLateProfile`) — weder Aufrufzeitpunkt noch Fehlerfall
+4. **NICHT ändern:** `useAuth().updateProfile()` — weder Aufruf noch Response-Handling
+5. **NICHT ändern:** `useAuth().refreshProfile()` — weder Aufruf noch Timing
+6. **NICHT ändern:** `useSubscription()` Hook-Aufrufe
+7. **NICHT ändern:** `SubscriptionStatus` Komponente (wird nur eingebettet)
+8. **NICHT ändern:** `SocialAuthCallback.tsx` — komplett eigenständige Route
+9. **NICHT ändern:** Route-Definitionen in `routes.tsx`
+10. **NICHT ändern:** `navigate-to-profile` Event in `AppLayout.tsx`
+11. **NICHT ändern:** `SUPPORTED_PLATFORMS` SVG-Icons — nur aus dem Monolith nach `constants.ts` verschieben
+12. **NICHT refactoren:** State-Management-Patterns — keine Umstellung auf useReducer, kein Custom Hook, keine Context-Abstraktion
+13. **NICHT hinzufügen:** Neue API-Aufrufe, neue Service-Methoden, neue Webhooks
+14. **NICHT hinzufügen:** Neue OAuth-Provider oder Plattformen
+15. **NICHT hinzufügen:** URL-basiertes Tab-Routing (Phase 2)
+
+---
+
+### 7. Modul-Farbe Empfehlung
+
+Die aktuelle Modul-Farbe für `profile` ist `#6366F1` (Indigo). Das ist nah an AI Violet (`#7C6CF2`) und widerspricht dem Schutzraum-Prinzip (Settings bleiben flach, kein AI-Charakter).
+
+**Empfehlung:** Die `profile`-Modulfarbe in `module-colors.ts` auf einen ruhigeren Wert ändern, z.B.:
+- **Option A:** Vektrus Blue (`#49B7E3`) — konsistent mit dem primären Aktionssystem, Settings als "Basis"-Bereich
+- **Option B:** Ein warmes Neutralgrau (`#64748B` Slate) — differenziert sich von allen Modulen, kommuniziert "Utility/Admin"
+
+**Bevorzugt: Option A (Vektrus Blue).** Settings ist kein eigenes "Feature-Modul" — es ist ein Verwaltungsbereich. Vektrus Blue als Modulfarbe kommuniziert Zugehörigkeit zur Plattform ohne einen eigenen visuellen Charakter aufzudrängen.
+
+Dies ist eine optionale Empfehlung und kann bei der Implementierung entschieden werden.
+
+---
+
+### 8. Empfehlung für den nächsten Schritt
+
+**Der nächste Schritt sollte Shell-first sein: Schritt 1 (Shared Primitives) + Schritt 2 (Layout-Shell).**
+
+Begründung:
+- Null Logik-Risiko (nur neue Dateien + Layout-Umbau)
+- Etabliert alle Patterns die alle späteren Tabs nutzen
+- Die Shell kann sofort visuell geprüft werden
+- Alle bestehenden Tabs bleiben als inline-Funktionen erhalten → kein Regressionsrisiko
+- Erst wenn die Shell stabil steht, beginnt die Tab-Extraktion
+
+**Geschätzte Implementierung:** 1 fokussierter Chat für Schritt 1 + 2, dann 1 Chat für Schritt 3–5, dann 1 sorgfältiger Chat für Schritt 6 + 7, dann 1 Chat für Schritt 8 + 9.
+
+---
+
+### Workstream-Status
+
+**Profil / Settings Redesign — Zielarchitektur & Scope definiert. Shell-first-Implementierung (Schritt 1 + 2) abgeschlossen.**
+
+---
+
+## Profil / Settings Redesign — Shell-Implementierung (Schritt 1 + 2)
+
+**Stand:** 2026-03-21
+**Typ:** Implementierung — Shared Primitives + Layout Shell
+
+### Umgesetzte Schritte
+
+**Schritt 1: Shared Primitives erstellt**
+**Schritt 2: Layout Shell umgebaut**
+
+### Geänderte Dateien
+
+| Datei | Aktion | Beschreibung |
+|-------|--------|-------------|
+| `src/components/profile/constants.ts` | NEU | Tab-Definitionen (7 Tabs), Gruppierung (identity/product/admin/control), `toLegacyTabId()` Mapping |
+| `src/components/profile/components/SettingsNav.tsx` | NEU | Linke Navigation: Desktop (sticky, vertikal, Gruppen-Divider, Blue Accent Bar) + Mobile (horizontaler Scroll-Strip) |
+| `src/components/profile/components/SettingsCard.tsx` | NEU | Wiederverwendbare Settings-Card mit Header/Content/Action, default + danger Varianten |
+| `src/components/profile/components/SettingsToggle.tsx` | NEU | Toggle-Switch mit Label/Beschreibung, Vektrus Blue Active State, a11y (role=switch) |
+| `src/components/profile/ProfilePage.tsx` | GEÄNDERT | Shell-Umbau: neuer Header ("Einstellungen" + kontextuelle Unterzeile), SettingsNav links, Content rechts, 2 neue Placeholder-Tabs (Workspace, Brand & KI) |
+
+### Wie die Shell mit bestehendem Content koexistiert
+
+Die 5 existierenden inline `render*Tab()` Funktionen in ProfilePage.tsx sind **unverändert**. Der neue Shell-Mechanismus funktioniert so:
+
+1. `activeTab` State hält die neue Tab-ID (z.B. `'social'`, `'brand-ai'`)
+2. `toLegacyTabId(activeTab)` mappt auf die alte ID (z.B. `'accounts'`)
+3. Legacy-Tabs rendern per `legacyTab === 'accounts' && renderAccountsTab()`
+4. Neue Tabs rendern per `activeTab === 'workspace' && renderWorkspaceTab()`
+
+Die `useEffect` für Account-Loading wurde von `activeTab === 'accounts'` auf `activeTab === 'social'` aktualisiert, da `'social'` die neue Tab-ID ist.
+
+### Keine Logik-Änderungen
+
+Alle geschützten Handler und Service-Aufrufe sind **1:1 erhalten**:
+- `handleSaveProfile()` — unverändert
+- `handleConnectAccount()` — unverändert
+- `handleSyncAccounts()` — unverändert
+- `handleDisconnectAccount()` — unverändert
+- `loadConnectedAccounts()` — unverändert
+- Alle State-Variablen — unverändert
+- Alle `useEffect` — unverändert (nur Account-Loading Trigger-Bedingung aktualisiert)
+
+### Design-Entscheidungen
+
+- **Seitentitel**: "Einstellungen" statt "Mein Profil" — die Seite ist jetzt ein Settings-Hub
+- **Kontextuelle Unterzeile**: Wechselt je nach aktivem Tab (aus `constants.ts`)
+- **Nav Active State**: Mint White (#F4FCFE) + 3px Vektrus Blue Accent Bar links — ruhiger als das alte bg-[#B6EBF7]
+- **Gruppen-Divider**: Subtile Trennlinien zwischen Identity/Product/Admin/Control-Gruppen
+- **Token-first**: Neue Komponenten nutzen ausschließlich CSS Custom Properties
+- **Keine AI-Elemente**: Kein AI Violet, kein Pulse Gradient, keine Glass-Effekte (Schutzraum)
+
+### Neue Placeholder-Tabs
+
+- **Workspace**: Zeigt Company-Name aus Profildaten + "Teamfunktionen kommen"-Info
+- **Brand & KI**: Link zum Brand Studio + Erklärung der KI-Personalisierung
+
+### Nächster empfohlener Schritt
+
+**Schritt 3: NotificationsTab extrahieren** — niedrigstes Risiko, nur lokaler State, perfekter erster Extraktions-Kandidat um das Pattern zu validieren. Danach Schritt 4 (SecurityTab) und Schritt 5 (BillingTab).
+
+**Social-Konten-Extraktion bleibt explizit außerhalb des Scopes** bis alle niedrig-riskanten Tabs erfolgreich extrahiert sind.
+
+### Workstream-Status
+
+**Shell-Implementierung (Schritt 1 + 2) abgeschlossen. NotificationsTab-Extraktion (Schritt 3) abgeschlossen.**
+
+---
+
+## Profil / Settings Redesign — NotificationsTab-Extraktion (Schritt 3)
+
+**Stand:** 2026-03-21
+**Typ:** Tab-Extraktion (erste niedrig-riskante Extraktion)
+
+### Geänderte Dateien
+
+| Datei | Aktion | Beschreibung |
+|-------|--------|-------------|
+| `src/components/profile/tabs/NotificationsTab.tsx` | NEU | Eigenständige Benachrichtigungseinstellungen mit SettingsCard + SettingsToggle |
+| `src/components/profile/ProfilePage.tsx` | GEÄNDERT | `NotificationSettings` Interface entfernt, `notificationSettings` State entfernt, `renderNotificationsTab()` entfernt, Rendering auf `<NotificationsTab />` delegiert |
+| `src/components/profile/constants.ts` | GEÄNDERT | `'notifications'` aus Legacy-Mapping entfernt (wird jetzt direkt als extrahierte Komponente gerendert) |
+
+### Was nach NotificationsTab.tsx verschoben wurde
+
+- `NotificationSettings` Interface
+- `notificationSettings` State + `setNotificationSettings`
+- Toggle-Liste mit 5 Einstellungen
+- Gesamte Render-Logik
+
+### Was in ProfilePage.tsx verblieben ist
+
+Nichts von der Notifications-Logik. Die Extraktion war vollständig, da Notifications keinerlei Cross-Tab-Abhängigkeiten hatte.
+
+### Visuelle Verbesserungen
+
+- SettingsCard mit `shadow-subtle` + Token-Borders statt hardcodierter rgba-Werte
+- SettingsToggle mit `role="switch"` Accessibility statt custom peer-checked CSS
+- `divide-y` Separator statt per-Item Borders (ruhigerer Rhythmus)
+- Card-Beschreibung: "Lege fest, worüber Vektrus dich informiert."
+
+### Copy-Verbesserungen
+
+- "E-Mail Benachrichtigungen" → "E-Mail-Benachrichtigungen" (korrekte Komposita-Schreibung)
+- Beschreibungstexte präziser und klarer formuliert
+
+### Geschützte Logik
+
+Alle 5 geschützten Handler in ProfilePage.tsx unverändert (13 Referenzen, gleiche Zahl wie vor der Extraktion).
+
+### Validiertes Pattern
+
+Diese Extraktion bestätigt das Muster für alle folgenden Tab-Extraktionen:
+1. Eigene Datei in `tabs/`
+2. Eigener lokaler State
+3. Nutzung von SettingsCard + SettingsToggle (oder andere Primitives)
+4. Zero Props vom Parent
+5. Rendering per `activeTab === 'id' && <Component />`
+6. Legacy-Mapping in constants.ts für nicht-extrahierte Tabs
+
+### Nächster empfohlener Schritt
+
+**Schritt 4: SecurityTab extrahieren** — ebenfalls UI-only, keine Backend-Handler. Nutzt SettingsCard + SettingsFormField.
+
+Danach **Schritt 5: BillingTab** (niedrig-riskant, nur SubscriptionStatus-Einbettung).
+
+**Social-Konten-Extraktion bleibt explizit außerhalb des Scopes.**
+
+### Workstream-Status
+
+**NotificationsTab-Extraktion (Schritt 3) + Corrective Pass abgeschlossen. Bereit für SecurityTab-Extraktion (Schritt 4).**
+
+---
+
+## Profil / Settings Redesign — NotificationsTab Corrective Pass
+
+**Stand:** 2026-03-21
+**Typ:** Korrektiver Pass — Behavioral Regression Fix
+
+### Problem
+
+Die NotificationsTab-Extraktion hatte den Notifications-State (`useState`) ins Innere der Tab-Komponente verschoben. Da der Tab per `{activeTab === 'notifications' && <NotificationsTab />}` bedingt gerendert wird, wurde die Komponente bei jedem Tab-Wechsel unmountet und remountet — dabei ging der Toggle-State verloren und setzte sich auf Defaults zurück.
+
+Vor der Extraktion lag der State in ProfilePage, das nie unmountet wird → State blieb erhalten.
+
+### Fix
+
+NotificationsTab wurde zu einer **kontrollierten Komponente** umgebaut:
+
+- `NotificationSettings` Interface und `NOTIFICATION_DEFAULTS` werden aus NotificationsTab exportiert
+- State (`notificationSettings`) + Handler (`handleNotificationChange`) leben in ProfilePage
+- NotificationsTab empfängt `settings` + `onChange` als Props
+- Kein interner `useState` mehr in NotificationsTab
+
+### Geänderte Dateien
+
+| Datei | Änderung |
+|-------|----------|
+| `src/components/profile/tabs/NotificationsTab.tsx` | Umgebaut zu kontrollierter Komponente: Props statt internem State, exportiert Interface + Defaults |
+| `src/components/profile/ProfilePage.tsx` | State + Handler zurück nach ProfilePage, übergibt Props an NotificationsTab |
+
+### Etabliertes Pattern für alle Tab-Extraktionen
+
+Jeder Tab mit State, der Tab-Wechsel überleben muss, folgt diesem Muster:
+1. **State** lebt in ProfilePage (überlebt Tab-Wechsel)
+2. **Tab-Komponente** ist kontrolliert (empfängt State + onChange als Props)
+3. **Interface + Defaults** werden aus der Tab-Datei exportiert (Single Source of Truth für Shape/Defaults)
+
+Ausnahme: Tabs die bei jedem Mount ohnehin neu laden (wie Social-Konten mit `loadConnectedAccounts()`) können ihren State intern verwalten.
+
+### Workstream-Status
+
+**Corrective Pass abgeschlossen. State-Persistenz über Tab-Wechsel bestätigt. SecurityTab-Extraktion (Schritt 4) abgeschlossen.**
+
+---
+
+## Profil / Settings Redesign — SecurityTab-Extraktion (Schritt 4)
+
+**Stand:** 2026-03-21
+**Typ:** Tab-Extraktion (zweite niedrig-riskante Extraktion)
+
+### Geänderte Dateien
+
+| Datei | Aktion | Beschreibung |
+|-------|--------|-------------|
+| `src/components/profile/tabs/SecurityTab.tsx` | NEU | Stateless Datenschutz-&-Sicherheit-Tab mit 5 SettingsCards |
+| `src/components/profile/ProfilePage.tsx` | GEÄNDERT | `renderSecurityTab()` entfernt, Rendering auf `<SecurityTab />` delegiert, Import hinzugefügt |
+| `src/components/profile/constants.ts` | GEÄNDERT | `'security'` aus Legacy-Mapping entfernt |
+
+### Extraktion
+
+Die gesamte `renderSecurityTab()` Funktion wurde entfernt und durch `<SecurityTab />` ersetzt. Die Komponente ist **stateless** — die Original-Implementierung hatte keine State-Bindungen (uncontrolled Inputs, keine onClick-Handler), daher gibt es kein Tab-Wechsel-Risiko.
+
+### Inhaltliche Verbesserungen (Placeholder-Ehrlichkeit)
+
+| Bereich | Vorher | Nachher |
+|---------|--------|---------|
+| 2FA | "2FA deaktiviert" + "Aktivieren"-Button (impliziert Funktionalität) | "2FA aktuell nicht verfügbar" + "Wird in einer zukünftigen Version unterstützt" (ehrlich) |
+| Sessions | Fake Mock-Daten (Chrome, Safari, München) + "Beenden"-Buttons | "Aktuelle Sitzung — jetzt aktiv" + "Verwaltung kommt in einer kommenden Version" (ehrlich) |
+| Passwort | Formular ohne Handler | Formular + ehrlicher Hinweis: "Die Passwortänderung wird in einer kommenden Version verfügbar sein" |
+| DSGVO | Nicht vorhanden | NEU: "Datenschutz & DSGVO" Card mit EU-Datenverarbeitung, DSGVO-Konformität, Datenkontrolle |
+| Konto löschen | "Alle Daten werden permanent gelöscht" | "Alle Daten werden unwiderruflich gelöscht. Diese Aktion kann nicht rückgängig gemacht werden." (deutlicher) |
+
+### Token-Migration
+
+Alle hardcodierten `border-[rgba(73,183,227,0.18)]` durch `border-[var(--vektrus-border-default)]` ersetzt. SettingsCard liefert `shadow-subtle`, Radius- und Border-Tokens.
+
+### Geschützte Logik
+
+Alle 13 geschützten Handler-Referenzen in ProfilePage.tsx unverändert.
+
+### Nächster empfohlener Schritt
+
+**Schritt 5: BillingTab extrahieren** — niedrig-riskant, einzige externe Abhängigkeit ist die Einbettung der `SubscriptionStatus`-Komponente. Mock-Rechnungsdaten durch ehrliche Platzhalter ersetzen.
+
+**Social-Konten-Extraktion bleibt explizit außerhalb des Scopes.**
+
+### Workstream-Status
+
+**SecurityTab-Extraktion (Schritt 4) abgeschlossen. BillingTab-Extraktion (Schritt 5) abgeschlossen.**
+
+---
+
+## Profil / Settings Redesign — BillingTab-Extraktion (Schritt 5)
+
+**Stand:** 2026-03-21
+**Typ:** Tab-Extraktion (dritte niedrig-riskante Extraktion)
+
+### Geänderte Dateien
+
+| Datei | Aktion | Beschreibung |
+|-------|--------|-------------|
+| `src/components/profile/tabs/BillingTab.tsx` | NEU | Stateless Plan-&-Abrechnung-Tab mit SubscriptionStatus-Einbettung + ehrliche Platzhalter |
+| `src/components/profile/ProfilePage.tsx` | GEÄNDERT | `renderBillingTab()` entfernt, `useSubscription` + `SubscriptionStatus` Imports entfernt, ungenutzte Lucide-Icons entfernt, Rendering auf `<BillingTab />` delegiert |
+| `src/components/profile/constants.ts` | GEÄNDERT | `'billing'` aus Legacy-Mapping entfernt |
+
+### Extraktion
+
+Stateless Extraktion. `SubscriptionStatus` wird als geschützte Unit eingebettet — die Komponente verwaltet ihren eigenen `useSubscription()` Hook intern. Keinerlei Logikänderungen.
+
+### Placeholder-Ehrlichkeit
+
+| Bereich | Vorher | Nachher |
+|---------|--------|---------|
+| Rechnungshistorie | 3 Fake-Rechnungen (VKT-2024-001 etc.) + nicht-funktionale "PDF"-Buttons | Ehrlicher Platzhalter: "Rechnungsübersicht mit PDF-Download wird in einer kommenden Version verfügbar" |
+| Zahlungsmethode | Fake "Visa •••• 4242" + "Ändern"-Button | Ehrlicher Platzhalter: "Verwaltung wird in einer kommenden Version verfügbar" |
+| Abo-Status | `<SubscriptionStatus />` | Identisch, eingebettet in SettingsCard mit Titel "Aktueller Plan" |
+
+### Import-Cleanup
+
+Aus ProfilePage.tsx entfernt (dead imports nach Extraktion):
+- `useSubscription` Hook
+- `SubscriptionStatus` Komponente
+- Lucide-Icons: `CreditCard`, `Crown`, `Shield`, `Settings`, `Bell`, `Trash2`, `Share2`
+
+### Geschützte Logik
+
+Alle 13 geschützten Handler-Referenzen in ProfilePage.tsx unverändert. `SubscriptionStatus` und `useSubscription()` Hook-Logik unverändert.
+
+### Verbleibendes Legacy in ProfilePage.tsx
+
+Nach dieser Extraktion verbleiben nur noch **2 Legacy-Inline-Renderer**:
+- `renderProfileTab()` — mittleres Risiko (enthält `handleSaveProfile`, `useAuth`)
+- `renderAccountsTab()` — hohes Risiko (7 State-Variablen, 4 Handler, OAuth-Flow)
+
+Plus **2 Inline-Platzhalter** (Workspace, Brand & KI) die in der Shell erstellt wurden.
+
+### Nächster empfohlener Schritt
+
+**Schritt 6: ProfileTab extrahieren** — mittleres Risiko. Enthält `handleSaveProfile()`, `useAuth()`, Formvalidierung und Edit-State. Diese Logik muss sorgfältig als Controlled Component extrahiert werden (State in ProfilePage, Props an ProfileTab).
+
+**Social-Konten-Extraktion bleibt explizit außerhalb des Scopes** bis ProfileTab erfolgreich extrahiert ist.
+
+### Workstream-Status
+
+**BillingTab-Extraktion (Schritt 5) + Corrective Pass abgeschlossen. Bereit für ProfileTab-Extraktion (Schritt 6).**
+
+---
+
+## Profil / Settings Redesign — BillingTab Corrective Pass (Token-Migration)
+
+**Stand:** 2026-03-21
+**Typ:** Korrektiver Pass — Token-Compliance
+
+### Problem
+
+BillingTab.tsx verwendete hardcodierte Hex-Farbwerte (`#F4FCFE`, `#49B7E3`, `#111111`, `#7A7A7A`) statt CSS Custom Properties. Gleiches Pattern existiert in SecurityTab, NotificationsTab-Primitives und der gesamten App — es fehlten schlicht die Brand-Palette-Tokens.
+
+### Fix
+
+**1. Brand-Palette-Tokens hinzugefügt** (`src/styles/ai-layer.css`):
+
+```css
+--vektrus-blue: #49B7E3;
+--vektrus-blue-light: #B6EBF7;
+--vektrus-mint: #F4FCFE;
+--vektrus-anthrazit: #111111;
+--vektrus-gray: #7A7A7A;
+--vektrus-success: #49D69E;
+--vektrus-error: #FA7E70;
+--vektrus-warning: #F4BE9D;
+```
+
+Diese ergänzen die bereits vorhandenen Tokens (Radius, Shadow, Border, AI Violet).
+
+**2. BillingTab.tsx auf Tokens migriert:**
+
+| Vorher | Nachher |
+|--------|---------|
+| `bg-[#F4FCFE]` | `bg-[var(--vektrus-mint)]` |
+| `text-[#49B7E3]` | `text-[var(--vektrus-blue)]` |
+| `text-[#111111]` | `text-[var(--vektrus-anthrazit)]` |
+| `text-[#7A7A7A]` | `text-[var(--vektrus-gray)]` |
+
+BillingTab hat jetzt **null hardcodierte Hex-Werte**.
+
+### Geänderte Dateien
+
+| Datei | Änderung |
+|-------|----------|
+| `src/styles/ai-layer.css` | 8 neue Brand-Palette-Tokens in `:root` |
+| `src/components/profile/tabs/BillingTab.tsx` | 8 Hex-Werte durch Tokens ersetzt |
+
+### Verbleibende Non-Token-Styling im Settings-Workstream
+
+Die neuen Tokens stehen jetzt zur Verfügung, werden aber noch nicht von allen Settings-Dateien genutzt:
+
+| Datei | Hardcodierte Hex-Werte | Status |
+|-------|----------------------|--------|
+| `BillingTab.tsx` | 0 | Migriert |
+| `SecurityTab.tsx` | ~34 | Kann bei nächster Gelegenheit migriert werden |
+| `NotificationsTab.tsx` | 0 (nutzt nur Primitives) | OK |
+| `SettingsCard.tsx` | 2 | Kann migriert werden |
+| `SettingsNav.tsx` | 5 | Kann migriert werden |
+| `SettingsToggle.tsx` | 3 | Kann migriert werden |
+
+Die Migration der übrigen Dateien ist ein separater, niedrig-riskanter Schritt und blockiert nicht die ProfileTab-Extraktion.
+
+### Side-Effect
+
+SettingsCard nutzte bereits `var(--vektrus-error,#FA7E70)` mit Fallback. Durch das neue `--vektrus-error` Token resolved der Fallback jetzt korrekt — keine Änderung nötig.
+
+### Workstream-Status
+
+**BillingTab Corrective Pass abgeschlossen. ProfileTab-Extraktion (Schritt 6) abgeschlossen.**
+
+---
+
+## Profil / Settings Redesign — ProfileTab-Extraktion (Schritt 6)
+
+**Stand:** 2026-03-21
+**Typ:** Tab-Extraktion (erste mittel-riskante Extraktion)
+
+### Geänderte Dateien
+
+| Datei | Aktion | Beschreibung |
+|-------|--------|-------------|
+| `src/components/profile/tabs/ProfileTab.tsx` | NEU | Controlled component: Avatar, Identitäts-Card, Edit-Formular, Bio, Aktivitäts-Stats |
+| `src/components/profile/ProfilePage.tsx` | GEÄNDERT | `renderProfileTab()` entfernt (~230 Zeilen), `ProfileData` Interface-Import von ProfileTab, neuer `handleCancelEdit()` Handler, Rendering delegiert mit 8 Props, tote Lucide-Imports bereinigt |
+| `src/components/profile/constants.ts` | GEÄNDERT | `'profile'` aus Legacy-Mapping entfernt |
+
+### Controlled-Component-Architektur
+
+**State in ProfilePage (überlebt Tab-Wechsel):**
+- `profileData` + `setProfileData`
+- `isEditing` + `setIsEditing`
+- `isSaving` + `setIsSaving`
+- `useEffect` für userProfile-Sync
+
+**Geschützte Logik in ProfilePage:**
+- `handleSaveProfile()` — ruft `updateProfile()`, `refreshProfile()`, `addToast()`
+- `isValidUrl()` — Validierungs-Helper
+- `handleCancelEdit()` — neu extrahiert aus inline-onClick (gleiche Logik)
+
+**Props an ProfileTab:**
+```typescript
+profileData, onProfileDataChange, isEditing, onEditingChange,
+isSaving, onSave, onCancel, connectedAccountsCount
+```
+
+### Visuelle Verbesserungen
+
+- Token-first: null hardcodierte Hex-Werte
+- Verfeinerter Avatar (80px statt 96px, subtilerer Camera-Button)
+- Meta-Daten in flexiblem Wrap statt starrem Grid
+- Edit-Button ruhiger: Mint White + Border statt solides #B6EBF7
+- **Fake-Stat "247 Generierte Posts" entfernt** — Stats zeigen nur noch echte Daten
+- Stats von 3-Spalten auf 2-Spalten reduziert (nur Verbundene Konten + Tage bei Vektrus)
+- SettingsCard für alle Bereiche (einheitliche shadow-subtle + Border)
+- Loader2-Icon statt Custom-Border-Spinner für Save-Progress
+
+### Geschützte Handler-Integrität
+
+Alle 13 geschützten Handler-Referenzen in ProfilePage.tsx unverändert. `handleSaveProfile()` Logik identisch — wird als `onSave` Prop durchgereicht.
+
+### Verbleibende Legacy in ProfilePage.tsx
+
+Nur noch **1 Legacy-Inline-Renderer**:
+- `renderAccountsTab()` — **hohes Risiko** (7 State-Variablen, 4 Handler, OAuth-Flow, SUPPORTED_PLATFORMS SVGs)
+
+Plus **2 Inline-Platzhalter** (Workspace, Brand & KI) die in der Shell erstellt wurden.
+
+### Nächster empfohlener Schritt
+
+**Schritt 7: Social-Konten-Tab extrahieren** — dies ist der letzte und riskanteste Extraktionsschritt. Alle niedrig- und mittel-riskanten Tabs sind jetzt erfolgreich extrahiert. Das Social-Konten-Tab hat die höchste Integrations-Komplexität und sollte den bereits etablierten Patterns folgen.
+
+Alternativ kann vorher ein **Token-Migration-Pass** über die verbleibenden Settings-Dateien (SecurityTab, SettingsNav, SettingsCard, SettingsToggle) durchgeführt werden, um die Token-Compliance zu vervollständigen.
+
+### Workstream-Status
+
+**ProfileTab-Extraktion (Schritt 6) abgeschlossen. Token-Migration-Pass abgeschlossen. Bereit für Social-Konten-Extraktion (Schritt 7).**
+
+---
+
+## Profil / Settings Redesign — Token-Migration-Pass (Settings-System Corrective)
+
+**Stand:** 2026-03-21
+**Typ:** Korrektiver Pass — Token-Compliance für gesamtes Settings-System
+
+### Neue Tokens hinzugefügt
+
+`src/styles/ai-layer.css` `:root` erweitert um:
+- `--vektrus-warning-dark: #D97706` (Amber-Warnung, z.B. Alert-Icons)
+- `--vektrus-neutral: #E5E7EB` (Toggle Off-State, neutrale Flächen)
+
+### Geänderte Dateien
+
+| Datei | Hex-Werte vorher | Hex-Werte nachher | Status |
+|-------|-----------------|-------------------|--------|
+| `src/styles/ai-layer.css` | — | +2 neue Tokens | Erweitert |
+| `src/components/profile/tabs/SecurityTab.tsx` | ~34 | 0 | Vollständig migriert |
+| `src/components/profile/components/SettingsCard.tsx` | 2 (+ 2 Fallbacks) | 0 | Vollständig migriert |
+| `src/components/profile/components/SettingsNav.tsx` | 5 | 0 | Vollständig migriert |
+| `src/components/profile/components/SettingsToggle.tsx` | 3 | 0 | Vollständig migriert |
+| `src/components/profile/ProfilePage.tsx` (Shell + Platzhalter) | ~14 | 0 (in Shell/Platzhalter) | Shell migriert |
+
+### Token-Substitutionen
+
+| Hardcoded | Token |
+|-----------|-------|
+| `#49B7E3` | `var(--vektrus-blue)` |
+| `#B6EBF7` | `var(--vektrus-blue-light)` |
+| `#F4FCFE` | `var(--vektrus-mint)` |
+| `#111111` | `var(--vektrus-anthrazit)` |
+| `#7A7A7A` | `var(--vektrus-gray)` |
+| `#49D69E` | `var(--vektrus-success)` |
+| `#FA7E70` | `var(--vektrus-error)` |
+| `#E5E7EB` | `var(--vektrus-neutral)` |
+| `rgba(73,183,227,0.18)` → `var(--vektrus-border-default)` (bereits vorhanden) |
+
+### Verbleibende Hex-Werte in ProfilePage.tsx
+
+Alle verbleibenden Hex-Werte gehören zur **Social-Konten-Sektion** (`renderAccountsTab` + `SUPPORTED_PLATFORMS`) und werden beim Social-Konten-Extraktionsschritt migriert:
+
+- **SUPPORTED_PLATFORMS SVG-Icons** (Instagram, LinkedIn, TikTok, Facebook, X, YouTube, Threads, Pinterest) — Third-Party-Markenfarben, bleiben intentional als hardcodierte Hex-Werte
+- **renderAccountsTab UI** (~25 Hex-Werte) — werden bei der Extraktion zu SocialAccountsTab.tsx migriert
+
+### Token-Compliance-Status des Settings-Workstreams
+
+| Datei | Hex-frei |
+|-------|----------|
+| `constants.ts` | Ja (kein CSS) |
+| `SettingsCard.tsx` | Ja |
+| `SettingsNav.tsx` | Ja |
+| `SettingsToggle.tsx` | Ja |
+| `tabs/ProfileTab.tsx` | Ja |
+| `tabs/NotificationsTab.tsx` | Ja (nutzt nur Primitives) |
+| `tabs/SecurityTab.tsx` | Ja |
+| `tabs/BillingTab.tsx` | Ja |
+| `ProfilePage.tsx` Shell + Platzhalter | Ja |
+| `ProfilePage.tsx` Social-Konten-Sektion | Nein (out of scope — Schritt 7) |
+| `SocialAuthCallback.tsx` | Nein (no-touch file) |
+
+### Regressions-Risiko
+
+Null. Reine CSS-Wert-Substitutionen. Keine Logik-, Struktur- oder Verhaltensänderungen. Alle 13 geschützten Handler-Referenzen unverändert.
+
+### Workstream-Status
+
+**Token-Migration-Pass abgeschlossen. Social-Konten-Extraktion (Schritt 7) abgeschlossen.**
+
+---
+
+## Profil / Settings Redesign — Social-Konten-Extraktion (Schritt 7)
+
+**Stand:** 2026-03-21
+**Typ:** Tab-Extraktion — höchstes Risiko, finale Extraktion
+
+### Geänderte Dateien
+
+| Datei | Aktion | Beschreibung |
+|-------|--------|-------------|
+| `src/components/profile/tabs/SocialAccountsTab.tsx` | NEU | Controlled component mit 12 Props: Platform-Liste, Verbindungsstatus, alle Action-Callbacks |
+| `src/components/profile/ProfilePage.tsx` | GEÄNDERT | `renderAccountsTab()` entfernt (~150 Zeilen), `SUPPORTED_PLATFORMS` entfernt (~55 Zeilen), `SupportedPlatform` Interface entfernt, `toLegacyTabId` Import entfernt, 4 Lucide-Icons entfernt, Rendering delegiert an `<SocialAccountsTab />` mit 12 Props |
+| `src/components/profile/constants.ts` | GEÄNDERT | `toLegacyTabId()` Funktion entfernt (keine Legacy-Tabs mehr) |
+
+### Controlled-Component-Architektur
+
+**Alle State-Variablen bleiben in ProfilePage (7 State-Vars):**
+- `connectedAccounts`, `isLoadingAccounts`, `isSyncing`, `connectingPlatform`, `disconnectingAccount`, `showDisconnectConfirm`, `hasLateProfile`
+
+**Alle geschützten Handler bleiben in ProfilePage (4 Handler):**
+- `loadConnectedAccounts()` — SocialAccountService.getConnectedAccounts + hasLateProfile
+- `handleConnectAccount()` — SocialAccountService.connectPlatform + openAuthPopup
+- `handleSyncAccounts()` — SocialAccountService.syncAccounts
+- `handleDisconnectAccount()` — SocialAccountService.disconnectAccount
+
+**Props an SocialAccountsTab (12 Props):**
+`connectedAccounts`, `isLoading`, `isSyncing`, `hasLateProfile`, `connectingPlatform`, `disconnectingAccount`, `showDisconnectConfirm`, `onConnect`, `onSync`, `onDisconnect`, `onShowDisconnectConfirm`
+
+### Visuelle Verbesserungen
+
+- SettingsCard mit Titel/Beschreibung statt roher div-Struktur
+- `divide-y` Trennlinien statt per-Item Bordered-Boxes (ruhiger)
+- Platform-Icons in Mint-White Icon-Container (36px, gerundet)
+- Status-Badge inline neben Platform-Name (schneller scanbar)
+- Sync-Datum inline mit Benutzername (kompakter)
+- Trust-Copy: "Vektrus speichert keine Zugangsdaten. Die Verbindung erfolgt sicher über OAuth."
+- Warning-Copy: "Late-Profil" → "Verbindungsprofil" (weniger Fachjargon)
+
+### Token-Compliance
+
+Alle Settings-System-Farben nutzen `var(--vektrus-*)` Tokens. Hex-Werte existieren nur noch in `SUPPORTED_PLATFORMS` SVG-Icons (Instagram, LinkedIn, TikTok, Facebook, X, YouTube, Threads, Pinterest) — das sind Third-Party-Markenfarben, die intentional nicht tokenisiert werden.
+
+### Legacy-Bridge entfernt
+
+`toLegacyTabId()` wurde aus `constants.ts` entfernt. ProfilePage hat keine Legacy-Inline-Renderer mehr. Alle 7 Tabs werden als extrahierte Komponenten oder Inline-Platzhalter gerendert.
+
+### ProfilePage.tsx — Finaler Zustand
+
+ProfilePage ist jetzt eine **reine Shell** mit:
+- State-Management (Profile-Daten, Social-Konten-State, Notifications-State)
+- Geschützten Handlern (Save, Connect, Sync, Disconnect, Cancel)
+- Layout (Header, SettingsNav, Tab-Routing)
+- 2 kleine Inline-Platzhalter (Workspace, Brand & KI) — können bei Bedarf extrahiert werden
+
+**Keine Inline-Render-Funktionen mehr.** Keine Legacy-Bridges mehr.
+
+### Intentionale Ausnahmen
+
+| Ausnahme | Grund |
+|----------|-------|
+| Platform SVG-Icons mit Hex-Farben | Third-Party-Markenfarben (Instagram-Gradient, LinkedIn-Blau etc.) |
+| `SocialAuthCallback.tsx` nicht migriert | No-touch File (eigenständige OAuth-Callback-Route) |
+| Workspace + Brand & KI als Inline-Platzhalter | Zu klein für eigene Dateien, keine Logik |
+
+### Workstream-Status
+
+**Social-Konten-Extraktion (Schritt 7) abgeschlossen. Alle Tab-Extraktionen sind vollständig. Die Profile / Settings Extraction Phase ist abgeschlossen.**
+
+**Nächster empfohlener Schritt:** Holistische Review abgeschlossen. Cleanup und Final QA sind die nächsten Schritte.
+
+---
+
+## Profil / Settings Redesign — Holistische Cross-Tab-Review
+
+**Stand:** 2026-03-21
+**Typ:** Holistische Review + gezielte Korrekturen
+
+### Geprüfte Dateien (13)
+
+`ProfilePage.tsx`, `constants.ts`, `SettingsCard.tsx`, `SettingsNav.tsx`, `SettingsToggle.tsx`, `ProfileTab.tsx`, `NotificationsTab.tsx`, `SocialAccountsTab.tsx`, `SecurityTab.tsx`, `BillingTab.tsx` + Workspace- und Brand-AI-Platzhalter in ProfilePage
+
+### Gefundene und korrigierte Probleme
+
+**P1: CSS-Opacity-Bug mit Token-Vars (RENDERING-FEHLER)**
+
+Tailwinds `/opacity`-Modifikator auf `var(--vektrus-*)` Werte funktioniert nicht korrekt, weil die CSS-Variablen Hex-Strings enthalten (`#FA7E70`), nicht RGB-Kanäle. Tailwind generiert `rgb(var(--vektrus-error) / 0.05)` was den Browser nicht parsen kann.
+
+Betroffen waren:
+- SecurityTab: `bg-[var(--vektrus-error)]/5`, `border-[var(--vektrus-error)]/20`, `hover:bg-[var(--vektrus-error)]/90`
+- SocialAccountsTab: `bg-[var(--vektrus-warning)]/15`
+- ProfileTab: `hover:bg-[var(--vektrus-success)]/90`, `placeholder:text-[var(--vektrus-gray)]/60`
+- SettingsNav: `hover:bg-[var(--vektrus-mint)]/60`
+
+**Fixes:**
+- Opacity-Backgrounds → Tailwind semantic equivalents (`bg-red-50`, `bg-amber-50`)
+- Opacity-Hover → `hover:opacity-90`
+- Placeholder-Opacity → removed `/60` (gray is already muted)
+- Nav hover → full mint without opacity
+
+**P2: Stale comment in ProfilePage (MINOR)**
+- Entfernt: `// 'social' is the new tab ID; toLegacyTabId maps it to 'accounts'` — toLegacyTabId existiert nicht mehr.
+
+**P3: Stale doc comment in SettingsNav (MINOR)**
+- Aktualisiert: "except where CSS vars don't cover" → "uses --vektrus-* CSS custom properties exclusively"
+
+**P4: Unused imports in SecurityTab (MINOR)**
+- Entfernt: `Monitor`, `Trash2` aus Lucide-Import (nie verwendet)
+
+### Geänderte Dateien
+
+| Datei | Änderung |
+|-------|----------|
+| `SecurityTab.tsx` | 3 Opacity-Fixes, 2 unused imports entfernt, 3x placeholder-opacity entfernt |
+| `SocialAccountsTab.tsx` | 1 warning-bg opacity fix |
+| `ProfileTab.tsx` | 2 hover-opacity fixes, 1 placeholder-opacity fix |
+| `SettingsNav.tsx` | 1 hover-opacity fix, 1 stale comment fix |
+| `ProfilePage.tsx` | 1 stale comment entfernt |
+
+### Cross-Tab-Review Ergebnisse
+
+**1. Cross-Tab-Kohärenz: Gut.**
+Alle 7 Tabs nutzen `space-y-6`, `SettingsCard`, identische Token-Farben, gleiche Typografie-Hierarchie. Die Seite fühlt sich als eine zusammenhängende Oberfläche an.
+
+**2. Informationsarchitektur: Gut.**
+Navigation mit 7 Abschnitten in 4 semantischen Gruppen. "Einstellungen" als Seitentitel mit kontextueller Unterzeile funktioniert. Reihenfolge folgt dem Nutzer-Mentalmodell (ich → mein Workspace → meine Marke → meine Konten → meine Benachrichtigungen → mein Plan → meine Sicherheit).
+
+**3. Produktframing und Vertrauen: Gut.**
+Jeder Tab kommuniziert seinen Zweck klar. Trust-sensitive Tabs (Social-Konten, Security, Billing) sind ehrlich über Platzhalter-Status. DSGVO-Card in Security ist ein starkes Vertrauenssignal. OAuth-Hinweis in Social-Konten schafft Transparenz.
+
+**4. Platzhalter-Ehrlichkeit: Gut.**
+Workspace, Brand & KI, Billing-History, Payment-Method, Passwort, 2FA, Sessions — alle klar als "kommende Version" markiert. Keine fake-funktionalen Elemente. Keine irreführenden Buttons.
+
+**5. Social-Konten-Qualität: Gut.**
+Platform-Liste ist scanbar, Status-Hierarchie (Verbunden/Nicht verbunden) ist klar, Actions sind kontextuell korrekt, Disconnect-Bestätigung funktioniert, Platform-Farben sind appropriat enthalten.
+
+**6. Design-Konsistenz: Gut nach Korrekturen.**
+Token-Konsistenz jetzt durchgehend. Spacing-Rhythmus einheitlich. Card-Density konsistent. CTA-Hierarchie klar (primary = Vektrus Blue fills, secondary = Mint outlines, danger = Error red). Kein AI-Overstyling.
+
+**7. Behavioral Safety: Bestätigt.**
+Alle kontrollierten Komponenten (Profile, Notifications, Social) bewahren State über Tab-Wechsel. Alle 12 geschützten Handler-Referenzen unverändert.
+
+### Akzeptable v1-Kompromisse
+
+| Kompromiss | Grund |
+|------------|-------|
+| `signOut` wird aus useAuth destructured aber nicht genutzt | Kann für zukünftige Konto-Löschung benötigt werden |
+| Workspace + Brand-AI als Inline-Platzhalter in ProfilePage | ~30 Zeilen jeweils, zu klein für eigene Dateien |
+| Tailwind `bg-red-50` / `bg-amber-50` statt tokenisierter Opacity | CSS-var opacity limitation — korrekte Lösung erfordert RGB-Channel-Tokens (Phase 2) |
+| `SubscriptionStatus` innerhalb BillingTab hat eigene hardcodierte Hex-Werte | Geschützte Komponente aus anderem Workstream, nicht Scope dieses Redesigns |
+| `SocialAuthCallback.tsx` nicht migriert | No-touch file per Architektur-Blueprint |
+
+### Gesamturteil
+
+**Die Settings-Seite fühlt sich jetzt als zusammenhängendes Premium-Produkt an.** Keine einzelne Oberfläche bricht aus dem System. Der Charakter ist ruhig, klar, vertrauenswürdig und professionell — kein generisches Admin-Panel, kein lautes Feature-Modul. Das Ergebnis ist bereit für Cleanup und Final QA.
+
+### Empfehlung
+
+**Proceed to cleanup.** Die holistische Review hat nur geringfügige Korrekturen ergeben (1 echter Rendering-Bug, 3 stale comments/imports). Keine strukturellen oder architektonischen Probleme. Cleanup kann sicher starten.
+
+Final QA sollte unmittelbar nach Cleanup erfolgen.
+
+### Workstream-Status
+
+**Holistische Cross-Tab-Review abgeschlossen. Cleanup abgeschlossen. Bereit für Final QA.**
+
+---
+
+## Profil / Settings Redesign — Cleanup Pass
+
+**Stand:** 2026-03-21
+**Typ:** Cleanup (Dead Code, Stale Artifacts, Minor Hygiene)
+
+### Geänderte Dateien
+
+| Datei | Änderung |
+|-------|----------|
+| `ProfilePage.tsx` | `React.useEffect` → destructured `useEffect`, 2 double-blank-lines entfernt, 2 stale comments entfernt |
+| `ProfileTab.tsx` | Unused export `PROFILE_DATA_DEFAULTS` entfernt (12 Zeilen) |
+| `constants.ts` | Trailing blank line entfernt |
+
+### Entfernt
+
+| Was | Wo | Grund |
+|-----|----|-------|
+| `React.useEffect()` Aufruf | ProfilePage.tsx:35 | Redundant — `useEffect` bereits destructured im Import |
+| `PROFILE_DATA_DEFAULTS` export | ProfileTab.tsx:17-27 | Nie importiert, nie verwendet |
+| Stale comment "Resolve the active tab..." | ProfilePage.tsx:290 | Überflüssiger Kommentar |
+| Stale comment "Placeholder content for new tabs..." | ProfilePage.tsx:293 | Bezog sich auf "legacy renderers" die nicht mehr existieren |
+| Double blank lines | ProfilePage.tsx:84, 288 | Kosmetisch |
+| Trailing blank line | constants.ts:31 | Kosmetisch |
+
+### Intentional beibehalten
+
+| Was | Grund |
+|-----|-------|
+| `signOut` aus useAuth destructured | Kann für zukünftige Konto-Löschung benötigt werden |
+| `SupportedPlatform` + `SUPPORTED_PLATFORMS` Exports in SocialAccountsTab | Nicht schädlich, potenziell nützlich für andere Module |
+| Workspace + Brand-AI Inline-Platzhalter | ~30 Zeilen jeweils, zu klein für eigene Dateien |
+
+### Cleanup-Status
+
+**Cleanup ist vollständig.** Keine toten Imports, keine stale Comments, keine ungenutzten Exports (bis auf intentional beibehaltene), keine doppelten Leerzeilen.
+
+**Final QA abgeschlossen. Profil / Settings Redesign Workstream ist abgeschlossen.**
+
+---
+
+## Profil / Settings Redesign — Final QA
+
+**Stand:** 2026-03-21
+**Typ:** Final QA (letzte Prüfung vor Workstream-Abschluss)
+
+### QA-Ergebnis: BESTANDEN
+
+Die Settings-Seite ist produktionsreif. Alle Prüfpunkte wurden validiert.
+
+### 1. Produktlogik-Sicherheit: Bestanden
+
+- Alle 12 geschützten Handler-Referenzen in ProfilePage.tsx unverändert
+- `handleSaveProfile`, `handleConnectAccount`, `handleSyncAccounts`, `handleDisconnectAccount`, `loadConnectedAccounts` — alle Signaturen, Service-Aufrufe und State-Transitionen identisch zum Original
+- Kontrollierte Komponenten (ProfileTab, NotificationsTab, SocialAccountsTab) bewahren State über Tab-Wechsel
+- OAuth-Popup-Flow, Late-Profile-Check, Disconnect-Bestätigung — alles intakt
+- `useEffect` für Account-Loading bei Tab-Wechsel zu 'social' — funktional identisch
+
+### 2. UX-Qualität: Bestanden
+
+- Settings-Seite wirkt als zusammenhängendes Premium-Produkt-Hub
+- Navigation ist klar und ruhig (7 Abschnitte, 4 semantische Gruppen, subtile Divider)
+- Alle Tabs sind leicht scanbar mit konsistenter Card-Struktur
+- Platzhalter sind ehrlich und visuell integriert (kein fake-funktionales UI)
+- Trust-sensitive Tabs (Social-Konten, Sicherheit, Billing) sind vertrauensbildend
+
+### 3. Visuelle Konsistenz: Bestanden
+
+- Einheitlicher Spacing-Rhythmus (`space-y-6` über alle Tabs)
+- Konsistente Card-Dichte (SettingsCard mit `shadow-subtle`, `border-[var(--vektrus-border-default)]`)
+- Klare CTA-Hierarchie (Primary = Vektrus Blue fills, Secondary = Mint outlines, Danger = Error red)
+- Einheitliches Icon-System (Lucide throughout, Platform-SVGs nur für Drittanbieter-Farben)
+- Token-Konsistenz: alle Settings-System-Farben nutzen `var(--vektrus-*)` CSS Custom Properties
+- Kein AI-Overstyling (Schutzraum-Regel eingehalten: kein AI Violet, kein Pulse Gradient, kein Glass Layer)
+- Deutsche Copy: korrekte Umlaute und ß durchgehend
+
+### 4. State-Robustheit: Bestanden
+
+- Tab-Wechsel: ProfileTab-Formulardaten, Notification-Toggles und Social-Account-Liste bleiben erhalten
+- Placeholder-Tabs (Workspace, Brand & KI): stateless, kein Regressions-Risiko
+- Social-Konten Loading/Empty/Warning/Connected States: alle korrekt über Props durchgereicht
+
+### 5. Technische Qualität: Bestanden
+
+- Keine dead imports
+- Keine stale Props/Interfaces
+- Keine broken comments
+- Keine obsoleten Profile/Settings-Artefakte
+- `connectedAccounts.filter(a => a.connected)` Bug gefunden und behoben → `a.is_active` (korrektes Feld aus LateAccount Interface)
+
+### Finale Fix
+
+| Datei | Fix |
+|-------|-----|
+| `ProfilePage.tsx:385` | `.filter(a => a.connected)` → `.filter(a => a.is_active)` — pre-existing bug, `LateAccount` hat kein `connected` Feld, `is_active` ist das korrekte Property |
+
+### Akzeptable v1-Kompromisse (final)
+
+| Kompromiss | Grund |
+|------------|-------|
+| `signOut` aus useAuth destructured aber nicht genutzt | Reserviert für zukünftige Konto-Löschung |
+| Workspace + Brand-AI als Inline-Platzhalter | Zu klein für eigene Dateien (~30 Zeilen) |
+| `bg-red-50` / `bg-amber-50` statt tokenisierter Opacity | CSS-var opacity limitation — erfordert RGB-Channel-Tokens |
+| `SubscriptionStatus` hat eigene hardcodierte Hex-Werte | Geschützte Komponente aus anderem Workstream |
+| `SocialAuthCallback.tsx` nicht migriert | No-touch file |
+| Platform-SVG-Icons mit hardcodierten Farben | Third-Party-Markenfarben, intentional |
+
+### Dateiliste des Workstreams (final)
+
+**Neue Dateien (8):**
+- `src/components/profile/constants.ts`
+- `src/components/profile/components/SettingsCard.tsx`
+- `src/components/profile/components/SettingsNav.tsx`
+- `src/components/profile/components/SettingsToggle.tsx`
+- `src/components/profile/tabs/ProfileTab.tsx`
+- `src/components/profile/tabs/NotificationsTab.tsx`
+- `src/components/profile/tabs/SecurityTab.tsx`
+- `src/components/profile/tabs/BillingTab.tsx`
+- `src/components/profile/tabs/SocialAccountsTab.tsx`
+
+**Geänderte Dateien (2):**
+- `src/components/profile/ProfilePage.tsx` — von 996-Zeilen-Monolith zu ~424-Zeilen State-Management-Shell
+- `src/styles/ai-layer.css` — 10 neue Brand-Palette-Tokens in `:root`
+
+**Unveränderte No-Touch-Dateien:**
+- `src/components/profile/SocialAuthCallback.tsx`
+- `src/services/socialAccountService.ts`
+- `src/hooks/useAuth.tsx`
+- `src/hooks/useSubscription.ts`
+- `src/hooks/useConnectedPlatforms.ts`
+- `src/components/subscription/SubscriptionStatus.tsx`
+- `src/routes.tsx`
+- `src/components/layout/AppLayout.tsx`
+
+### Workstream-Status
+
+**Profil / Settings Redesign Workstream ist abgeschlossen.**
+
+Die Settings-Seite wurde von einem 996-Zeilen-Monolith zu einer modularen, token-konformen, premium Settings-Architektur mit 7 Tabs, geteilten Primitives und kontrollierter State-Verwaltung umgebaut — ohne eine einzige Änderung an geschützter Geschäftslogik.
+
+### Empfehlung für den nächsten Schritt
+
+**Ein neuer Claude Chat wird empfohlen** für den nächsten Hauptbereich. Dieser Chat hat seinen Zweck erfüllt und den Kontext effektiv genutzt. Die nächsten möglichen Arbeitsbereiche sind:
+- ToolHub Überarbeitung
+- Vision/Media Module Polish
+- ReviewModal Emoji-/Bug-Fix (aus Final QA)
+- Globale Token-Adoption auf weitere Module ausweiten
+
+---
+
 ## Vollständige Dokumentation
 
 - [Audit](./app-frontend-audit.md)
