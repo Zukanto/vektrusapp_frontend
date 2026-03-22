@@ -2,7 +2,7 @@ import React from 'react';
 import { useModuleColors } from '../../hooks/useModuleColors';
 
 interface ModuleWrapperProps {
-  module: 'chat' | 'planner' | 'pulse' | 'insights' | 'vision' | 'media' | 'profile';
+  module: 'chat' | 'planner' | 'pulse' | 'insights' | 'vision' | 'media' | 'profile' | 'help';
   children: React.ReactNode;
   className?: string;
   showTopAccent?: boolean;

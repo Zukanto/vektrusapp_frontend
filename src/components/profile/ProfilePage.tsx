@@ -3,6 +3,7 @@ import { User, Building, Palette } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../ui/toast';
 import ModuleWrapper from '../ui/ModuleWrapper';
+import { supabase } from '../../lib/supabase';
 import { SocialAccountService, LateAccount } from '../../services/socialAccountService';
 import SettingsNav from './components/SettingsNav';
 import ProfileTab, { type ProfileData } from './tabs/ProfileTab';
@@ -54,6 +55,52 @@ const ProfilePage: React.FC = () => {
   const [disconnectingAccount, setDisconnectingAccount] = useState<string | null>(null);
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState<string | null>(null);
   const [hasLateProfile, setHasLateProfile] = useState(false);
+
+  // Brand logo — used as fallback profile picture
+  const [brandLogoUrl, setBrandLogoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadBrandLogo = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const { data } = await supabase
+        .from('brand_profiles')
+        .select('logo_url')
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+      if (data?.logo_url) setBrandLogoUrl(data.logo_url);
+    };
+    loadBrandLogo();
+  }, []);
+
+  // Avatar upload handler
+  const handleAvatarUpload = async (file: File) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+    const filePath = `${session.user.id}/profile/avatar.${ext}`;
+
+    const { error } = await supabase.storage
+      .from('brand-assets')
+      .upload(filePath, file, { cacheControl: '3600', upsert: true });
+
+    if (error) {
+      addToast({ type: 'error', title: 'Upload fehlgeschlagen', description: error.message });
+      return;
+    }
+
+    const { data: urlData } = supabase.storage
+      .from('brand-assets')
+      .getPublicUrl(filePath);
+
+    const avatarUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+    setProfileData(prev => ({ ...prev, avatar: avatarUrl }));
+
+    await updateProfile({ avatar_url: avatarUrl });
+    await refreshProfile();
+    addToast({ type: 'success', title: 'Profilbild aktualisiert', description: 'Dein neues Profilbild wurde gespeichert.' });
+  };
 
   // Notification settings — state lives here so it survives tab switches
   const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>(NOTIFICATION_DEFAULTS);
@@ -383,6 +430,8 @@ const ProfilePage: React.FC = () => {
                   onSave={handleSaveProfile}
                   onCancel={handleCancelEdit}
                   connectedAccountsCount={connectedAccounts.filter(a => a.is_active).length}
+                  brandLogoUrl={brandLogoUrl}
+                  onAvatarUpload={handleAvatarUpload}
                 />
               )}
               {activeTab === 'notifications' && (

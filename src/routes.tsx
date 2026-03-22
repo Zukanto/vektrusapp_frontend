@@ -94,7 +94,7 @@ export const routes: RouteConfig[] = [
     element: () => <SocialAuthCallback />,
   },
   {
-    path: '/help',
+    path: '/help/*',
     moduleId: 'help',
     element: ({ onModuleChange }) => <HelpPage onModuleChange={onModuleChange} />,
   },

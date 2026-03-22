@@ -1,5 +1,5 @@
-import React from 'react';
-import { User, Mail, Calendar, Link, Camera, Edit3, Save, X, Plus, Loader2 } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { User, Mail, Calendar, Link, Camera, Edit3, Save, X, Plus, Loader2, ImageIcon } from 'lucide-react';
 import SettingsCard from '../components/SettingsCard';
 
 export interface ProfileData {
@@ -23,6 +23,8 @@ interface ProfileTabProps {
   onSave: () => void;
   onCancel: () => void;
   connectedAccountsCount: number;
+  brandLogoUrl: string | null;
+  onAvatarUpload: (file: File) => Promise<void>;
 }
 
 const INPUT_CLASS = `
@@ -34,6 +36,9 @@ const INPUT_CLASS = `
   transition-shadow duration-150
 `;
 
+const ACCEPTED_IMAGE_TYPES = 'image/png,image/jpeg,image/webp,image/gif';
+const MAX_AVATAR_SIZE = 5 * 1024 * 1024; // 5 MB
+
 const ProfileTab: React.FC<ProfileTabProps> = ({
   profileData,
   onProfileDataChange,
@@ -43,10 +48,37 @@ const ProfileTab: React.FC<ProfileTabProps> = ({
   onSave,
   onCancel,
   connectedAccountsCount,
+  brandLogoUrl,
+  onAvatarUpload,
 }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isUploading, setIsUploading] = useState(false);
+
   const daysSinceJoin = Math.floor(
     (Date.now() - new Date(profileData.joinDate).getTime()) / (1000 * 60 * 60 * 24)
   );
+
+  // Resolve display avatar: custom > brand logo > fallback icon
+  const displayAvatar = profileData.avatar || brandLogoUrl || null;
+  const avatarIsBrandLogo = !profileData.avatar && !!brandLogoUrl;
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > MAX_AVATAR_SIZE) {
+      alert('Die Datei ist zu groß. Maximale Größe: 5 MB.');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      await onAvatarUpload(file);
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -55,20 +87,38 @@ const ProfileTab: React.FC<ProfileTabProps> = ({
       <SettingsCard>
         <div className="flex items-start gap-6">
           {/* Avatar */}
-          <div className="relative flex-shrink-0">
+          <div className="relative flex-shrink-0 group">
             <div className="w-20 h-20 bg-[var(--vektrus-blue-light)] rounded-full flex items-center justify-center overflow-hidden">
-              {profileData.avatar ? (
-                <img src={profileData.avatar} alt="Avatar" className="w-full h-full rounded-full object-cover" />
+              {isUploading ? (
+                <Loader2 className="w-8 h-8 text-[var(--vektrus-blue)] animate-spin" />
+              ) : displayAvatar ? (
+                <img src={displayAvatar} alt="Avatar" className="w-full h-full rounded-full object-cover" />
               ) : (
                 <User className="w-10 h-10 text-[var(--vektrus-blue)]" />
               )}
             </div>
+            {avatarIsBrandLogo && (
+              <span className="absolute -top-1 -left-1 px-1.5 py-0.5 text-[10px] font-medium bg-[var(--vektrus-blue)] text-white rounded-full leading-tight">
+                Logo
+              </span>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ACCEPTED_IMAGE_TYPES}
+              onChange={handleFileSelect}
+              className="sr-only"
+              aria-label="Profilbild hochladen"
+            />
             <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
               className="
                 absolute -bottom-0.5 -right-0.5 w-7 h-7
                 bg-[var(--vektrus-blue)] rounded-full
                 flex items-center justify-center text-white
                 hover:opacity-90 transition-opacity
+                disabled:opacity-50 disabled:cursor-not-allowed
               "
               aria-label="Profilbild ändern"
             >
@@ -130,6 +180,12 @@ const ProfileTab: React.FC<ProfileTabProps> = ({
                 </div>
               )}
             </div>
+            {avatarIsBrandLogo && (
+              <p className="text-[12px] text-[var(--vektrus-gray)] mt-3 flex items-center gap-1.5">
+                <ImageIcon className="w-3.5 h-3.5" />
+                Dein Brand-Studio-Logo wird als Profilbild verwendet. Klicke auf das Kamera-Symbol, um ein eigenes Bild hochzuladen.
+              </p>
+            )}
           </div>
         </div>
       </SettingsCard>

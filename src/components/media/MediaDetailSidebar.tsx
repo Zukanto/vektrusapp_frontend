@@ -137,25 +137,25 @@ const MediaDetailSidebar: React.FC<MediaDetailSidebarProps> = ({
   };
 
   return (
-    <div className="w-96 bg-white border-l border-[rgba(73,183,227,0.18)] flex flex-col h-full">
+    <div className="w-96 bg-white border-l border-[var(--vektrus-border-default)] flex flex-col h-full shadow-card">
       {/* Header */}
-      <div className="p-6 border-b border-[rgba(73,183,227,0.18)]">
+      <div className="px-5 py-4 border-b border-[var(--vektrus-border-default)]">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-[#111111]">Medien-Details</h2>
+          <h2 className="font-manrope font-semibold text-[15px] text-[var(--vektrus-anthrazit)]">Details</h2>
           <button
             onClick={onClose}
-            className="p-2 text-[#7A7A7A] hover:text-[#111111] hover:bg-[#F4FCFE] rounded-[var(--vektrus-radius-sm)] transition-colors"
+            className="p-1.5 text-[var(--vektrus-gray)] hover:text-[var(--vektrus-anthrazit)] hover:bg-[var(--vektrus-mint)] rounded-lg transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
         {/* Preview */}
-        <div className="relative">
-          <div className="aspect-square rounded-[var(--vektrus-radius-md)] overflow-hidden bg-[#F4FCFE] relative">
+        <div>
+          <div className="aspect-square rounded-[var(--vektrus-radius-md)] overflow-hidden bg-[var(--vektrus-mint)] relative shadow-subtle">
             {media.file_type.startsWith('video/') ? (
               <video
                 src={media.public_url}
@@ -171,14 +171,14 @@ const MediaDetailSidebar: React.FC<MediaDetailSidebarProps> = ({
             )}
 
             {/* Source Badge */}
-            <div className="absolute top-3 right-3">
+            <div className="absolute top-2.5 right-2.5">
               {media.source === 'ai_generated' ? (
-                <div className="px-3 py-1 bg-[var(--vektrus-ai-violet)]/15 text-[var(--vektrus-ai-violet)] text-xs font-medium rounded-full flex items-center space-x-1">
+                <div className="px-2 py-0.5 bg-white/85 text-[var(--vektrus-ai-violet)] text-[11px] font-semibold rounded backdrop-blur-sm flex items-center gap-1">
                   <Sparkles className="w-3 h-3" />
                   <span>KI-generiert</span>
                 </div>
               ) : (
-                <div className="px-3 py-1 bg-[#B6EBF7] text-[#111111] text-xs font-medium rounded-full flex items-center space-x-1">
+                <div className="px-2 py-0.5 bg-white/85 text-[var(--vektrus-gray)] text-[11px] font-semibold rounded backdrop-blur-sm flex items-center gap-1">
                   <Upload className="w-3 h-3" />
                   <span>Hochgeladen</span>
                 </div>
@@ -187,10 +187,10 @@ const MediaDetailSidebar: React.FC<MediaDetailSidebarProps> = ({
           </div>
 
           {/* Quick Actions */}
-          <div className="flex items-center justify-center space-x-2 mt-4">
+          <div className="flex items-center justify-center gap-1 mt-3">
             <button
               onClick={handleDownload}
-              className="p-2 bg-[#F4FCFE] text-[#7A7A7A] hover:bg-[#F4FCFE] hover:text-[#111111] rounded-[var(--vektrus-radius-sm)] transition-colors"
+              className="p-2 text-[var(--vektrus-gray)] hover:text-[var(--vektrus-anthrazit)] hover:bg-[var(--vektrus-blue-light)]/30 rounded-lg transition-colors"
               title="Herunterladen"
             >
               <Download className="w-4 h-4" />
@@ -206,7 +206,7 @@ const MediaDetailSidebar: React.FC<MediaDetailSidebarProps> = ({
                   duration: 2000
                 });
               }}
-              className="p-2 bg-[#F4FCFE] text-[#7A7A7A] hover:bg-[#F4FCFE] hover:text-[#111111] rounded-[var(--vektrus-radius-sm)] transition-colors"
+              className="p-2 text-[var(--vektrus-gray)] hover:text-[var(--vektrus-anthrazit)] hover:bg-[var(--vektrus-blue-light)]/30 rounded-lg transition-colors"
               title="URL kopieren"
             >
               <Copy className="w-4 h-4" />
@@ -214,7 +214,7 @@ const MediaDetailSidebar: React.FC<MediaDetailSidebarProps> = ({
 
             <button
               onClick={() => window.open(media.public_url, '_blank')}
-              className="p-2 bg-[#F4FCFE] text-[#7A7A7A] hover:bg-[#F4FCFE] hover:text-[#111111] rounded-[var(--vektrus-radius-sm)] transition-colors"
+              className="p-2 text-[var(--vektrus-gray)] hover:text-[var(--vektrus-anthrazit)] hover:bg-[var(--vektrus-blue-light)]/30 rounded-lg transition-colors"
               title="In neuem Tab öffnen"
             >
               <ExternalLink className="w-4 h-4" />
@@ -223,32 +223,32 @@ const MediaDetailSidebar: React.FC<MediaDetailSidebarProps> = ({
         </div>
 
         {/* File Info */}
-        <div className="space-y-4">
+        <div className="space-y-3">
           <div>
-            <label className="text-sm font-medium text-[#111111] mb-2 block">Dateiname</label>
-            <p className="text-sm text-[#111111] font-mono bg-[#F4FCFE] p-2 rounded-[var(--vektrus-radius-sm)] border break-all">
+            <span className="text-[12px] font-medium text-[var(--vektrus-gray)] uppercase tracking-wide">Dateiname</span>
+            <p className="text-[13px] text-[var(--vektrus-anthrazit)] mt-1 break-all leading-relaxed">
               {media.filename}
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
             <div>
-              <span className="text-[#7A7A7A]">Format:</span>
-              <div className="font-medium text-[#111111]">{getFileFormat(media.file_type)}</div>
+              <span className="text-[12px] text-[var(--vektrus-gray)]">Format</span>
+              <div className="text-[13px] font-medium text-[var(--vektrus-anthrazit)]">{getFileFormat(media.file_type)}</div>
             </div>
             <div>
-              <span className="text-[#7A7A7A]">Größe:</span>
-              <div className="font-medium text-[#111111]">{formatFileSize(media.file_size)}</div>
+              <span className="text-[12px] text-[var(--vektrus-gray)]">Größe</span>
+              <div className="text-[13px] font-medium text-[var(--vektrus-anthrazit)]">{formatFileSize(media.file_size)}</div>
             </div>
             <div>
-              <span className="text-[#7A7A7A]">Typ:</span>
-              <div className="font-medium text-[#111111]">
+              <span className="text-[12px] text-[var(--vektrus-gray)]">Typ</span>
+              <div className="text-[13px] font-medium text-[var(--vektrus-anthrazit)]">
                 {media.file_type.startsWith('video/') ? 'Video' : 'Bild'}
               </div>
             </div>
             <div>
-              <span className="text-[#7A7A7A]">Erstellt:</span>
-              <div className="font-medium text-[#111111]">
+              <span className="text-[12px] text-[var(--vektrus-gray)]">Erstellt</span>
+              <div className="text-[13px] font-medium text-[var(--vektrus-anthrazit)]">
                 {new Date(media.created_at).toLocaleDateString('de-DE')}
               </div>
             </div>
@@ -257,44 +257,28 @@ const MediaDetailSidebar: React.FC<MediaDetailSidebarProps> = ({
 
         {/* AI Info */}
         {media.source === 'ai_generated' && media.generation_prompt && (
-          <div className="bg-[var(--vektrus-ai-violet)]/10 rounded-[var(--vektrus-radius-sm)] p-4 border border-[var(--vektrus-ai-violet)]">
-            <h4 className="font-medium text-[var(--vektrus-ai-violet)] mb-2 flex items-center space-x-2">
-              <Sparkles className="w-4 h-4" />
+          <div className="bg-[var(--vektrus-ai-violet)]/5 rounded-[var(--vektrus-radius-sm)] p-4 border border-[var(--vektrus-ai-violet)]/15">
+            <h4 className="font-medium text-[var(--vektrus-ai-violet)] text-[13px] mb-2 flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5" />
               <span>KI-Generierung</span>
             </h4>
 
-            <div className="mb-2">
-              <span className="text-xs text-[var(--vektrus-ai-violet)] font-medium">Prompt:</span>
-              <p className="text-sm text-[var(--vektrus-ai-violet)] mt-1 italic">"{media.generation_prompt}"</p>
-            </div>
+            <p className="text-[13px] text-[var(--vektrus-anthrazit)] leading-relaxed italic">
+              &ldquo;{media.generation_prompt}&rdquo;
+            </p>
 
-            <div className="text-xs text-[var(--vektrus-ai-violet)]/70">
-              Generiert mit: {media.generated_by}
+            <div className="text-[12px] text-[var(--vektrus-gray)] mt-2">
+              Generiert mit {media.generated_by}
             </div>
           </div>
         )}
-
-        {/* Storage Info */}
-        <div className="bg-[#F4FCFE] rounded-[var(--vektrus-radius-sm)] p-4 border border-[rgba(73,183,227,0.18)]">
-          <h4 className="font-medium text-[#111111] mb-2 text-sm">Storage-Informationen</h4>
-          <div className="space-y-1 text-xs text-[#7A7A7A]">
-            <div className="flex justify-between">
-              <span>Bucket:</span>
-              <span className="font-mono">{media.file_type.startsWith('video/') ? 'temp-videos' : 'user-images'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Pfad:</span>
-              <span className="font-mono truncate ml-2">{media.storage_path}</span>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Footer Actions */}
-      <div className="p-6 border-t border-[rgba(73,183,227,0.18)] space-y-3">
+      <div className="px-5 py-4 border-t border-[var(--vektrus-border-default)] space-y-2">
         <button
           onClick={handleInsertIntoPost}
-          className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-[#B6EBF7] hover:bg-[#49B7E3] text-[#111111] rounded-[var(--vektrus-radius-md)] font-medium transition-colors"
+          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-[var(--vektrus-blue)] hover:bg-[#3a9fd1] text-white rounded-[var(--vektrus-radius-sm)] font-medium text-[14px] transition-colors shadow-subtle hover:shadow-card"
         >
           <Copy className="w-4 h-4" />
           <span>
@@ -305,18 +289,18 @@ const MediaDetailSidebar: React.FC<MediaDetailSidebarProps> = ({
         <div className="grid grid-cols-2 gap-2">
           <button
             onClick={handleDownload}
-            className="flex items-center justify-center space-x-2 py-2 px-3 bg-[#F4FCFE] text-[#7A7A7A] hover:bg-[#F4FCFE] hover:text-[#111111] rounded-[var(--vektrus-radius-sm)] font-medium transition-colors"
+            className="flex items-center justify-center gap-1.5 py-2 px-3 border border-[var(--vektrus-border-default)] text-[var(--vektrus-gray)] hover:text-[var(--vektrus-anthrazit)] hover:border-[var(--vektrus-border-strong)] rounded-[var(--vektrus-radius-sm)] text-[13px] font-medium transition-colors"
           >
-            <Download className="w-4 h-4" />
-            <span className="text-sm">Download</span>
+            <Download className="w-3.5 h-3.5" />
+            <span>Download</span>
           </button>
 
           <button
             onClick={onDelete}
-            className="flex items-center justify-center space-x-2 py-2 px-3 bg-[#FA7E70]/10 text-[#FA7E70] hover:bg-[#FA7E70] hover:text-white rounded-[var(--vektrus-radius-sm)] font-medium transition-colors"
+            className="flex items-center justify-center gap-1.5 py-2 px-3 border border-[var(--vektrus-error)]/20 text-[var(--vektrus-error)] hover:bg-[var(--vektrus-error)] hover:text-white hover:border-transparent rounded-[var(--vektrus-radius-sm)] text-[13px] font-medium transition-colors"
           >
-            <Trash2 className="w-4 h-4" />
-            <span className="text-sm">Löschen</span>
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Löschen</span>
           </button>
         </div>
       </div>

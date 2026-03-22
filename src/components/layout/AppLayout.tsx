@@ -8,7 +8,9 @@ const AppLayout: React.FC = () => {
   const navigateToModule = useModuleNavigate();
   const location = useLocation();
 
-  const activeModule = PATH_TO_MODULE[location.pathname] || 'dashboard';
+  const activeModule = PATH_TO_MODULE[location.pathname]
+    || (location.pathname.startsWith('/help') ? 'help' : null)
+    || 'dashboard';
 
   useEffect(() => {
     const handleNavigateToPlanner = () => navigateToModule('planner');

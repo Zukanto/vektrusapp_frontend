@@ -10,7 +10,6 @@ import MonthView from './MonthView';
 import { ContentSlot, PlannerContext } from './types';
 import { useToast } from '../ui/toast';
 import ModuleWrapper from '../ui/ModuleWrapper';
-import { BetaHint } from '../ui/BetaHint';
 import { CalendarService } from '../../services/calendarService';
 import { supabase } from '../../lib/supabase';
 import { useMediaInsert } from '../../hooks/useMediaInsert';
@@ -624,13 +623,6 @@ const ContentPlanner: React.FC = () => {
 
         <div className="flex items-center justify-between px-6 pt-2">
           <PlannerTutorial />
-          <BetaHint
-            type="demo"
-            title="Auto-Posting in Entwicklung"
-            description="Du kannst deine Posts planen und vorbereiten -- die automatische Veröffentlichung auf Instagram, LinkedIn und Facebook wird in Kürze verfügbar sein."
-            dismissable
-            storageKey="planner-auto-posting-hint"
-          />
         </div>
 
       <AnimatePresence>

@@ -68,13 +68,13 @@ const PostSelectionModal: React.FC<PostSelectionModalProps> = ({
   const getStatusColor = (status: Post['status']) => {
     switch (status) {
       case 'planned':
-        return 'bg-[#49D69E] text-white';
+        return 'bg-[var(--vektrus-success)]/12 text-[var(--vektrus-success)]';
       case 'draft':
-        return 'bg-[#F4BE9D] text-[#111111]';
+        return 'bg-[var(--vektrus-warning)]/15 text-[var(--vektrus-warning-dark)]';
       case 'ai_suggestion':
-        return 'bg-[var(--vektrus-ai-violet)]/15 text-[var(--vektrus-ai-violet)]';
+        return 'bg-[var(--vektrus-ai-violet)]/10 text-[var(--vektrus-ai-violet)]';
       default:
-        return 'bg-[#B6EBF7]/20 text-[#7A7A7A]';
+        return 'bg-[var(--vektrus-blue-light)]/20 text-[var(--vektrus-gray)]';
     }
   };
 
@@ -98,71 +98,71 @@ const PostSelectionModal: React.FC<PostSelectionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-[var(--vektrus-radius-lg)] shadow-modal w-full max-w-md max-h-[90vh] overflow-hidden">
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-[var(--vektrus-radius-lg)] w-full max-w-md max-h-[90vh] overflow-hidden" style={{ boxShadow: 'var(--vektrus-shadow-modal)' }}>
         {/* Header */}
-        <div className="p-6 border-b border-[rgba(73,183,227,0.18)]">
+        <div className="px-6 py-5 border-b border-[var(--vektrus-border-default)]">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-bold text-[#111111] font-manrope">Medium einfügen</h2>
-              <p className="text-sm text-[#7A7A7A] mt-1">
-                Wähle einen Post für "{mediaName}"
+              <h2 className="font-manrope font-bold text-[18px] text-[var(--vektrus-anthrazit)]">Medium einfügen</h2>
+              <p className="text-[13px] text-[var(--vektrus-gray)] mt-1">
+                Wähle einen Post für &ldquo;{mediaName}&rdquo;
               </p>
             </div>
             <button
               onClick={onClose}
-              className="p-2 text-[#7A7A7A] hover:text-[#111111] hover:bg-[#F4FCFE] rounded-[var(--vektrus-radius-sm)] transition-colors"
+              className="p-1.5 text-[var(--vektrus-gray)] hover:text-[var(--vektrus-anthrazit)] hover:bg-[var(--vektrus-mint)] rounded-lg transition-colors"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[50vh]">
+        <div className="px-6 py-5 overflow-y-auto max-h-[50vh]">
           {availablePosts.length > 0 ? (
-            <div className="space-y-3">
-              <h3 className="text-sm font-medium text-[#111111] mb-3">
-                Verfügbare Posts dieser Woche:
+            <div className="space-y-2">
+              <h3 className="text-[12px] font-medium text-[var(--vektrus-gray)] uppercase tracking-wide mb-3">
+                Verfügbare Posts
               </h3>
-              
+
               {availablePosts.map(post => (
                 <div
                   key={post.id}
                   onClick={() => setSelectedPostId(post.id)}
-                  className={`p-4 border-2 rounded-[var(--vektrus-radius-md)] cursor-pointer transition-all duration-200 ${
+                  className={`p-3.5 border rounded-[var(--vektrus-radius-sm)] cursor-pointer transition-all duration-200 ${
                     selectedPostId === post.id
-                      ? 'border-[#B6EBF7] bg-[#B6EBF7]/20'
-                      : 'border-[rgba(73,183,227,0.18)] hover:border-[#B6EBF7]'
+                      ? 'border-[var(--vektrus-blue)] bg-[var(--vektrus-blue)]/5 shadow-subtle'
+                      : 'border-[var(--vektrus-border-default)] hover:border-[var(--vektrus-border-strong)]'
                   }`}
                 >
                   <div className="flex items-start justify-between">
-                    <div className="flex items-start space-x-3 flex-1">
-                      <span className="text-[#49B7E3]">{getPlatformIcon(post.platform)}</span>
+                    <div className="flex items-start gap-3 flex-1 min-w-0">
+                      <span className="text-[var(--vektrus-blue)] mt-0.5">{getPlatformIcon(post.platform)}</span>
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-medium text-[#111111] text-sm truncate">
+                        <h4 className="font-medium text-[var(--vektrus-anthrazit)] text-[13px] truncate">
                           {post.title}
                         </h4>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <div className="flex items-center space-x-1 text-xs text-[#7A7A7A]">
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="flex items-center gap-1 text-[12px] text-[var(--vektrus-gray)]">
                             <Calendar className="w-3 h-3" />
                             <span>{post.date.toLocaleDateString('de-DE', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
                           </div>
-                          <div className="flex items-center space-x-1 text-xs text-[#7A7A7A]">
+                          <div className="flex items-center gap-1 text-[12px] text-[var(--vektrus-gray)]">
                             <Clock className="w-3 h-3" />
                             <span>{post.time}</span>
                           </div>
                         </div>
-                        <div className="mt-2">
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(post.status)}`}>
+                        <div className="mt-1.5">
+                          <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${getStatusColor(post.status)}`}>
                             {getStatusLabel(post.status)}
                           </span>
                         </div>
                       </div>
                     </div>
-                    
+
                     {selectedPostId === post.id && (
-                      <div className="w-5 h-5 bg-[#49B7E3] rounded-full flex items-center justify-center flex-shrink-0">
+                      <div className="w-5 h-5 bg-[var(--vektrus-blue)] rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
                         <div className="w-2 h-2 bg-white rounded-full"></div>
                       </div>
                     )}
@@ -172,46 +172,48 @@ const PostSelectionModal: React.FC<PostSelectionModalProps> = ({
             </div>
           ) : (
             <div className="text-center py-8">
-              <Calendar className="w-12 h-12 text-[#7A7A7A] mx-auto mb-4 opacity-50" />
-              <h3 className="text-lg font-medium text-[#111111] mb-2">Keine Posts gefunden</h3>
-              <p className="text-sm text-[#7A7A7A] mb-4">
+              <div className="w-12 h-12 bg-[var(--vektrus-mint)] rounded-full flex items-center justify-center mx-auto mb-4">
+                <Calendar className="w-5 h-5 text-[var(--vektrus-gray)]" />
+              </div>
+              <h3 className="font-manrope font-semibold text-[16px] text-[var(--vektrus-anthrazit)] mb-1">Keine Posts gefunden</h3>
+              <p className="text-[13px] text-[var(--vektrus-gray)]">
                 Es gibt noch keine geplanten Posts für diese Woche.
               </p>
             </div>
           )}
 
           {/* Create New Post Option */}
-          <div className="mt-6 pt-4 border-t border-[rgba(73,183,227,0.18)]">
+          <div className="mt-5 pt-4 border-t border-[var(--vektrus-border-subtle)]">
             <button
               onClick={onCreateNewPost}
-              className="w-full flex items-center justify-center space-x-2 p-4 border-2 border-dashed border-[rgba(73,183,227,0.18)] hover:border-[#B6EBF7] hover:bg-[#B6EBF7]/10 text-[#7A7A7A] hover:text-[#111111] rounded-[var(--vektrus-radius-md)] transition-all duration-200"
+              className="w-full flex items-center justify-center gap-2 p-3.5 border border-dashed border-[var(--vektrus-border-default)] hover:border-[var(--vektrus-blue-light)] hover:bg-[var(--vektrus-mint)] text-[var(--vektrus-gray)] hover:text-[var(--vektrus-anthrazit)] rounded-[var(--vektrus-radius-sm)] text-[13px] font-medium transition-all duration-200"
             >
-              <Plus className="w-5 h-5" />
-              <span className="font-medium">Neuen Post mit diesem Medium erstellen</span>
+              <Plus className="w-4 h-4" />
+              <span>Neuen Post erstellen</span>
             </button>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="p-6 border-t border-[rgba(73,183,227,0.18)] flex items-center justify-between">
+        <div className="px-6 py-4 border-t border-[var(--vektrus-border-default)] flex items-center justify-between">
           <button
             onClick={onClose}
-            className="px-4 py-2 border border-[rgba(73,183,227,0.18)] hover:border-[#49B7E3] text-[#7A7A7A] hover:text-[#111111] rounded-[10px] font-medium transition-colors"
+            className="px-4 py-2.5 border border-[var(--vektrus-border-default)] text-[var(--vektrus-gray)] hover:text-[var(--vektrus-anthrazit)] hover:border-[var(--vektrus-border-strong)] rounded-[var(--vektrus-radius-sm)] text-[13px] font-medium transition-colors"
           >
             Abbrechen
           </button>
-          
+
           <button
             onClick={handleConfirm}
             disabled={!selectedPostId}
-            className={`flex items-center space-x-2 px-6 py-2 rounded-[10px] font-medium transition-all duration-200 ${
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-[var(--vektrus-radius-sm)] text-[13px] font-medium transition-all duration-200 ${
               selectedPostId
-                ? 'bg-[#49B7E3] hover:bg-[#3a9fd1] text-white shadow-card hover:shadow-elevated'
-                : 'bg-[rgba(73,183,227,0.12)] text-[#7A7A7A] cursor-not-allowed'
+                ? 'bg-[var(--vektrus-blue)] hover:bg-[#3a9fd1] text-white shadow-subtle hover:shadow-card'
+                : 'bg-[var(--vektrus-blue)]/10 text-[var(--vektrus-gray)] cursor-not-allowed'
             }`}
           >
             <span>Medium einfügen</span>
-            <ArrowRight className="w-4 h-4" />
+            <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
