@@ -1,7 +1,81 @@
 # Vektrus App Frontend — Handoff für den nächsten Chat
 
 **Stand:** 2026-03-22
-**Kontext:** AP-01 bis AP-08 vollstaendig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik. **Posting Popup Redesign Phase 1 + Phase 2 + QA Pass abgeschlossen. Chat-to-Planner Handoff V1 + Corrective Pass + QA Pass + Single-Caption Bugfix + QA + Robustness Pass + Robustness QA Pass abgeschlossen. Composer Handoff V2 (Three-State Model + Source-Material Mode) implementiert. Help-Seite Workstream Phase 1 (Audit + Zielarchitektur) + Phase 2 (Implementierung) + Corrective Pass + QA Pass + Finaler Visual QA Pass abgeschlossen.**
+**Kontext:** AP-01 bis AP-08 vollstaendig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik. **Posting Popup Redesign Phase 1 + Phase 2 + QA Pass abgeschlossen. Chat-to-Planner Handoff V1 + Corrective Pass + QA Pass + Single-Caption Bugfix + QA + Robustness Pass + Robustness QA Pass abgeschlossen. Composer Handoff V2 (Three-State Model + Source-Material Mode) implementiert. Help-Seite Workstream Phase 1 (Audit + Zielarchitektur) + Phase 2 (Implementierung) + Corrective Pass + QA Pass + Finaler Visual QA Pass abgeschlossen. Help Updates-Layer (Produkt-Updates + Transparenz) implementiert.**
+
+---
+
+## Help Updates-Layer — Produkt-Updates & Transparenz
+
+**Stand:** 2026-03-22
+**Status: Abgeschlossen.**
+
+### Kontext
+
+Die Help-Welt wurde um einen separaten Updates-/Transparenz-Layer erweitert, ohne die Hilfe-Inhalte zu veraendern oder zu ueberlagern. Ziel: Nutzer koennen sehen, was sich bei Vektrus geaendert hat, woran gearbeitet wird, und wo sie Feedback geben koennen.
+
+### Architektur
+
+- **Updates sind ein sekundaerer Layer** — Help bleibt primaerer Inhalt der Seite
+- **Klar getrennt** durch `border-t` Separator auf dem Hub, unterhalb des Support-Footers
+- **Eigene Route** `/help/updates` fuer die vollstaendige Updates-Seite
+- **TypeScript-Datenmodell** in `updatesData.ts` — kein Supabase, leicht wartbar
+- **Feedback verlinkt auf bestehendes ToolHub** — kein neues System gebaut
+
+### Drei Bereiche
+
+1. **Neu bei Vektrus** — Live-Updates und Verbesserungen (7 Seed-Eintraege, kompakte Vorschau auf Hub, volle Liste auf /help/updates)
+2. **Gerade in Arbeit** — Klein, vorsichtig, mit Disclaimer. 3 kuratierte richtungsgebende Punkte. Keine harten Deadlines, keine Ueberversprechen.
+3. **Feedback & Probleme** — Ruckkanalverlinkung zum bestehenden FeedbackSection im ToolHub
+
+### Geaenderte / neue Dateien
+
+| Datei | Typ |
+|-------|-----|
+| `src/components/help/updatesData.ts` | Neu — Datenmodell (ProductUpdate, InProgressItem) + 7 Updates + 3 In-Progress Items |
+| `src/components/help/HelpUpdatesPage.tsx` | Neu — Vollstaendige Updates-Seite unter /help/updates |
+| `src/components/help/HelpPage.tsx` | Geaendert — Route `updates` hinzugefuegt (vor `:categorySlug`) |
+| `src/components/help/HelpHub.tsx` | Geaendert — Sekundaerer Updates-Bereich nach Support-Footer |
+
+### Datenmodell
+
+```typescript
+interface ProductUpdate {
+  id: string;
+  title: string;
+  teaser: string;
+  status: 'live' | 'improved' | 'in-progress';
+  module: string;
+  date: string;
+  impact?: string;
+  linkTo?: string;
+}
+
+interface InProgressItem {
+  title: string;
+  description: string;
+  module: string;
+}
+```
+
+### Design-Entscheidungen
+
+- Kein AI Violet, kein Gradient, kein Glass — ruhige Vektrus-Blue-Akzente
+- Status-Badges: Gruen fuer Neu, Blau fuer Verbessert, Grau fuer In Arbeit
+- „Gerade in Arbeit" bewusst klein, grau, uppercase — nicht als grosse Roadmap
+- Disclaimer: „Prioritaeten koennen sich aendern. Diese Uebersicht ist eine Momentaufnahme."
+- Hub zeigt nur 4 neueste Updates als Vorschau — vollstaendige Liste auf /help/updates
+
+### Routing
+
+- `/help/updates` steht in HelpPage.tsx **vor** `:categorySlug` — verhindert Slug-Kollision
+- Kein Kategorie-Slug namens „updates" existiert → kein Konflikt
+
+### Offene Punkte (kein Blocker)
+
+1. **Visueller Browser-Check** — Hub mit Updates-Bereich im eingeloggten Zustand pruefen
+2. **ToolHub-Feedback-Copy** — Im bestehenden `FeedbackSection.tsx` steht „Feature-Wuensche" (ASCII statt Umlaute) — vorbestehender Bug, nicht in diesem Scope behoben
+3. **Content-Pflege** — Updates muessen bei neuen Releases manuell in `updatesData.ts` gepflegt werden
 
 ---
 

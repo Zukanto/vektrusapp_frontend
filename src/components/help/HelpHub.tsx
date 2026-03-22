@@ -2,10 +2,12 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Search, Rocket, Zap, ArrowRight, BookOpen, MessageCircle, Mail,
-  ChevronRight, TrendingUp,
+  ChevronRight, TrendingUp, Megaphone, Construction, Clock,
+  MessageSquareText,
 } from 'lucide-react';
 import { helpCategories, getPopularArticles, searchArticles, getCategoryBySlug, type HelpArticle } from './helpData';
 import { getCategoryIcon } from './helpConstants';
+import { getRecentUpdates, inProgressItems, UPDATE_STATUS_CONFIG } from './updatesData';
 
 interface HelpHubProps {
   onModuleChange?: (module: string) => void;
@@ -243,6 +245,101 @@ const HelpHub: React.FC<HelpHubProps> = ({ onModuleChange }) => {
               </a>
             </div>
           </section>
+
+          {/* ── Produkt-Updates / Transparenz (sekundärer Layer) ── */}
+          <div className="pt-4 border-t border-[rgba(73,183,227,0.10)]">
+
+            {/* Neu bei Vektrus — kompakte Vorschau */}
+            <section>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-[#111111] flex items-center gap-2 font-manrope">
+                  <Megaphone className="w-5 h-5 text-[#49B7E3]" />
+                  Neu bei Vektrus
+                </h2>
+                <button
+                  onClick={() => navigate('/help/updates')}
+                  className="text-sm text-[#49B7E3] hover:text-[#49B7E3]/80 font-medium transition-colors flex items-center gap-1"
+                >
+                  Alle Updates
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {getRecentUpdates(4).map(update => {
+                  const statusConf = UPDATE_STATUS_CONFIG[update.status];
+                  return (
+                    <button
+                      key={update.id}
+                      onClick={() => update.linkTo ? navigate(update.linkTo) : navigate('/help/updates')}
+                      className="text-left bg-white p-4 rounded-[var(--vektrus-radius-md)] border border-[rgba(73,183,227,0.18)] hover:border-[#B6EBF7] hover:shadow-[var(--vektrus-shadow-card)] transition-all duration-200 group"
+                    >
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${statusConf.className}`}>
+                          {statusConf.label}
+                        </span>
+                        <span className="text-[11px] text-[#7A7A7A] flex items-center gap-0.5">
+                          <Clock className="w-3 h-3" />
+                          {new Date(update.date).toLocaleDateString('de-DE', { day: 'numeric', month: 'short' })}
+                        </span>
+                      </div>
+                      <h3 className="font-medium text-sm text-[#111111] group-hover:text-[#49B7E3] transition-colors">
+                        {update.title}
+                      </h3>
+                      <p className="text-xs text-[#7A7A7A] mt-0.5 leading-relaxed line-clamp-2">
+                        {update.teaser}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* Gerade in Arbeit — klein und ruhig */}
+            <section className="mt-6">
+              <h2 className="text-sm font-semibold text-[#7A7A7A] mb-3 flex items-center gap-2 uppercase tracking-wide">
+                <Construction className="w-4 h-4" />
+                Gerade in Arbeit
+              </h2>
+              <div className="bg-white rounded-[var(--vektrus-radius-md)] border border-[rgba(73,183,227,0.18)] divide-y divide-[rgba(73,183,227,0.08)]">
+                {inProgressItems.map((item, i) => (
+                  <div key={i} className="px-4 py-3 flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm text-[#111111] font-medium">{item.title}</span>
+                      <p className="text-xs text-[#7A7A7A] mt-0.5">{item.description}</p>
+                    </div>
+                    <span className="text-[11px] text-[#7A7A7A] bg-[#F4FCFE] px-1.5 py-0.5 rounded flex-shrink-0">
+                      {item.module}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-[#7A7A7A] mt-2 italic">
+                Diese Übersicht zeigt aktuelle Schwerpunkte. Prioritäten können sich ändern.
+              </p>
+            </section>
+
+            {/* Feedback & Probleme — Rückkanalverlinkung */}
+            <section className="mt-6">
+              <button
+                onClick={() => navigate('/toolhub')}
+                className="w-full text-left bg-white p-5 rounded-[var(--vektrus-radius-md)] border border-[rgba(73,183,227,0.18)] hover:border-[#B6EBF7] hover:shadow-[var(--vektrus-shadow-card)] transition-all duration-200 group flex items-start gap-4"
+              >
+                <div className="w-10 h-10 bg-[#F4FCFE] rounded-[var(--vektrus-radius-sm)] flex items-center justify-center flex-shrink-0">
+                  <MessageSquareText className="w-5 h-5 text-[#49B7E3]" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-[#111111] group-hover:text-[#49B7E3] transition-colors">
+                    Feedback & Wünsche
+                  </h3>
+                  <p className="text-sm text-[#7A7A7A] mt-0.5 leading-relaxed">
+                    Du hast eine Idee oder ein Problem entdeckt? Gib uns Rückmeldung.
+                  </p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-[#7A7A7A] flex-shrink-0 mt-1 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
+            </section>
+
+          </div>
 
         </div>
       </div>
