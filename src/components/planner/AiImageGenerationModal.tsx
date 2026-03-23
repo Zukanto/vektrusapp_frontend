@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { X, Sparkles, ChevronDown, Upload, Loader as Loader2, RefreshCw, Download, Plus, Check, Palette, Package } from 'lucide-react';
+import { X, Sparkles, ChevronDown, Upload, Loader as Loader2, RefreshCw, Download, Plus, Check, Palette, Package, Image as ImageIcon } from 'lucide-react';
 import { ImageGenerationService, AdvancedImageVariant, GenerationProgress } from '../../services/imageGenerationService';
 import { ImageGeneration } from '../ui/ai-chat-image-generation';
 import { supabase } from '../../lib/supabase';
@@ -86,6 +86,34 @@ const AiImageGenerationModal: React.FC<AiImageGenerationModalProps> = ({
   const [showLightbox, setShowLightbox] = useState(false);
   const [confirmContent, setConfirmContent] = useState<ContentTag | null>(null);
 
+  const [useBrandCi, setUseBrandCi] = useState(false);
+  const [hasBrandProfile, setHasBrandProfile] = useState<boolean | null>(null);
+
+  // Shared media library cache for both upload slots
+  const [libraryImages, setLibraryImages] = useState<{ id: string; public_url: string; filename: string }[] | null>(null);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+
+  const loadLibraryImages = async () => {
+    if (libraryImages !== null) return; // already cached
+    setLibraryLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { setLibraryImages([]); return; }
+      const { data } = await supabase
+        .from('media_files')
+        .select('id, public_url, filename, created_at')
+        .eq('user_id', session.user.id)
+        .like('file_type', 'image/%')
+        .order('created_at', { ascending: false })
+        .limit(9);
+      setLibraryImages(data || []);
+    } catch {
+      setLibraryImages([]);
+    } finally {
+      setLibraryLoading(false);
+    }
+  };
+
   const MAX_CHARS = 500;
   const hasResult = simpleResult !== null || advancedResults.length > 0;
   const hasRefs = !!(inspirationUrl || productUrl);
@@ -96,6 +124,25 @@ const AiImageGenerationModal: React.FC<AiImageGenerationModalProps> = ({
     const t = setTimeout(() => promptRef.current?.focus(), 60);
     return () => clearTimeout(t);
   }, []);
+
+  // Check if user has a brand profile (cached — runs once)
+  useEffect(() => {
+    if (hasBrandProfile !== null) return;
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { setHasBrandProfile(false); return; }
+        const { data } = await supabase
+          .from('brand_profiles')
+          .select('user_id')
+          .eq('user_id', session.user.id)
+          .single();
+        setHasBrandProfile(!!data);
+      } catch {
+        setHasBrandProfile(false);
+      }
+    })();
+  }, [hasBrandProfile]);
 
   useEffect(() => {
     if (!isGenerating && showAnimation && hasResult) {
@@ -206,6 +253,7 @@ const AiImageGenerationModal: React.FC<AiImageGenerationModalProps> = ({
           productImageUrl: productUrl || undefined,
           count: variants,
           aspect_ratio: selectedRatio,
+          use_brand_ci: useBrandCi,
           onProgress: (p) => setProgress(p),
         });
         if (res.success && res.data?.images?.length > 0) {
@@ -372,15 +420,16 @@ const AiImageGenerationModal: React.FC<AiImageGenerationModalProps> = ({
                 onToggle={() => setStilOpen(v => !v)}
                 hasFile={!!inspirationUrl}
               >
-                <p className="text-[13px] text-[#7A7A7A] mb-3">
-                  Lade ein Bild hoch, dessen Stil übernommen werden soll.
-                </p>
                 <FileUploadArea
                   uploadedUrl={inspirationUrl}
                   onFile={handleInspirationFile}
+                  onSelectLibraryUrl={(url) => { setInspirationUrl(url); setInspirationError(null); }}
                   isUploading={inspirationUploading}
                   uploadError={inspirationError}
                   disabled={isGenerating}
+                  libraryImages={libraryImages}
+                  libraryLoading={libraryLoading}
+                  onOpenLibrary={loadLibraryImages}
                 />
               </CollapsibleSection>
 
@@ -394,18 +443,45 @@ const AiImageGenerationModal: React.FC<AiImageGenerationModalProps> = ({
                 onToggle={() => setProduktOpen(v => !v)}
                 hasFile={!!productUrl}
               >
-                <p className="text-[13px] text-[#7A7A7A] mb-3">
-                  Lade ein Produktbild hoch, das im generierten Bild erscheinen soll.
-                </p>
                 <FileUploadArea
                   uploadedUrl={productUrl}
                   onFile={handleProductFile}
+                  onSelectLibraryUrl={(url) => { setProductUrl(url); setProductError(null); }}
                   isUploading={productUploading}
                   uploadError={productError}
                   disabled={isGenerating}
+                  libraryImages={libraryImages}
+                  libraryLoading={libraryLoading}
+                  onOpenLibrary={loadLibraryImages}
                 />
               </CollapsibleSection>
             </div>
+
+            {/* Brand CI Toggle */}
+            {hasBrandProfile && (
+              <div className="flex items-center justify-between py-1">
+                <div className="flex flex-col gap-0.5">
+                  <span className="text-sm font-medium text-[#111111]">Brand CI strikt einhalten</span>
+                  <span className="text-[12px] text-[#7A7A7A]">Farben und Stil deines Brand Profiles werden strikt übernommen</span>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={useBrandCi}
+                  onClick={() => setUseBrandCi(v => !v)}
+                  disabled={isGenerating}
+                  className={`relative inline-flex h-[22px] w-[40px] flex-shrink-0 items-center rounded-full transition-colors duration-200 ${
+                    useBrandCi ? 'bg-[#49B7E3]' : 'bg-[#CBD5E1]'
+                  } ${isGenerating ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                >
+                  <span
+                    className={`inline-block h-[18px] w-[18px] rounded-full bg-white shadow-sm transition-transform duration-200 ${
+                      useBrandCi ? 'translate-x-[20px]' : 'translate-x-[2px]'
+                    }`}
+                  />
+                </button>
+              </div>
+            )}
 
             {/* Divider */}
             <div className="h-px bg-[rgba(73,183,227,0.10)]" />
@@ -558,40 +634,52 @@ const AiImageGenerationModal: React.FC<AiImageGenerationModalProps> = ({
           </div>
 
           {/* ── Footer ── */}
-          <div className="px-6 py-4 border-t border-[rgba(73,183,227,0.10)] flex items-center justify-between flex-shrink-0 bg-white">
-            <button
-              onClick={onClose}
-              className="text-sm font-medium text-[#7A7A7A] hover:text-[#111111] py-2.5 px-1 transition-colors"
-            >
-              Abbrechen
-            </button>
+          <div className="px-6 py-4 border-t border-[rgba(73,183,227,0.10)] flex-shrink-0 bg-white">
+            <div className="flex items-center justify-between">
+              <button
+                onClick={onClose}
+                className="text-sm font-medium text-[#7A7A7A] hover:text-[#111111] py-2.5 px-1 transition-colors"
+              >
+                Abbrechen
+              </button>
 
-            {hasResult ? (
-              <button
-                onClick={handleUseImage}
-                className="flex items-center gap-[7px] px-5 py-2.5 rounded-[10px] bg-[#49B7E3] text-white text-sm font-semibold shadow-card hover:shadow-elevated transition-all"
-              >
-                <Sparkles size={15} />
-                In Post verwenden
-              </button>
-            ) : (
-              <button
-                onClick={handleGenerate}
-                disabled={!canGenerate}
-                className={`flex items-center gap-[7px] px-5 py-2.5 rounded-[10px] text-sm font-semibold transition-all ${
-                  canGenerate
-                    ? 'bg-[var(--vektrus-ai-violet)] text-white shadow-card hover:shadow-elevated'
-                    : 'bg-[rgba(73,183,227,0.12)] text-[#7A7A7A] cursor-not-allowed'
-                }`}
-              >
-                {isGenerating ? (
-                  <><Loader2 size={15} className="animate-spin" />Wird generiert...</>
-                ) : anyUploading ? (
-                  <><Loader2 size={15} className="animate-spin" />Bilder werden hochgeladen...</>
-                ) : (
-                  <><Sparkles size={15} />{btnLabel}</>
-                )}
-              </button>
+              {hasResult ? (
+                <button
+                  onClick={handleUseImage}
+                  className="flex items-center gap-[7px] px-5 py-2.5 rounded-[10px] bg-[#49B7E3] text-white text-sm font-semibold shadow-card hover:shadow-elevated transition-all"
+                >
+                  <Sparkles size={15} />
+                  In Post verwenden
+                </button>
+              ) : (
+                <button
+                  onClick={handleGenerate}
+                  disabled={!canGenerate}
+                  className={`flex items-center gap-[7px] px-5 py-2.5 rounded-[10px] text-sm font-semibold transition-all ${
+                    canGenerate
+                      ? 'bg-[var(--vektrus-ai-violet)] text-white shadow-card hover:shadow-elevated'
+                      : 'bg-[rgba(73,183,227,0.12)] text-[#7A7A7A] cursor-not-allowed'
+                  }`}
+                >
+                  {isGenerating ? (
+                    <><Loader2 size={15} className="animate-spin" />Wird generiert...</>
+                  ) : anyUploading ? (
+                    <><Loader2 size={15} className="animate-spin" />Bilder werden hochgeladen...</>
+                  ) : (
+                    <><Sparkles size={15} />{btnLabel}</>
+                  )}
+                </button>
+              )}
+            </div>
+
+            {/* Engine Indicator */}
+            {!hasResult && (
+              <p className="text-[12px] text-[#7A7A7A] text-right mt-2 transition-all duration-200">
+                {inspirationUrl
+                  ? '\u2728 Stil-Transfer aktiv \u2014 dein Design wird im Stil der Vorlage erstellt'
+                  : '\uD83C\uDFA8 KI-Generierung \u2014 ein neues Design wird erstellt'
+                }
+              </p>
             )}
           </div>
         </div>
@@ -686,10 +774,36 @@ const CollapsibleSection: React.FC<{
 const FileUploadArea: React.FC<{
   uploadedUrl: string | null;
   onFile: (f: File | null) => void;
+  onSelectLibraryUrl: (url: string) => void;
   isUploading: boolean;
   uploadError: string | null;
   disabled: boolean;
-}> = ({ uploadedUrl, onFile, isUploading, uploadError, disabled }) => {
+  libraryImages: { id: string; public_url: string; filename: string }[] | null;
+  libraryLoading: boolean;
+  onOpenLibrary: () => void;
+}> = ({ uploadedUrl, onFile, onSelectLibraryUrl, isUploading, uploadError, disabled, libraryImages, libraryLoading, onOpenLibrary }) => {
+  const [tab, setTab] = useState<'upload' | 'library'>('upload');
+  const [librarySelectedUrl, setLibrarySelectedUrl] = useState<string | null>(null);
+
+  // When switching to library tab, trigger load
+  const handleLibraryTab = () => {
+    setTab('library');
+    onOpenLibrary();
+  };
+
+  // When a library image is picked
+  const handleLibraryPick = (url: string) => {
+    setLibrarySelectedUrl(url);
+    onSelectLibraryUrl(url);
+  };
+
+  // Clear handler — reset library selection too
+  const handleClear = () => {
+    setLibrarySelectedUrl(null);
+    onFile(null);
+  };
+
+  // If uploading, show spinner
   if (isUploading) {
     return (
       <div className="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-[rgba(73,183,227,0.18)] rounded-[var(--vektrus-radius-md)] p-6 bg-[#F4FCFE]">
@@ -699,27 +813,13 @@ const FileUploadArea: React.FC<{
     );
   }
 
-  if (uploadError) {
-    return (
-      <div className="flex flex-col gap-2">
-        <div className="p-2.5 px-3.5 bg-[rgba(250,126,112,0.08)] border border-[#FA7E70]/30 rounded-[var(--vektrus-radius-sm)]">
-          <p className="text-[13px] text-[#FA7E70]">{uploadError}</p>
-        </div>
-        <label className="flex items-center gap-1.5 px-3.5 py-2 rounded-[10px] border border-[rgba(73,183,227,0.18)] bg-white hover:border-[#49B7E3] hover:bg-[#F4FCFE] cursor-pointer transition-all w-fit text-[13px] text-[#7A7A7A] hover:text-[#49B7E3]">
-          <Upload size={14} />
-          <span>Erneut versuchen</span>
-          <input type="file" accept="image/*" onChange={e => { if (e.target.files?.[0]) onFile(e.target.files[0]); }} disabled={disabled} className="hidden" />
-        </label>
-      </div>
-    );
-  }
-
+  // If a file is selected (either uploaded or from library), show preview
   if (uploadedUrl) {
     return (
       <div className="relative inline-block">
         <img src={uploadedUrl} alt="Preview" className="w-20 h-20 object-cover rounded-[var(--vektrus-radius-sm)] block border border-[rgba(73,183,227,0.18)]" />
         <button
-          onClick={() => onFile(null)}
+          onClick={handleClear}
           disabled={disabled}
           className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#FA7E70] hover:bg-[#f96555] flex items-center justify-center transition-colors"
         >
@@ -730,11 +830,96 @@ const FileUploadArea: React.FC<{
   }
 
   return (
-    <label className="flex flex-col items-center justify-center gap-1.5 border-2 border-dashed border-[rgba(73,183,227,0.18)] hover:border-[#49B7E3] rounded-[var(--vektrus-radius-md)] p-6 bg-[#FAFCFE] hover:bg-[#F4FCFE] cursor-pointer transition-all">
-      <Upload size={18} className="text-[#7A7A7A]" />
-      <span className="text-sm text-[#7A7A7A]">Bild auswählen</span>
-      <input type="file" accept="image/*" onChange={e => { if (e.target.files?.[0]) onFile(e.target.files[0]); }} disabled={disabled} className="hidden" />
-    </label>
+    <div className="flex flex-col gap-3">
+      {/* Error */}
+      {uploadError && (
+        <div className="p-2.5 px-3.5 bg-[rgba(250,126,112,0.08)] border border-[#FA7E70]/30 rounded-[var(--vektrus-radius-sm)]">
+          <p className="text-[13px] text-[#FA7E70]">{uploadError}</p>
+        </div>
+      )}
+
+      {/* Tab pills */}
+      <div className="flex gap-1.5">
+        <button
+          onClick={() => setTab('upload')}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium border transition-all ${
+            tab === 'upload'
+              ? 'border-[#49B7E3] bg-[#F4FCFE] text-[#49B7E3]'
+              : 'border-[rgba(73,183,227,0.18)] bg-white text-[#7A7A7A] hover:border-[#49B7E3] hover:text-[#49B7E3]'
+          }`}
+        >
+          <Upload size={12} />
+          Hochladen
+        </button>
+        <button
+          onClick={handleLibraryTab}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12px] font-medium border transition-all ${
+            tab === 'library'
+              ? 'border-[#49B7E3] bg-[#F4FCFE] text-[#49B7E3]'
+              : 'border-[rgba(73,183,227,0.18)] bg-white text-[#7A7A7A] hover:border-[#49B7E3] hover:text-[#49B7E3]'
+          }`}
+        >
+          <ImageIcon size={12} />
+          Aus Bibliothek
+        </button>
+      </div>
+
+      {/* Upload tab */}
+      {tab === 'upload' && (
+        <label className="flex flex-col items-center justify-center gap-1.5 border-2 border-dashed border-[rgba(73,183,227,0.18)] hover:border-[#49B7E3] rounded-[var(--vektrus-radius-md)] p-6 bg-[#FAFCFE] hover:bg-[#F4FCFE] cursor-pointer transition-all">
+          <Upload size={18} className="text-[#7A7A7A]" />
+          <span className="text-sm text-[#7A7A7A]">Bild auswählen</span>
+          <input type="file" accept="image/*" onChange={e => { if (e.target.files?.[0]) { setTab('upload'); onFile(e.target.files[0]); } }} disabled={disabled} className="hidden" />
+        </label>
+      )}
+
+      {/* Library tab */}
+      {tab === 'library' && (
+        <div className="flex flex-col gap-2.5">
+          {libraryLoading ? (
+            /* Skeleton grid */
+            <div className="grid grid-cols-3 gap-2">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="w-[80px] h-[80px] rounded-lg bg-[#F4FCFE] animate-pulse" />
+              ))}
+            </div>
+          ) : libraryImages && libraryImages.length > 0 ? (
+            <div className="grid grid-cols-3 gap-2">
+              {libraryImages.map(img => (
+                <button
+                  key={img.id}
+                  onClick={() => handleLibraryPick(img.public_url)}
+                  disabled={disabled}
+                  className={`w-[80px] h-[80px] rounded-lg overflow-hidden transition-all flex-shrink-0 ${
+                    librarySelectedUrl === img.public_url
+                      ? 'ring-2 ring-[#49B7E3] ring-offset-1 shadow-subtle'
+                      : 'hover:shadow-card border border-[rgba(73,183,227,0.12)]'
+                  }`}
+                  title={img.filename}
+                >
+                  <img
+                    src={img.public_url}
+                    alt={img.filename}
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="py-5 text-center">
+              <p className="text-[13px] text-[#7A7A7A]">Noch keine Bilder in deiner Mediathek</p>
+            </div>
+          )}
+
+          <button
+            onClick={() => setTab('upload')}
+            className="text-[12px] text-[#7A7A7A] hover:text-[#49B7E3] transition-colors self-start"
+          >
+            Schließen
+          </button>
+        </div>
+      )}
+    </div>
   );
 };
 

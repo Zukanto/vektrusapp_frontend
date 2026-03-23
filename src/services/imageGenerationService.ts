@@ -253,6 +253,7 @@ export const ImageGenerationService = {
     productImageUrl?: string;
     count?: number;
     aspect_ratio?: string;
+    use_brand_ci?: boolean;
     onProgress?: (progress: GenerationProgress) => void;
   }): Promise<GenerateAdvancedImageResponse> {
     console.log('🎨 Starting Advanced Image Generation...');
@@ -305,7 +306,8 @@ export const ImageGenerationService = {
           inspiration_image_url: inspirationUrl,
           product_image_url: productUrl,
           count: count,
-          aspect_ratio: params.aspect_ratio || '1:1'
+          aspect_ratio: params.aspect_ratio || '1:1',
+          use_brand_ci: params.use_brand_ci ?? false
         }
       });
 
