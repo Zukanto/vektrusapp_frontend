@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Download, Trash2, Copy, Sparkles, ExternalLink, Upload } from 'lucide-react';
+import React, { useState, useCallback, useEffect } from 'react';
+import { X, Download, Trash2, Copy, Sparkles, ExternalLink, Upload, Eye } from 'lucide-react';
 import PostSelectionModal from './PostSelectionModal';
 import { useToast } from '../ui/toast';
 import { useMediaInsert } from '../../hooks/useMediaInsert';
@@ -40,6 +40,17 @@ const MediaDetailSidebar: React.FC<MediaDetailSidebarProps> = ({
   const { addToast } = useToast();
   const { setSelectedMedia, setTriggerPostCreation } = useMediaInsert();
   const [showPostSelection, setShowPostSelection] = useState(false);
+  const [showLightbox, setShowLightbox] = useState(false);
+
+  // Close lightbox on Escape
+  useEffect(() => {
+    if (!showLightbox) return;
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowLightbox(false);
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [showLightbox]);
 
   const handleDownload = async () => {
     try {
@@ -155,7 +166,7 @@ const MediaDetailSidebar: React.FC<MediaDetailSidebarProps> = ({
       <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
         {/* Preview */}
         <div>
-          <div className="aspect-square rounded-[var(--vektrus-radius-md)] overflow-hidden bg-[var(--vektrus-mint)] relative shadow-subtle">
+          <div className="aspect-square rounded-[var(--vektrus-radius-md)] overflow-hidden bg-[var(--vektrus-mint)] relative shadow-subtle group/preview">
             {media.file_type.startsWith('video/') ? (
               <video
                 src={media.public_url}
@@ -163,11 +174,22 @@ const MediaDetailSidebar: React.FC<MediaDetailSidebarProps> = ({
                 className="w-full h-full object-cover"
               />
             ) : (
-              <img
-                src={media.public_url}
-                alt={media.filename}
-                className="w-full h-full object-cover"
-              />
+              <>
+                <img
+                  src={media.public_url}
+                  alt={media.filename}
+                  className="w-full h-full object-cover"
+                />
+                {/* Hover overlay with Eye icon */}
+                <button
+                  onClick={() => setShowLightbox(true)}
+                  className="absolute inset-0 bg-black/0 group-hover/preview:bg-black/20 transition-all duration-200 flex items-center justify-center cursor-pointer"
+                >
+                  <div className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover/preview:opacity-100 scale-90 group-hover/preview:scale-100 transition-all duration-200 shadow-card">
+                    <Eye className="w-5 h-5 text-[var(--vektrus-anthrazit)]" />
+                  </div>
+                </button>
+              </>
             )}
 
             {/* Source Badge */}
@@ -304,6 +326,27 @@ const MediaDetailSidebar: React.FC<MediaDetailSidebarProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Lightbox */}
+      {showLightbox && !media.file_type.startsWith('video/') && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-8 cursor-pointer"
+          onClick={() => setShowLightbox(false)}
+        >
+          <button
+            onClick={() => setShowLightbox(false)}
+            className="absolute top-5 right-5 p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <img
+            src={media.public_url}
+            alt={media.filename}
+            className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
 
       {/* Post Selection Modal */}
       {showPostSelection && (
