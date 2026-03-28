@@ -116,28 +116,22 @@ const ImageContextCard: React.FC<{
   img: UploadedImage;
   index: number;
   onRemove: (id: string) => void;
-  onUpdateDescription: (id: string, val: string) => void;
   onUpdateDirection: (id: string, val: string) => void;
-}> = ({ img, index, onRemove, onUpdateDescription, onUpdateDirection }) => {
+  onUpdateNotes: (id: string, val: string) => void;
+}> = ({ img, index, onRemove, onUpdateDirection, onUpdateNotes }) => {
   const [expanded, setExpanded] = useState(true);
-  const [customDirection, setCustomDirection] = useState('');
 
   const selectedPreset = POSTING_DIRECTIONS.includes(img.description) ? img.description : '';
-  const isCustom = img.description && !POSTING_DIRECTIONS.includes(img.description);
 
   const handlePresetClick = (preset: string) => {
     if (selectedPreset === preset) {
       onUpdateDirection(img.id, '');
     } else {
       onUpdateDirection(img.id, preset);
-      setCustomDirection('');
     }
   };
 
-  const handleCustomChange = (val: string) => {
-    setCustomDirection(val);
-    onUpdateDescription(img.id, val);
-  };
+  const hasContext = img.description || img.additionalNotes;
 
   return (
     <div
@@ -220,36 +214,51 @@ const ImageContextCard: React.FC<{
                   </button>
                 ))}
               </div>
-              <input
-                type="text"
-                value={isCustom ? img.description : customDirection}
-                onChange={(e) => handleCustomChange(e.target.value)}
-                placeholder="Eigene Idee eingeben…"
-                className="w-full text-xs px-3 py-2 rounded-[var(--vektrus-radius-md)] transition-all"
-                style={{
-                  border: isCustom ? '1.5px solid #49B7E3' : '1.5px solid #E8E8E8',
-                  background: '#FAFAFA',
-                  color: '#111111',
-                  fontFamily: 'Inter, sans-serif',
-                  outline: 'none',
-                }}
-                onFocus={() => {
-                  if (selectedPreset) {
-                    onUpdateDirection(img.id, '');
-                  }
-                }}
-              />
+              <div>
+                <label
+                  htmlFor={`notes-${img.id}`}
+                  style={{ fontFamily: 'Inter, sans-serif', fontSize: '12px', color: '#7A7A7A', display: 'block', marginBottom: 4 }}
+                >
+                  Zusätzliche Hinweise
+                </label>
+                <textarea
+                  id={`notes-${img.id}`}
+                  value={img.additionalNotes || ''}
+                  onChange={(e) => onUpdateNotes(img.id, e.target.value)}
+                  placeholder="z. B. Bildkontext, Fokus oder Post-Idee …"
+                  rows={2}
+                  className="w-full text-xs px-3 py-2 rounded-[var(--vektrus-radius-md)] transition-all resize-none focus:ring-1 focus:ring-[#49B7E3]/40"
+                  style={{
+                    border: img.additionalNotes ? '1.5px solid #49B7E3' : '1.5px solid #E8E8E8',
+                    background: '#FAFAFA',
+                    color: '#111111',
+                    fontFamily: 'Inter, sans-serif',
+                    outline: 'none',
+                    lineHeight: '1.5',
+                  }}
+                />
+              </div>
             </div>
           )}
 
-          {!expanded && img.description && (
-            <div className="px-4 py-2">
-              <span
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border-gradient-ai ai-active"
-                style={{ background: 'rgba(124,108,242,0.06)', color: 'var(--vektrus-ai-violet)', fontFamily: 'Inter, sans-serif' }}
-              >
-                {img.description}
-              </span>
+          {!expanded && hasContext && (
+            <div className="px-4 py-2 flex flex-wrap items-center gap-1.5">
+              {img.description && (
+                <span
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border-gradient-ai ai-active"
+                  style={{ background: 'rgba(124,108,242,0.06)', color: 'var(--vektrus-ai-violet)', fontFamily: 'Inter, sans-serif' }}
+                >
+                  {img.description}
+                </span>
+              )}
+              {img.additionalNotes && (
+                <span
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs"
+                  style={{ background: 'rgba(73,183,227,0.08)', color: '#49B7E3', fontFamily: 'Inter, sans-serif', border: '1px solid rgba(73,183,227,0.2)' }}
+                >
+                  {img.additionalNotes.length > 40 ? img.additionalNotes.slice(0, 40) + '…' : img.additionalNotes}
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -292,6 +301,7 @@ const VisualStep1Upload: React.FC<VisualStep1UploadProps> = ({ data, onUpdate, b
       previewUrl: URL.createObjectURL(f),
       publicUrl: '',
       description: '',
+      additionalNotes: '',
       uploading: true,
     }));
 
@@ -328,12 +338,12 @@ const VisualStep1Upload: React.FC<VisualStep1UploadProps> = ({ data, onUpdate, b
     onUpdate({ images: data.images.filter(i => i.id !== id) });
   };
 
-  const updateImageDescription = (id: string, description: string) => {
-    onUpdate({ images: data.images.map(i => i.id === id ? { ...i, description } : i) });
-  };
-
   const updateImageDirection = (id: string, direction: string) => {
     onUpdate({ images: data.images.map(i => i.id === id ? { ...i, description: direction } : i) });
+  };
+
+  const updateImageNotes = (id: string, additionalNotes: string) => {
+    onUpdate({ images: data.images.map(i => i.id === id ? { ...i, additionalNotes } : i) });
   };
 
   const hasImages = data.images.length > 0;
@@ -383,8 +393,8 @@ const VisualStep1Upload: React.FC<VisualStep1UploadProps> = ({ data, onUpdate, b
               img={img}
               index={i}
               onRemove={removeImage}
-              onUpdateDescription={updateImageDescription}
               onUpdateDirection={updateImageDirection}
+              onUpdateNotes={updateImageNotes}
             />
           ))}
 

@@ -2,7 +2,7 @@
 
 ## Mission
 
-You are working on the **Vektrus APP frontend**, not primarily on the marketing website or landing pages.
+You are working on the **Vektrus APP frontend** — not the marketing website or landing pages.
 
 Your goal is to improve and maintain a **premium AI SaaS product interface** that feels:
 
@@ -27,17 +27,17 @@ The Vektrus app must **not** feel:
 - visually overloaded
 - like a cheap dashboard template
 
-This is a real product frontend with real product logic, not just presentation UI.
+This is a real product frontend with real product logic — not just presentation UI.
 
 ---
 
 ## Core Product Scope
 
-The main focus is the **product frontend / app UI**, including areas such as:
+The main focus is the **product frontend / app UI**, including:
 
 - Dashboard / Analytics
 - Vektrus Chat
-- Vektrus Pulse
+- Vektrus Pulse (3 modes: Text Wizard, Visual, Auto)
 - Content Planner
 - Brand Studio
 - Image Simple / Advanced
@@ -45,10 +45,34 @@ The main focus is the **product frontend / app UI**, including areas such as:
 - Tool Hub / Media / additional modules
 - Navigation / Sidebar
 - States / AI states / UX flows
+- Onboarding Wizard
+- Profile / Settings
 - productive UI tied to real application logic
 
-This repo work is **not primarily about website pages**.
-If website patterns are helpful, they are secondary to the app product experience.
+Website pages are **secondary** to the app product experience.
+
+---
+
+## First Sources of Truth
+
+Always read these before making any significant changes:
+
+### Root
+- `CLAUDE.md` ← you are here
+
+### Brand docs
+- `docs/brand/brand-summary.md`
+- `docs/brand/visual-rules.md`
+- `docs/brand/assets-reference.md`
+
+### Product docs
+Read relevant files in `docs/product/` depending on the module being worked on.
+
+### Workstream docs (always check for active workstreams)
+- `docs/workstreams/app-frontend-handoff.md` ← most important for continuity
+- `docs/workstreams/app-frontend-audit.md`
+- `docs/workstreams/app-frontend-rollout-plan.md`
+- `docs/workstreams/app-frontend-final-qa.md`
 
 ---
 
@@ -61,61 +85,58 @@ Default workflow:
 1. Read `CLAUDE.md`
 2. Read relevant files in `docs/brand/`
 3. Read relevant files in `docs/product/`
-4. Inspect the relevant implementation files
-5. Identify affected files
-6. Briefly explain the approach
+4. Read `docs/workstreams/app-frontend-handoff.md` for current context
+5. Inspect the relevant implementation files
+6. Briefly state: which files you read, what is in scope, what is out of scope, where product logic risks exist
 7. Make focused changes only where necessary
 8. Summarize changes briefly
 9. Critically review the result
+10. Update `docs/workstreams/app-frontend-handoff.md`
 
-Do **not** blindly “redo everything”.
-Do **not** make broad refactors unless they are clearly necessary for the task.
+Do **not** blindly redo everything.
+Do **not** make broad refactors unless clearly necessary.
+Only change relevant files.
 
 ---
 
-## First Sources of Truth
+## Skills
 
-Always treat these as important context sources before larger changes:
+Use the installed skills intentionally — not by default for everything.
 
-### Root
-- `CLAUDE.md`
+### Default skills (use for most UI/product tasks)
+- `ui-ux-pro-max` — information architecture, UX quality, states, flows, hierarchy
+- `frontend-design` — visual system, card/panel/toolbar design, layout quality, CI-conformant components
 
-### Brand docs
-- `docs/brand/brand-summary.md`
-- `docs/brand/messaging.md`
-- `docs/brand/visual-rules.md`
-- `docs/brand/assets-reference.md`
+### Use when component work is involved
+- `shadcn/ui` — dialogs, forms, tabs, cards, tables, popovers, comboboxes, buttons, toggles
 
-Also check source material in:
-- `docs/brand/source/`
+### Use only when copy/communication is the task
+- `product-marketing-context` — empty state copy, value framing, trust messaging in UI
+- `copywriting` / `copy-editing` / `page-cro` — CTAs, onboarding text, microcopy, benefit communication
 
-### Product docs
-Read the relevant files in:
-- `docs/product/`
+Do **not** force marketing skills into purely visual or component tasks.
 
-Examples may include:
-- `docs/product/vektrus-pulse-full-description.md`
-- `docs/product/vektrus-pulse-website-summary.md`
-- `docs/product/vektrus-content-planner-beschreibung.md`
+### Use contextually
+- `security guidance skill` — when touching auth flows, OAuth, social connect, sessions, roles, sensitive settings
+- `code-review plugin` — for structured review steps, corrective passes, QA
+- `playwright-skill` — for UI/flow tests, form tests, responsive checks, screenshots after larger changes
 
-Website docs in `docs/website/` are secondary for app tasks.
+### Use sparingly (only for large new product flows)
+- `superpowers` — brainstorming, multi-agent planning, TDD for entirely new large features
+- `feature-dev` — only when a clear formal feature workflow is wanted and superpowers is not active
 
 ---
 
 ## Critical Product Rule
 
-The Vektrus app has real product logic connected to things like:
+The Vektrus app has real product logic connected to:
 
 - n8n webhooks
-- Supabase
-- async flows
-- polling
-- status fields
-- publishing logic
-- planner logic
-- brand profile logic
-- AI profile logic
-- state transitions
+- Supabase (queries, auth, realtime, polling)
+- async flows with status fields
+- publishing logic and status workflows (draft → approved → scheduled → published)
+- planner and pulse generation pipelines
+- brand and AI profile logic
 - content generation flows
 
 Because of that:
@@ -124,16 +145,39 @@ Because of that:
 - do not break data flow assumptions
 - do not make unnecessary architecture changes
 - do not refactor unrelated areas
-- do not replace working logic just to make code “look cleaner”
+- do not replace working logic just to make code "look cleaner"
 - change only what is needed for the task
 
 When touching logic-heavy areas, prefer **surgical changes** over broad redesigns.
 
 ---
 
-## Design Direction
+## n8n Webhook Pattern
 
-The product should feel like a **premium, modern, calm AI SaaS application**.
+All n8n calls go directly to the webhook endpoint — NOT via Edge Functions:
+
+```typescript
+const callN8n = async (endpoint: string, body: object) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error('Nicht eingeloggt');
+
+  const response = await fetch(`https://n8n.vektrus.ai/webhook/${endpoint}`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(body)
+  });
+  return response.json();
+};
+```
+
+Check `src/lib/n8n.ts` — this helper likely already exists. Use it, don't recreate it.
+
+---
+
+## Design Direction
 
 ### Visual principles
 - clean hierarchy
@@ -158,34 +202,103 @@ The product should feel like a **premium, modern, calm AI SaaS application**.
 - no cheap dashboard look
 
 ### Typography
-- **Manrope** for headlines / brand-defining UI moments
+- **Manrope** for headlines and brand-defining UI moments
 - **Inter** or `system-ui` for body and interface text
-- clear hierarchy
-- no gradient typography
+- clear hierarchy at all times
+- **no gradient typography** — not even with Pulse Gradient
 - no outline display fonts
 
-### Color logic
-- **Vektrus Blue** = primary brand / action color
-- **Light Blue / Mint White** = calm backgrounds, surfaces, subtle layers
-- **AI Violet** = AI activity only (generation, thinking, processing, AI states)
-- success / warning / error colors must remain semantic
+---
 
-Important:
-**AI Violet must never dominate the brand.**
-It is a functional accent for AI-related states, not the primary visual identity.
+## Color System
 
-### Pulse Gradient rule
+### Core Brand Colors
+- `#49B7E3` — Vektrus Blue — primary brand / action color
+- `#F4FCFE` — Mint White — calm backgrounds, page surfaces
+- `#B6EBF7` — Light Blue — supporting backgrounds, icon backgrounds
+- `#111111` — Anthrazit — primary text
+- `#7A7A7A` — Soft Gray — secondary text, borders
 
-Wherever a CTA or button triggers Vektrus Pulse — content generation, Pulse start, "Pulse starten", or any action that routes to `/pulse` — it **must** use the Pulse Gradient treatment defined in `src/styles/ai-layer.css`.
+### AI / Functional Colors
+- `#7C6CF2` — AI Violet — **only for active AI states** (generation, processing, thinking)
+  — never as a dominant brand color
+  — max ~10% visual dominance per screen
+- `linear-gradient(135deg, #49B7E3, #7C6CF2, #E8A0D6, #F4BE9D)` — Pulse Gradient
+  — only for AI-specific UI moments (see Pulse Gradient rule below)
 
-- Use the CSS class `chat-ai-action-btn` for Pulse action buttons (white background, Pulse Gradient border on hover, subtle glow)
+### Status Colors
+- `#49D69E` — Success Green
+- `#F4BE9D` — Pending / Waiting (Warm Peach)
+- `#FA7E70` — Error / Alert Red
+
+### Color Hierarchy
+Core Brand > Pulse Gradient (AI moments) > AI Violet > Status colors
+
+---
+
+## Token System
+
+All colors, shadows, radius, and spacing must use **CSS Custom Properties** from the token system — no hardcoded hex values in JSX or new CSS.
+
+```
+Colors:      var(--vektrus-blue), var(--vektrus-mint), var(--vektrus-anthrazit), var(--vektrus-gray)
+Backgrounds: bg-white (cards), bg-[var(--vektrus-mint)] (pages)
+Shadows:     shadow-subtle | shadow-card | shadow-elevated
+Radius:      rounded-[var(--vektrus-radius-sm)] (12px) | rounded-[var(--vektrus-radius-md)] (16px) | rounded-[var(--vektrus-radius-lg)]
+Fonts:       font-manrope (Headlines) | default Inter/system-ui (Body)
+Borders:     border-[rgba(73,183,227,0.10)] or via Token
+AI Glass:    glass-modal | glass-panel | glass-ai-layer (from ai-layer.css)
+AI Border:   ai-border-gradient | border-gradient-ai (from ai-layer.css)
+```
+
+### Critical: index.css Import Order
+
+`@import` statements for token files (including `ai-layer.css`) **must come before** `@tailwind` directives in `index.css`. If CSS tokens (radius, shadows, borders, glass effects) appear correct in code but don't work in the browser, always check this import order first.
+
+---
+
+## Z-Axis Design Model (AI Layer)
+
+### Ebene 0 — Base (85–90% of UI)
+Flat, light, calm. No glass, no gradients.
+- Dashboard, Kalender, Tabellen, Navigation, Settings/Admin
+- Standard cards, standard buttons
+
+### Ebene 1 — AI Layer (10–15% of UI)
+Glassmorphic layer with Pulse Gradient accents.
+- Modals, floating panels, AI overlays
+- `background: rgba(255,255,255,0.8)`, `backdrop-filter: blur(12px)`
+- Pulse Gradient for AI icons, borders, glows (very subtle, 6–8s animation cycle)
+
+### Schutzräume (never receive gradient or glass treatment)
+- Left sidebar / navigation
+- Content Planner calendar grid (the days themselves)
+- Analytics charts and data visualizations
+- Standard buttons (Speichern, Abbrechen, Bearbeiten)
+- Footer
+- Settings / Profile / Admin areas
+- Dashboard KPI cards and tables
+- Onboarding Wizard
+
+---
+
+## Pulse Gradient Rule
+
+Wherever a CTA or button triggers Vektrus Pulse — content generation, Pulse start, or any action routing to `/pulse` — it **must** use the Pulse Gradient treatment from `src/styles/ai-layer.css`:
+
+- Use class `chat-ai-action-btn` for Pulse action buttons (white bg, Pulse Gradient border on hover, subtle glow)
 - Use `pulse-gradient-icon` for icon containers associated with Pulse
-- The Pulse Gradient is: `linear-gradient(135deg, #49B7E3, #7C6CF2, #E8A0D6, #F4BE9D)` — defined as `--vektrus-pulse-gradient`
-- This applies everywhere: Dashboard, Chat, Planner, Sidebar, Pulse page, any module that offers a "start Pulse" action
-- Do **not** use a solid AI Violet button for Pulse CTAs — use the gradient treatment instead
-- Standard (non-Pulse) AI actions may still use AI Violet as an accent color
+- Do **not** use a solid AI Violet button for Pulse CTAs
 
-This ensures Pulse is visually recognizable as a premium AI feature across the entire app.
+This applies everywhere: Dashboard, Chat, Planner, Sidebar, Pulse page, any module with a "start Pulse" action.
+
+Standard (non-Pulse) AI actions may still use AI Violet as an accent.
+
+---
+
+## Module Color System
+
+Each module has a dedicated accent color injected via `ModuleWrapper` using `module-colors.ts` CSS variable injection. When working on a module, respect its assigned accent color. Do not override module colors without a clear reason.
 
 ---
 
@@ -202,86 +315,102 @@ Always think in:
 - state communication
 - realistic product usage
 
-Do not optimize only for “looks”.
-Also optimize for:
+Optimize for:
 
 - understandable flows
 - clear next actions
-- good empty states
+- good empty states (Icon + Headline + Description + optional CTA)
 - good loading / processing states
 - sensible information grouping
 - reduced friction
 - strong perceived product quality
 
-For module views, pages, and tool flows:
+For module views and tool flows:
 do not just make them prettier — make them **clearer, calmer, and more usable**.
 
 ---
 
-## Skill Usage
+## State Design Rules
 
-Use the installed skills intentionally.
+AI and async states are a major product quality lever.
 
-### Default skills for app frontend work
-Use these by default for most UI/product tasks:
+States to handle carefully:
+`loading` | `generating` | `thinking` | `publishing` | `syncing` | `processing` | `queued` | `success` | `partial success` | `warning` | `error` | `empty` | `disabled` | `unavailable`
 
-- `ui-ux-pro-max`
-- `frontend-design`
+Guidelines:
+- AI states should feel intelligent and calm — not flashy
+- use AI Violet only where AI activity is actually happening
+- success / error / warning must remain semantic
+- states must be understandable at a glance
+- avoid noisy animations
+- prioritize confidence and clarity
 
-### Use shadcn/ui knowledge when relevant
-Use the shadcn/ui skill/resources when the task involves:
+---
 
-- component composition
-- dialogs
-- sheets
-- forms
-- tabs
-- cards
-- tables
-- popovers
-- comboboxes
-- commands
-- existing component system alignment
-- clean extension of the current UI system
+## Copy and In-App Communication
 
-### Marketing-related skills
-Use these only when relevant:
+When copy is part of the task:
 
-- `product-marketing-context`
-- `copywriting`
-- `copy-editing`
-- `page-cro`
+- be clear, helpful, concise
+- sound product-mature
+- avoid generic AI hype language
+- avoid noisy marketing phrasing in product UI
+- prefer confident, calm, high-value wording
 
-Only bring them in when the task includes things like:
+### German Spelling — Non-Negotiable
 
-- CTA structure
-- product communication
-- empty state copy
-- trust messaging
-- feature explanation
-- onboarding text
-- conversion-related wording
-- pricing / upgrade communication
-- benefit communication inside the app
+All user-facing German text must use proper German spelling with real umlauts and Eszett:
 
-Do **not** force marketing skills into purely visual/component tasks.
+- Use `ä`, `ö`, `ü`, `Ä`, `Ö`, `Ü` — never `ae`, `oe`, `ue`
+- Use `ß` where correct — never `ss` as a substitute
+  (e.g. `schließen` not `schliessen`, `Größe` not `Groesse`, `Übernehmen` not `Uebernehmen`)
+
+This applies to: button labels, modal titles, descriptions, helper texts, toasts, empty states, status texts, dropdown labels, placeholders — any text visible to users.
+
+Do **not** change technical identifiers, object keys, API fields, route params, file names, CSS classes, enum values, or any machine-readable string. Those remain ASCII-only.
 
 ---
 
 ## File Change Discipline
 
-Always follow these rules:
-
 - change only relevant files
 - avoid unnecessary refactors
 - avoid renaming things unless necessary
-- avoid moving files unless the task truly requires it
+- avoid moving files unless truly required
 - preserve working patterns where sensible
 - prefer small, controlled improvements over broad rewrites
-- avoid introducing new abstractions unless they clearly improve the relevant area
-- do not “clean up” unrelated code during focused feature work
+- avoid new abstractions unless they clearly improve the relevant area
+- do not "clean up" unrelated code during focused feature work
 
-If you notice unrelated issues, mention them briefly instead of silently refactoring everything.
+If you notice unrelated issues, mention them briefly instead of silently fixing them.
+
+---
+
+## Existing Key Architecture
+
+### Auth & Data
+- Supabase Auth — session via `supabase.auth.getSession()`, userId = `session.user.id`
+- Tables: `users`, `user_ai_profiles`, `late_accounts`, and others
+- Social connect via `src/services/socialAccountService.ts` + OAuth popup pattern
+
+### Routing
+- React Router SPA
+- App routes in `src/App.tsx` and `src/routes.tsx`
+- AppLayout wraps all authenticated routes (sidebar, navigation)
+- `/onboarding` runs outside AppLayout (no sidebar) — own protected route
+
+### Onboarding
+- Wizard at `/onboarding` — 4 steps: Unternehmen → Markenprofil → Social Accounts → Fertig
+- Guard: if `onboarding_completed === false` → redirect to `/onboarding`
+- Guard: if `onboarding_completed === true` → redirect to `/dashboard`
+- After signup → redirect to `/onboarding` (not `/dashboard` or `/toolhub`)
+- Onboarding is a **Schutzraum** — no AI Violet, no Pulse Gradient, no Glass effects
+
+### Styles
+- TailwindCSS + custom CSS tokens in `src/styles/`
+- `src/styles/ai-layer.css` — Pulse Gradient, Glass, Glow, AI Border utilities
+- `src/index.css` — imports must come before `@tailwind` directives (see Token System section)
+- `src/styles/module-colors.ts` — per-module accent color system
 
 ---
 
@@ -293,159 +422,28 @@ For larger tasks, respond in this structure:
 Mention the relevant files/docs you checked.
 
 ### 2. Affected files
-List the files you plan to change.
+List files you plan to change and why.
 
 ### 3. Approach
-Explain the implementation approach briefly and clearly.
+Explain the implementation approach briefly.
 
 ### 4. Implementation
-Make the changes in a focused way.
+Make focused changes.
 
 ### 5. Summary
-Summarize what changed.
+Summarize what changed, in a table where helpful.
 
 ### 6. Critical review
-Review the result critically for:
+Review for:
 - brand consistency
 - premium AI SaaS quality
 - UX clarity
-- responsiveness
 - state logic
-- spacing / alignment / shadows / radius consistency
+- spacing / alignment / shadows / radius
+- token usage (no hardcoded hex)
+- German spelling in user-facing copy
 - technical cleanliness
 - unnecessary side effects
-
-Keep this concise and useful.
-
----
-
-## Refactor Strategy for Larger Work
-
-For bigger improvements, do not attempt a huge all-at-once redesign.
-
-Preferred sequence:
-
-1. Audit
-2. Plan
-3. Improve global foundations if needed
-4. Work module by module
-5. Review
-6. Polish
-
-Do not start with “rewrite the whole interface”.
-Break big work into controlled phases.
-
----
-
-## Review Standards
-
-When reviewing existing UI or newly changed UI, check for:
-
-- brand consistency
-- premium product feel
-- modern AI SaaS quality
-- good hierarchy
-- calm composition
-- spacing consistency
-- alignment quality
-- hover / focus / active states
-- empty states
-- loading / processing / waiting states
-- semantic use of color
-- proper use of AI Violet
-- responsive behavior
-- component consistency
-- visual clutter
-- trust / clarity / confidence in the flow
-
----
-
-## State Design Rules
-
-AI and async states are a major product quality lever.
-
-Treat these carefully:
-
-- loading
-- generating
-- thinking
-- publishing
-- syncing
-- processing
-- queued
-- success
-- partial success
-- warning
-- error
-- empty
-- disabled
-- unavailable
-
-Guidelines:
-
-- AI states should feel intelligent and calm, not flashy
-- use AI Violet only where AI activity is actually relevant
-- success/error/warning states must remain semantic
-- states must be understandable at a glance
-- avoid noisy animations
-- prioritize confidence and clarity
-
----
-
-## Navigation and Information Architecture
-
-For navigation, sidebar, dashboards, and module pages:
-
-- prioritize clarity over novelty
-- make the product structure easier to understand
-- reduce cognitive overload
-- support fast recognition of where the user is
-- make primary actions obvious
-- keep secondary actions secondary
-- avoid overcrowding
-
-When improving structure, think in:
-- priority
-- grouping
-- progression
-- frequency of use
-- product logic
-- user confidence
-
----
-
-## Copy and In-App Communication
-
-When copy is part of the task:
-
-- be clear
-- be helpful
-- be concise
-- sound product-mature
-- avoid generic AI hype language
-- avoid noisy marketing phrasing in product UI
-- avoid cheap “growth hack” tone
-- prefer confident, calm, high-value wording
-
-The Vektrus product voice inside the app should feel:
-- intelligent
-- calm
-- modern
-- trustworthy
-- product-led
-- useful
-
-### German spelling in user-facing copy
-
-All user-facing German text must use proper German spelling with real umlauts and Eszett:
-
-- Use `ä`, `ö`, `ü`, `Ä`, `Ö`, `Ü` — never ASCII transliterations like `ae`, `oe`, `ue`
-- Use `ß` where correct German spelling requires it — never `ss` as a substitute (e.g. `schließen` not `schliessen`, `Größe` not `Groesse`)
-- This applies to: button labels, modal titles, descriptions, helper texts, toasts, empty states, status texts, dropdown labels, placeholders, and any other text visible to users
-
-Do **not** change technical identifiers, object keys, API fields, route params, file names, CSS classes, enum values, or any machine-readable string. Those may remain ASCII-only.
-
-If a technical constraint forces ASCII in a specific context, keep the ASCII value out of user-facing copy by using a separate display string.
 
 ---
 
@@ -461,14 +459,16 @@ Do not:
 - make broad refactors without reason
 - force marketing-site patterns onto product UI
 - produce generic dashboard output
-- choose aesthetics over product clarity
 - add visual complexity without UX value
+- use hardcoded hex values in new code
+- use ASCII transliterations in user-facing German text (ae/oe/ue/ss)
+- add glass or gradient effects to Schutzräume (sidebar, dashboard, settings, calendar, onboarding)
 
 ---
 
 ## Preferred Outcome
 
-Every meaningful improvement should move the app toward this:
+Every meaningful improvement should move the app toward:
 
 - more consistent
 - more brand-aligned
@@ -479,26 +479,6 @@ Every meaningful improvement should move the app toward this:
 - more trustworthy
 - more intentional
 - more useful
-- still technically safe
+- technically safe
 
-The target is a **high-quality premium AI SaaS frontend** with strong UX and strong product logic integrity.
-
----
-
-## Default Instruction for Most Tasks
-
-Unless the task is tiny, follow this default mode:
-
-- read `CLAUDE.md`
-- read relevant files in `docs/brand/`
-- read relevant files in `docs/product/`
-- inspect the implementation
-- identify affected files
-- explain the approach briefly
-- implement only what is necessary
-- summarize changes briefly
-- critically review the result
-
-Always protect working logic.
-Always avoid unnecessary refactors.
-Always optimize for premium product quality, not just visual novelty.
+The target is a **high-quality premium AI SaaS frontend** — strong UX, strong product logic integrity, strong brand identity.

@@ -57,8 +57,8 @@ const AppLayout: React.FC = () => {
               element={route.element({ onModuleChange: navigateToModule })}
             />
           ))}
-          <Route path="/" element={<Navigate to="/toolhub" replace />} />
-          <Route path="*" element={<Navigate to="/toolhub" replace />} />
+          <Route path="/" element={<Navigate to="/dashboard" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </main>
     </div>

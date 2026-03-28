@@ -92,15 +92,41 @@ const VisualStep5Summary: React.FC<VisualStep5SummaryProps> = ({ data, onJumpToS
           </div>
         </button>
 
-        <div className="flex gap-2 px-5 py-3 bg-white border-x-2 border-[rgba(73,183,227,0.18)] overflow-x-auto">
-          {validImages.slice(0, 6).map((img) => (
-            <div key={img.id} className="w-14 h-14 flex-shrink-0 rounded-[var(--vektrus-radius-sm)] overflow-hidden bg-[#F4FCFE]">
-              <img src={img.previewUrl} alt="" className="w-full h-full object-cover" />
-            </div>
-          ))}
-          {validImages.length > 6 && (
-            <div className="w-14 h-14 flex-shrink-0 rounded-[var(--vektrus-radius-sm)] bg-[#F4FCFE] flex items-center justify-center">
-              <span className="text-xs font-bold text-[#7A7A7A]">+{validImages.length - 6}</span>
+        <div className="px-5 py-3 bg-white border-x-2 border-[rgba(73,183,227,0.18)] space-y-2.5">
+          <div className="flex gap-2 overflow-x-auto">
+            {validImages.slice(0, 6).map((img) => (
+              <div key={img.id} className="w-14 h-14 flex-shrink-0 rounded-[var(--vektrus-radius-sm)] overflow-hidden bg-[#F4FCFE]">
+                <img src={img.previewUrl} alt="" className="w-full h-full object-cover" />
+              </div>
+            ))}
+            {validImages.length > 6 && (
+              <div className="w-14 h-14 flex-shrink-0 rounded-[var(--vektrus-radius-sm)] bg-[#F4FCFE] flex items-center justify-center">
+                <span className="text-xs font-bold text-[#7A7A7A]">+{validImages.length - 6}</span>
+              </div>
+            )}
+          </div>
+          {validImages.some(i => i.description || i.additionalNotes) && (
+            <div className="space-y-1">
+              {validImages.map((img, idx) => ({ img, pos: idx + 1 })).filter(({ img }) => img.description || img.additionalNotes).slice(0, 4).map(({ img, pos }) => (
+                <div key={img.id} className="flex items-center gap-2 text-xs" style={{ fontFamily: 'Inter, sans-serif' }}>
+                  <span className="text-[#ABABAB] flex-shrink-0 w-4 text-right">{pos}.</span>
+                  {img.description && (
+                    <span className="px-1.5 py-0.5 rounded-full bg-[rgba(124,108,242,0.06)] text-[var(--vektrus-ai-violet)] font-medium flex-shrink-0">
+                      {img.description}
+                    </span>
+                  )}
+                  {img.additionalNotes && (
+                    <span className="text-[#7A7A7A] truncate">
+                      {img.additionalNotes}
+                    </span>
+                  )}
+                </div>
+              ))}
+              {validImages.filter(i => i.description || i.additionalNotes).length > 4 && (
+                <span className="text-xs text-[#ABABAB]" style={{ fontFamily: 'Inter, sans-serif' }}>
+                  +{validImages.filter(i => i.description || i.additionalNotes).length - 4} weitere mit Hinweisen
+                </span>
+              )}
             </div>
           )}
         </div>

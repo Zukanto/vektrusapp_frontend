@@ -4,6 +4,7 @@ export interface UploadedImage {
   previewUrl: string;
   publicUrl: string;
   description: string;
+  additionalNotes: string;
   uploading: boolean;
   error?: string;
 }

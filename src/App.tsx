@@ -16,6 +16,7 @@ import LoginPage from './components/LoginPage';
 import ForgotPasswordPage from './components/auth/ForgotPasswordPage';
 import ResetPasswordPage from './components/auth/ResetPasswordPage';
 import LoggedOutPage from './components/auth/LoggedOutPage';
+import Onboarding from './pages/Onboarding';
 
 function PulseToastRenderer() {
   const pulse = usePulseGeneration();
@@ -129,25 +130,11 @@ function PulseWizardPopup() {
 }
 
 function RegisterPage() {
-  const { addToast } = useToast();
-  const { signIn } = useAuth();
-
-  const handleSignUpComplete = async (data: { firstName: string; email: string; password: string }) => {
-    addToast({
-      type: 'success',
-      title: 'Willkommen bei Vektrus!',
-      description: `Dein Konto wurde erfolgreich erstellt, ${data.firstName}.`,
-      duration: 4000,
-    });
-    await signIn(data.email, data.password);
-    window.location.href = '/toolhub';
-  };
-
   const handleBack = () => {
     window.location.href = '/login';
   };
 
-  return <SignUpFlow onComplete={handleSignUpComplete} onBack={handleBack} />;
+  return <SignUpFlow onComplete={() => {}} onBack={handleBack} />;
 }
 
 function LoginRoute() {
@@ -165,7 +152,7 @@ function LoginRoute() {
   }
 
   if (user) {
-    return <Navigate to="/toolhub" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <LoginPage onLogin={() => {}} />;
@@ -186,7 +173,7 @@ function RegisterRoute() {
   }
 
   if (user) {
-    return <Navigate to="/toolhub" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <RegisterPage />;
@@ -201,6 +188,14 @@ function AppRoutes() {
         <Route path="/register" element={<RegisterRoute />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
         <Route path="/auth/reset-password" element={<ResetPasswordPage />} />
+        <Route
+          path="/onboarding"
+          element={
+            <ProtectedRoute>
+              <Onboarding />
+            </ProtectedRoute>
+          }
+        />
         <Route
           path="/*"
           element={

@@ -1,7 +1,305 @@
 # Vektrus App Frontend — Handoff für den nächsten Chat
 
-**Stand:** 2026-03-22
-**Kontext:** AP-01 bis AP-08 vollstaendig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik. **Posting Popup Redesign Phase 1 + Phase 2 + QA Pass abgeschlossen. Chat-to-Planner Handoff V1 + Corrective Pass + QA Pass + Single-Caption Bugfix + QA + Robustness Pass + Robustness QA Pass abgeschlossen. Composer Handoff V2 (Three-State Model + Source-Material Mode) implementiert. Help-Seite Workstream Phase 1 (Audit + Zielarchitektur) + Phase 2 (Implementierung) + Corrective Pass + QA Pass + Finaler Visual QA Pass abgeschlossen. Help Updates-Layer (Produkt-Updates + Transparenz) implementiert.**
+**Stand:** 2026-03-28
+**Kontext:** AP-01 bis AP-08 vollstaendig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik. **Posting Popup Redesign Phase 1 + Phase 2 + QA Pass abgeschlossen. Chat-to-Planner Handoff V1 + Corrective Pass + QA Pass + Single-Caption Bugfix + QA + Robustness Pass + Robustness QA Pass abgeschlossen. Composer Handoff V2 (Three-State Model + Source-Material Mode) implementiert. Help-Seite Workstream Phase 1 (Audit + Zielarchitektur) + Phase 2 (Implementierung) + Corrective Pass + QA Pass + Finaler Visual QA Pass abgeschlossen. Help Updates-Layer (Produkt-Updates + Transparenz) implementiert. Onboarding Wizard komplett implementiert (Session 1 + Session 2: alle 4 Schritte, OAuth, Completion, Step-Resume, SignUp-Redirect). Onboarding Design Polish Pass abgeschlossen (Premium UI, Framer Motion Transitions, Custom Slider/Dropdown/Tags). SignUpFlow Visual Polish Pass abgeschlossen (Design-Konsistenz mit Onboarding-Wizard). Onboarding OAuth-Callback Sync Bugfix abgeschlossen.**
+
+---
+
+## Onboarding OAuth-Callback Sync Bugfix
+
+**Stand:** 2026-03-28
+**Status: Abgeschlossen.**
+
+### Problem
+Nach OAuth-Callback (Instagram/Facebook/etc.) wurde `vektrus-sync-accounts` nicht aufgerufen. Der User kehrte zurück zu `/onboarding?step=3&connected=instagram`, aber der useEffect in StepConnectAccounts.tsx hatte `[loadAccounts]` als Dependency — eine stabile useCallback-Referenz. `window.location.search` wurde als Snapshot gelesen, nicht reaktiv. React Router erkannte keine Route-Änderung → kein Re-Fire des Effects.
+
+### Lösung
+
+| Datei | Änderung |
+|---|---|
+| `src/components/onboarding/StepConnectAccounts.tsx` | `useLocation` importiert, `location.search` als reaktive useEffect-Dependency statt `window.location.search` Snapshot. Dependency-Array: `[location.search, loadAccounts]` |
+| `src/pages/Onboarding.tsx` | Safety-Net: Wenn `connected`-Parameter in URL → `initialStep = 3` erzwingen (nach DB-Checks, überschreibt falls DB-State unvollständig) |
+
+### Nicht geändert
+- `callN8n` Logik, `useOnboarding.ts`, Platform-Cards Design, Auth-Logik, alle anderen Onboarding-Komponenten
+
+### Security-Review
+- `connected`-Parameter ist user-controlled, wird nur für Success-Message-Display und als Sync-Trigger verwendet — kein Injection-Risiko
+- Sync-Endpoint `vektrus-sync-accounts` ist auth-gated via Bearer Token
+- URL-Cleanup via `replaceState` nach Sync verhindert Re-Triggering
+
+---
+
+## SignUpFlow Visual Polish — Design-Konsistenz mit Onboarding-Wizard
+
+**Stand:** 2026-03-28
+**Status: Abgeschlossen.**
+
+### Problem
+Der SignUpFlow war funktional korrekt (nur E-Mail + Passwort + Bestätigung), aber visuell nicht auf dem gleichen Niveau wie der Onboarding-Wizard. Inkonsistenzen: falscher Border-Radius (var(--vektrus-radius-md) statt rounded-2xl), kein Logo über der Card, hardcoded Farben statt CSS-Tokens, Split-Navigation (Zurück/Weiter) statt zentriertem CTA, kein Login-Link.
+
+### Lösung
+Rein visuelles Redesign — keine einzige Logik-Änderung (Auth-Flow, Validierung, Routing unverändert).
+
+| Element | Vorher | Nachher |
+|---|---|---|
+| Page Background | `bg-[#F4FCFE]` hardcoded | `bg-[var(--vektrus-mint)]` Token |
+| Logo | Keins | Vektrus Logo zentriert über Card (wie Onboarding) |
+| Card | `rounded-[var(--vektrus-radius-md)] p-8 shadow-lg border` | `rounded-2xl p-8 sm:p-10 shadow-[0_4px_40px_rgba(73,183,227,0.08)]` |
+| Headline | `text-2xl font-bold` | `font-manrope font-bold text-[28px]` |
+| Subtitle | `text-[#7A7A7A]` | `text-[15px] text-[var(--vektrus-gray)]` |
+| Labels | `text-sm text-[#7A7A7A]` | `text-[13px] font-medium text-[var(--vektrus-anthrazit)]` |
+| Inputs | `p-4 border-[#B4E8E5] ring-[#B4E8E5]` | `h-12 rounded-[10px] border-[#E5E7EB]` Focus: `border-[var(--vektrus-blue)] ring-[rgba(73,183,227,0.15)]` |
+| Submit | Split-Button rechts, `bg-[#B6EBF7]` | Full-width `bg-[var(--vektrus-blue)]` rounded-xl py-3 |
+| Loading | `Wird erstellt…` | `Konto wird erstellt…` mit Loader2 |
+| Login-Link | Zurück-Button links | "Bereits ein Konto? Jetzt anmelden" zentriert |
+| Eye-Icons | `w-5 h-5` | `w-[18px] h-[18px]` mit Hover-State |
+| autoComplete | Fehlend | `email`, `new-password` hinzugefügt |
+
+### Betroffene Dateien
+| Datei | Änderung |
+|---|---|
+| `src/components/SignUpFlow.tsx` | Visuelles Redesign (Schutzraum-konform, Onboarding-Referenz) |
+
+### Design-Regeln beachtet
+- **Schutzraum:** Kein AI Violet, kein Pulse Gradient, kein Glass — Auth ist Ebene 0
+- **Token-System:** `var(--vektrus-mint)`, `var(--vektrus-blue)`, `var(--vektrus-anthrazit)`, `var(--vektrus-gray)`
+- **Typographie:** Manrope für Headline, Inter/system-ui für Body
+- **Deutsche Umlaute:** Alle korrekt (ü, ö, ä, ß)
+- **Konsistenz:** Identisches Pattern wie OnboardingWizard (Logo → Card → Content)
+
+---
+
+## SignUpFlow auf reinen Auth-Schritt reduziert
+
+**Stand:** 2026-03-28
+**Status: Abgeschlossen.**
+
+### Problem
+Der SignUpFlow hatte 3 sichtbare Schritte (Account → Profil → Zusammenfassung), obwohl Profildaten jetzt im Onboarding-Wizard gesammelt werden. Schritt 2 (Vorname, Unternehmen, Rolle) und Schritt 3/4 (Zusammenfassung, Payment) waren redundant. Ausserdem navigierte `handleCompleteSignup` zu `/toolhub` statt `/onboarding` — der `onComplete`-Callback war Dead Code.
+
+### Loesung
+1. **`SignUpFlow.tsx`**: Komplett auf einen einzigen Schritt reduziert — nur E-Mail + Passwort + Passwort bestaetigen.
+   - Entfernt: Schritt 2 (firstName, companyName, role), Schritt 3 (Payment), Schritt 4 (Zusammenfassung)
+   - Entfernt: Progress-Bar, `HIDE_PAYMENT_STEP`, Step-Navigation, Stripe-Integration, Billing-Formular, `createFullAccount`
+   - Entfernt: Imports fuer `Check, User, Building, ChevronDown, CreditCard, FileText`, `createCheckoutSession`, `products`
+   - Auth-Flow: `signUp(email, password, '', '', '', '')` → `signIn(email, password)` → `window.location.href = '/onboarding'`
+   - `signUp` erstellt Auth-User + `users`-Row (mit leeren Profildaten) + Team — Onboarding Step 1 ueberschreibt Profildaten
+   - Button-Label: "Konto erstellen" statt "Weiter"
+   - Neuer Loading-State mit Loader2-Spinner
+2. **`App.tsx`**: `RegisterPage` vereinfacht — `useToast`/`useAuth` Hooks + `handleSignUpComplete` entfernt (waren Dead Code). `onComplete` wird als No-Op uebergeben.
+
+### Betroffene Dateien
+| Datei | Aenderung |
+|---|---|
+| `src/components/SignUpFlow.tsx` | Kompletter Rewrite: 725 → ~180 Zeilen, nur Auth-Schritt |
+| `src/App.tsx` | `RegisterPage` vereinfacht (Dead Code entfernt) |
+
+### Registrierungs-Flow jetzt
+1. `/register` → E-Mail + Passwort → Supabase Auth + users-Row (leer) + Team
+2. Auto-Login → Redirect zu `/onboarding`
+3. Onboarding Step 1 → Vorname, Unternehmen, Branche, Website → Supabase Update + activate-user
+4. Onboarding Step 2 → Markenprofil → Supabase Upsert
+5. Onboarding Step 3 → Social Accounts → n8n direkt
+6. Onboarding Step 4 → `onboarding_completed = true` → Dashboard
+
+### Zukunft: Stripe
+Wenn Stripe integriert wird, kommt ein Zahlungsschritt als neuer Step im Onboarding-Wizard (zwischen Social Accounts und Fertig). Der SignUpFlow selbst bleibt reiner Auth-Schritt.
+
+---
+
+## Onboarding Social Connect — Edge Functions → n8n direkt
+
+**Stand:** 2026-03-28
+**Status: Abgeschlossen.**
+
+### Problem
+`StepConnectAccounts.tsx` nutzte `SocialAccountService`, der alle Aufrufe ueber Supabase Edge Functions (`/functions/v1/social-connect`, `/functions/v1/sync-accounts`) routet. Die Onboarding-Spec schreibt vor: alle n8n-Aufrufe gehen direkt an den Webhook — NICHT ueber Edge Functions. n8n zeigte keine Executions fuer `vektrus-connect-social` oder `vektrus-sync-accounts`.
+
+### Loesung
+1. **`useOnboarding.ts` — `saveStep1()`**: `callN8n('vektrus-activate-user')` ist jetzt **blocking** — Response wird auf `success: true` geprueft. Bei Fehler wird eine Fehlermeldung angezeigt und der User bleibt auf Step 1. Kein Weitergehen ohne Late Profile.
+2. **`StepConnectAccounts.tsx`**: Alle `SocialAccountService`-Aufrufe ersetzt durch direkte `callN8n()`-Calls aus `src/lib/n8n.ts`.
+   - **Late-Profile Guard** (Safety-Net): Beim Laden von Step 3 wird per Supabase-Query geprueft ob `late_profiles` einen Eintrag hat. Falls nicht, wird `callN8n('vektrus-activate-user')` nochmals aufgerufen und auf Erfolg gewartet. Fehlermeldung bei Misserfolg.
+   - `handleConnect()` → `callN8n('vektrus-connect-social', { platform, redirect_url })` mit Full-Page-Redirect (kein Popup)
+   - OAuth-Callback → `callN8n('vektrus-sync-accounts', {})` nach Rueckkehr mit `?connected=` Parameter
+   - `loadAccounts()` → Direkte Supabase-Query auf `late_accounts` (kein Service)
+   - `redirect_url` zeigt auf `/onboarding?step=3&connected=${platform}` statt `/profile/callback`
+   - Buttons disabled waehrend `connectingPlatform !== null || syncing`
+3. **`socialAccountService.ts`**: Unangetastet — wird weiterhin im Profil-Bereich genutzt.
+
+### Betroffene Dateien
+| Datei | Aenderung |
+|---|---|
+| `src/components/onboarding/StepConnectAccounts.tsx` | Import SocialAccountService → callN8n + supabase direkt; Connect/Sync/Load komplett umgeschrieben |
+
+### n8n-Webhook-Abfolge im Onboarding
+1. Step 1 → `saveStep1()` → `callN8n('vektrus-activate-user')` (erstellt Late Profile, non-blocking)
+2. Step 3 → Connect-Button → `callN8n('vektrus-connect-social')` → OAuth-Redirect → Callback
+3. Step 3 → Callback-Return → `callN8n('vektrus-sync-accounts')` → Accounts laden aus `late_accounts`
+
+### Absicherung Late Profile
+- **Step 1 (primaer):** `callN8n('vektrus-activate-user')` ist blocking. User kommt nicht zu Step 2 ohne erfolgreiche Aktivierung.
+- **Step 3 (Safety-Net):** `ensureLateProfile()` prueft per Supabase-Query ob `late_profiles`-Eintrag existiert. Falls nicht (z.B. Step 1 wurde irgendwie uebersprungen), wird activate nochmals aufgerufen. Bei Misserfolg: Fehlermeldung mit Hinweis zurueck zu Schritt 1.
+
+---
+
+## Onboarding Activate-User Timing Fix
+
+**Stand:** 2026-03-28
+**Status: Abgeschlossen.**
+
+### Problem
+`vektrus-activate-user` wurde erst in Step 4 (`completeOnboarding`) aufgerufen. Dieser n8n-Workflow erstellt das Late Profile in der `late_profiles`-Tabelle. Ohne Late Profile schlaegt jeder Social-Connect-Versuch in Step 3 mit NO_LATE_PROFILE fehl.
+
+### Fix
+1. **`useOnboarding.ts` — `saveStep1()`**: `callN8n('vektrus-activate-user')` wird jetzt direkt nach dem Supabase Write aufgerufen (non-blocking: Fehler wird geloggt aber stoppt das Onboarding nicht, da idempotent).
+2. **`useOnboarding.ts` — `completeOnboarding()`**: `callN8n('vektrus-activate-user')` entfernt. Dort wird nur noch `onboarding_completed = true` gesetzt.
+3. **`StepConnectAccounts.tsx`**: Explizites Handling fuer `NO_LATE_PROFILE` Error-Response vom Server mit verstaendlicher Fehlermeldung + Hinweis zum Ueberspringen.
+
+### Nicht geaendert
+`socialAccountService.ts` — nutzt Supabase Edge Functions (`/functions/v1/social-connect`, `/functions/v1/sync-accounts`), Body-Struktur und Endpoints sind korrekt.
+
+### Edge Case: Activate schlaegt in Step 1 fehl
+- User kann trotzdem zu Step 2 und 3 weiter (non-blocking)
+- In Step 3: `hasLateProfile` Check zeigt Fehler, Server-Response `NO_LATE_PROFILE` zeigt verstaendliche Meldung
+- User kann Schritt ueberspringen und spaeter unter Einstellungen verbinden
+- Bei erneutem Onboarding-Besuch (Page Refresh) wird `saveStep1` nicht erneut aufgerufen (Resume startet bei Step 2+), aber der User kann manuell zurueck zu Step 1 navigieren
+
+---
+
+## Onboarding Design Polish Pass
+
+**Stand:** 2026-03-28
+**Status: Abgeschlossen.**
+
+### Kontext
+
+Visuelles und UX-Upgrade des Onboarding Wizards von funktionalem Standard-Formular zu Premium-AI-SaaS-Erlebnis. Keine Logik-Aenderungen, nur UI/UX-Polish.
+
+### Was geaendert wurde
+
+**ProgressBar:** Lucide-Icons pro Schritt (Building2, Sparkles, Share2, Rocket), animierte Connector-Linien (Framer Motion), subtile Entry-Animation, Blue-Shadow auf aktivem Schritt.
+
+**OnboardingWizard:** Framer Motion AnimatePresence fuer Slide-Transitions zwischen Schritten (links/rechts je nach Richtung), Premium-Card-Shadow (Blue-Tinted: `0_4px_24px_rgba(73,183,227,0.08)`), dezentes Brand-Watermark oben links.
+
+**StepCompanyInfo:** Step-Header mit Icon-Container + "Schritt X von 4" Label + groesserer Titel (26px bold), Inputs 48px Hoehe mit rounded-xl, blauer Punkt statt rotem Sternchen fuer Pflichtfelder, Lock-Icon im read-only E-Mail-Feld, Custom Dropdown fuer Branche (Popover mit Checkmark statt nativem Select), Arrow-Icons in Buttons.
+
+**StepBrandProfile:** Section-Headers mit Lucide-Icons (Users, Heart, MessageSquare, Megaphone, Shield), Brand-Voice-Cards als Premium-Karten mit Icon-Container + Checkmark-Badge + Hover-Lift-Effekt, nummerierte Kernbotschaften-Inputs (Zahlen in runden Containern), Custom Slider mit sichtbarem Thumb + Wert-Badge das dem Thumb folgt + farbigem Fill-Track, Premium Tag-Input mit dashed Border wenn leer + rounded-full Chips, Zurueck-Button als Text-Link statt bordered Button.
+
+**StepConnectAccounts:** Platform-spezifische Tint-Farben auf Icon-Containern (Instagram Rose, LinkedIn Blau etc.), Verbinden-Button als outlined statt filled, Shield-Icon mit Trust-Text, konsistente rounded-xl Karten.
+
+**StepComplete:** Animiertes Check-Icon (Framer Motion scale 0→1, Success Green, 80px), groesserer Titel (32px), strukturierte Summary-Card mit Icon-Rows (Building2, Briefcase, Share2), Platform-Badges als rounded-full Chips, Info-Boxen als 2-Spalten-Grid mit Blue-Tinted Background, CTA mit Blue-Shadow.
+
+### Geaenderte Dateien (6)
+
+| Datei | Aenderung |
+|-------|-----------|
+| `src/components/onboarding/ProgressBar.tsx` | Icons, animierte Connector-Linien, Entry-Animation |
+| `src/components/onboarding/OnboardingWizard.tsx` | Step-Transitions, Premium-Card, Brand-Watermark |
+| `src/components/onboarding/StepCompanyInfo.tsx` | Premium-Header, Custom-Dropdown, 48px-Inputs, Lock-Icon |
+| `src/components/onboarding/StepBrandProfile.tsx` | Section-Headers, Premium-Cards, Custom-Slider, Tag-Input |
+| `src/components/onboarding/StepConnectAccounts.tsx` | Platform-Tints, Outlined-Buttons, Trust-Info |
+| `src/components/onboarding/StepComplete.tsx` | Animated-Check, Summary-Rows, Grid-Info-Boxen |
+
+### Design-Prinzipien eingehalten
+
+- Kein AI Violet, kein Pulse Gradient — Onboarding bleibt Schutzraum
+- Keine Loop-Animationen — nur bei Schritt-Wechsel oder Entry
+- Keine neuen npm-Pakete (Framer Motion war bereits vorhanden)
+- Nur rgba-Werte und CSS Custom Properties — keine hardcoded Hex
+- Manrope fuer Headings, system-ui fuer Body
+- Echte Umlaute in allen deutschen Texten
+
+---
+
+## Onboarding Wizard — Komplett
+
+**Stand:** 2026-03-28
+**Status: Abgeschlossen. Alle 4 Schritte funktional. Session 1 + Session 2 fertig.**
+
+### Kontext
+
+Onboarding Wizard fuer neue Nutzer nach Registrierung. Backend (Supabase, n8n) war bereits fertig. Nur Frontend gebaut. Der Wizard laeuft ausserhalb des AppLayouts (keine Sidebar), ist aber auth-geschuetzt via ProtectedRoute.
+
+### Architektur
+
+- **Eigene Route** `/onboarding` in App.tsx, vor dem `/*`-Catch-all
+- **Kein AppLayout** — Wizard rendert fullscreen auf Mint-White-Hintergrund
+- **Route Guard** in `pages/Onboarding.tsx` — prueft `onboarding_completed` in `users`-Tabelle
+- **Step-Resume** — beim Laden werden bestehende Daten aus DB geladen und der passende Schritt bestimmt
+- **useOnboarding Hook** mit useReducer — persistent FormData ueber alle 4 Schritte, SET_STEP + PREFILL fuer Resume
+- **Supabase Writes** in Schritt 1 (`users` + `user_ai_profiles`) und Schritt 2 (`user_ai_profiles`)
+- **Social OAuth** in Schritt 3 — nutzt bestehenden `SocialAccountService` (connectPlatform + openAuthPopup)
+- **Completion** in Schritt 4 — ruft `callN8n('vektrus-activate-user')` + setzt `onboarding_completed` in `users`
+- **SignUp-Redirect** — nach Registrierung geht es zu `/onboarding` statt `/toolhub`
+
+### Dateien
+
+| Datei | Typ |
+|-------|-----|
+| `src/lib/n8n.ts` | Neu — zentraler n8n Webhook-Helper |
+| `src/hooks/useOnboarding.ts` | Neu — Wizard-State (useReducer), Save-Logik, completeOnboarding, SET_STEP, PREFILL |
+| `src/components/onboarding/ProgressBar.tsx` | Neu — 4-Schritt-Indikator |
+| `src/components/onboarding/StepCompanyInfo.tsx` | Neu — Schritt 1 (Unternehmensdaten) |
+| `src/components/onboarding/StepBrandProfile.tsx` | Neu — Schritt 2 (Markenprofil, 5 Sektionen) |
+| `src/components/onboarding/StepConnectAccounts.tsx` | Neu — Schritt 3 (Social OAuth via SocialAccountService) |
+| `src/components/onboarding/StepComplete.tsx` | Neu — Schritt 4 (Zusammenfassung + n8n-Aktivierung + Dashboard-Redirect) |
+| `src/components/onboarding/OnboardingWizard.tsx` | Neu — Wizard-Container mit ProgressBar, Step-Rendering, initialStep/initialData Props |
+| `src/pages/Onboarding.tsx` | Neu — Page mit Route Guard, Step-Resume-Logik, DB-Prefill |
+| `src/App.tsx` | Geaendert — `/onboarding`-Route als ProtectedRoute, SignUp-Redirect auf `/onboarding` |
+
+### Schritt 1: Unternehmen
+
+Felder: Vorname*, Nachname*, E-Mail (read-only aus Session), Unternehmensname*, Branche* (Dropdown mit 14 Optionen), Website (optional). Speichert in `users` und `user_ai_profiles`.
+
+### Schritt 2: Markenprofil (5 Sektionen)
+
+- **A: Zielgruppe** — Textarea, min 20 Zeichen
+- **B: Markenpersoenlichkeit** — 3 anklickbare Cards (professional/friendly/bold)
+- **C: Kernbotschaften** — 3 einzelne Text-Inputs
+- **D: Kommunikations-Stil** — Formalitaet-Slider (1-10), Kreativitaet-Slider (1-10), Emoji-Segment-Control (4 Optionen)
+- **E: Leitplanken & Markt** — No-Go Tag-Input, Mitbewerber Tag-Input (max 3), Call-to-Action Text
+
+Speichert in `user_ai_profiles` inkl. `tone_settings` JSON.
+
+### Schritt 3: Social Accounts verbinden
+
+- 5 Plattformen: Instagram, Facebook, LinkedIn, TikTok, X (Twitter)
+- Nutzt `SocialAccountService.connectPlatform()` + `openAuthPopup()` — gleicher OAuth-Flow wie ProfilePage
+- Platform-Cards im 2-Spalten-Grid mit Connect/Verbunden-Status
+- "Ueberspringen"-Link fuer Nutzer die spaeter verbinden wollen
+- OAuth-Callback-Handling ueber URL-Parameter
+- Trust-Info: "Vektrus speichert keine Zugangsdaten. Die Verbindung erfolgt sicher ueber OAuth."
+
+### Schritt 4: Fertig
+
+- Zusammenfassungs-Card mit Firmenname, Branche, verbundene Plattformen
+- Zwei Info-Boxen (Analytics in 24h, Einstellungen aenderbar)
+- "Los geht's!" Button — ruft `callN8n('vektrus-activate-user')` + setzt `onboarding_completed = true` + Redirect zu `/dashboard`
+
+### Step-Resume bei Page-Refresh
+
+`Onboarding.tsx` prueft beim Laden:
+1. `onboarding_completed === true` → Redirect zu `/dashboard`
+2. `company_name` in `users` vorhanden → Schritt 1 erledigt → Start bei Schritt 2
+3. `target_audience` + `brand_voice` in `user_ai_profiles` → Schritt 2 erledigt → Start bei Schritt 3
+4. Bestehende DB-Daten werden in FormData vorausgefuellt via PREFILL-Action
+
+### Design-Entscheidungen
+
+- Mint White Background, White Card mit rounded-xl + shadow-sm
+- Vektrus Blue fuer aktive Elemente, Success Green fuer abgeschlossene Schritte und verbundene Accounts
+- Kein AI Violet, kein Pulse Gradient — Onboarding ist Schutzraum
+- CSS Custom Properties (`--vektrus-*`) durchgaengig verwendet
+- Manrope fuer Headings, Inter/system-ui fuer Body
+- Tag-Inputs mit Enter/Komma-Eingabe und X-Entfernung
+- Platform-Icons als Inline-SVGs (gleiche wie SocialAccountsTab)
+
+### Offene Punkte (kein Blocker)
+
+1. **Browser-Test** — Visueller Check aller 4 Schritte im eingeloggten Zustand
+2. **Responsive** — Mobile-Optimierung der Slider, Brand-Voice-Cards und Platform-Grid pruefen
+3. **Late-Profile Timing** — Wenn Late-Profile noch nicht existiert wenn User bei Schritt 3 ankommt, sieht er "Verbindungsprofil wird eingerichtet" — Timing vom Backend abhaengig
 
 ---
 

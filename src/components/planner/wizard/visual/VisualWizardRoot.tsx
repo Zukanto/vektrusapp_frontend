@@ -146,10 +146,16 @@ const VisualWizardRoot: React.FC<VisualWizardRootProps> = ({ onComplete, onClose
     const visualWizardData = {
       ...data,
       mode: 'visual',
-      images: validImages.map(img => ({
-        url: img.publicUrl,
-        description: img.description || '',
-      })),
+      images: validImages.map(img => {
+        const parts: string[] = [];
+        if (img.description) parts.push(img.description);
+        const notes = img.additionalNotes?.trim();
+        if (notes) parts.push(notes);
+        return {
+          url: img.publicUrl,
+          description: parts.join('. '),
+        };
+      }),
       frequency: validImages.length,
       theme: 'visual',
       topicDescription: '',
