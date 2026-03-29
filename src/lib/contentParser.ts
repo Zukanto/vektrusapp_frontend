@@ -16,6 +16,14 @@ export interface ParsedContent {
   carousel_slides?: any[];
 }
 
+/** Normalizes hook to string — Reel content has hook as {text, type, delivery} object */
+function normalizeHook(hook: any): string {
+  if (!hook) return '';
+  if (typeof hook === 'string') return hook;
+  if (typeof hook === 'object' && hook.text) return hook.text;
+  return '';
+}
+
 export const parseContent = (raw: any): ParsedContent => {
   if (!raw) {
     return {
@@ -34,7 +42,7 @@ export const parseContent = (raw: any): ParsedContent => {
       hashtags: Array.isArray(raw.hashtags) ? raw.hashtags : [],
       cta: raw.cta || '',
       content_type: raw.content_type || 'general',
-      hook: raw.hook || '',
+      hook: normalizeHook(raw.hook),
       estimated_engagement: raw.estimated_engagement || 'medium',
       reasoning: raw.reasoning,
       emoji_suggestions: raw.emoji_suggestions,
@@ -67,7 +75,7 @@ export const parseContent = (raw: any): ParsedContent => {
         hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags : [],
         cta: parsed.cta || '',
         content_type: parsed.content_type || 'general',
-        hook: parsed.hook || '',
+        hook: normalizeHook(parsed.hook),
         estimated_engagement: parsed.estimated_engagement || 'medium',
         reasoning: parsed.reasoning,
         emoji_suggestions: parsed.emoji_suggestions,

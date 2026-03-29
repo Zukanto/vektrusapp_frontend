@@ -1,7 +1,112 @@
 # Vektrus App Frontend — Handoff für den nächsten Chat
 
-**Stand:** 2026-03-28
-**Kontext:** AP-01 bis AP-08 vollstaendig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik. **Posting Popup Redesign Phase 1 + Phase 2 + QA Pass abgeschlossen. Chat-to-Planner Handoff V1 + Corrective Pass + QA Pass + Single-Caption Bugfix + QA + Robustness Pass + Robustness QA Pass abgeschlossen. Composer Handoff V2 (Three-State Model + Source-Material Mode) implementiert. Help-Seite Workstream Phase 1 (Audit + Zielarchitektur) + Phase 2 (Implementierung) + Corrective Pass + QA Pass + Finaler Visual QA Pass abgeschlossen. Help Updates-Layer (Produkt-Updates + Transparenz) implementiert. Onboarding Wizard komplett implementiert (Session 1 + Session 2: alle 4 Schritte, OAuth, Completion, Step-Resume, SignUp-Redirect). Onboarding Design Polish Pass abgeschlossen (Premium UI, Framer Motion Transitions, Custom Slider/Dropdown/Tags). SignUpFlow Visual Polish Pass abgeschlossen (Design-Konsistenz mit Onboarding-Wizard). Onboarding OAuth-Callback Sync Bugfix abgeschlossen.**
+**Stand:** 2026-03-29
+**Kontext:** AP-01 bis AP-08 vollstaendig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik. **Posting Popup Redesign Phase 1 + Phase 2 + QA Pass abgeschlossen. Chat-to-Planner Handoff V1 + Corrective Pass + QA Pass + Single-Caption Bugfix + QA + Robustness Pass + Robustness QA Pass abgeschlossen. Composer Handoff V2 (Three-State Model + Source-Material Mode) implementiert. Help-Seite Workstream Phase 1 (Audit + Zielarchitektur) + Phase 2 (Implementierung) + Corrective Pass + QA Pass + Finaler Visual QA Pass abgeschlossen. Help Updates-Layer (Produkt-Updates + Transparenz) implementiert. Onboarding Wizard komplett implementiert (Session 1 + Session 2: alle 4 Schritte, OAuth, Completion, Step-Resume, SignUp-Redirect). Onboarding Design Polish Pass abgeschlossen (Premium UI, Framer Motion Transitions, Custom Slider/Dropdown/Tags). SignUpFlow Visual Polish Pass abgeschlossen (Design-Konsistenz mit Onboarding-Wizard). Onboarding OAuth-Callback Sync Bugfix abgeschlossen. Pulse Reels — Session 1 (Frontend) abgeschlossen. Pulse Reels — Session 2 (Design Polish + Brand Icons) abgeschlossen.**
+
+---
+
+## Pulse Reels — Session 2 (Design Polish + Brand Icons)
+
+**Stand:** 2026-03-29
+**Status: Abgeschlossen.**
+
+### Fix 1 — Offizielle Brand-Icons (simple-icons SVG-Pfade, hardcoded)
+
+SVG-Pfade und Brand-Farben aus simple-icons v16 extrahiert und direkt in PlatformIcon.tsx hardcoded. Das Paket `simple-icons` selbst wird NICHT als Dependency verwendet — der Hauptexport lädt 3000+ Icons und crasht Vite Dev-Mode (unbundled ESM).
+
+| Plattform | Farbe |
+|---|---|
+| Instagram | `#FF0069` |
+| TikTok | `#000000` |
+| YouTube Shorts | `#FF0000` |
+
+### Fix 2 — ReelWizard Pulse Gradient Design
+
+ReelWizard komplett überarbeitet, um exakt dem bestehenden WizardRoot-Design zu entsprechen:
+
+| Element | Vorher | Nachher |
+|---|---|---|
+| Platform-Cards | Solide weiße Bg, border-2 | `glass-panel` + `border-gradient-ai ai-active` bei Selektion |
+| Selected-Checkmark | Solider blauer Kreis + SVG | Animierter `motion.div` mit `pulse-gradient-icon` |
+| Difficulty-Cards | Solide weiße Bg, border-2 | `glass-panel` + farbiger Border bei Selektion |
+| Toggle | Solider Blue bg | Pulse Gradient (Blue → Violet) |
+| Reel-Count Buttons | Solider Blue bg / weiß | Pulse Gradient aktiv / `glass-panel` inaktiv |
+| Inputs | Solide weiße Bg, border-default | `bg-white/60 backdrop-blur-sm`, border rgba-blue |
+| "Weiter" Button | `var(--vektrus-pulse-gradient)` | Exakt WizardRoot: `linear-gradient(135deg, ...)` |
+| "Generieren" Button | Violet → Gradient hover | Exakt WizardRoot: Violet → Gradient hover pattern |
+| "Zurück" | `text-[var(--vektrus-gray)]` | `text-[#7A7A7A]` (exakt WizardRoot) |
+| Error-State | Custom styling | Exakt WizardRoot GeneratingOverlay pattern |
+| Progress bar | Solid pulse-gradient | Shimmer-Animation wie GeneratingOverlay |
+| Farb-Referenzen | CSS Custom Properties | Direkte Hex-Werte wie WizardRoot (Konsistenz) |
+
+### Geänderte Dateien
+
+| Datei | Änderung |
+|---|---|
+| `src/components/ui/PlatformIcon.tsx` | Komplett neu: simple-icons statt Inline-SVGs |
+| `src/components/pulse/reels/ReelWizard.tsx` | Komplett neu: WizardRoot-identisches Pulse Gradient Design |
+| `package.json` | `simple-icons` entfernt (war Crash-Ursache) |
+
+### Nicht geändert
+- `reelService.ts` — unverändert
+- `ReelConceptCard.tsx` — unverändert (bleibt Ebene 0)
+- `ReelResultsView.tsx` — unverändert (PlatformIcon-Import kompatibel)
+- Alle anderen Pulse/Wizard-Komponenten — unverändert
+
+---
+
+## Pulse Reels — Session 1 (Frontend)
+
+**Stand:** 2026-03-29
+**Status: Abgeschlossen.**
+
+### Umfang
+Neuer Pulse-Modus "Reels" — komplett eigenständiger Wizard-Flow für KI-generierte Reel-Konzepte (Instagram Reels, TikTok, YouTube Shorts). Backend-Webhook war bereits live und verifiziert.
+
+### Erstellt
+
+| Datei | Beschreibung |
+|---|---|
+| `src/services/reelService.ts` | Service-Funktionen: `generateReels()` (callN8n), `pollReelStatus()`, `loadReelResults()` mit korrektem `source: 'pulse_reels'` Filter |
+| `src/components/pulse/reels/ReelWizard.tsx` | 4-Step Wizard: Plattformen → Thema & Umfang → Stil → Generierung. Eigene State-Machine (wizard → generating → results), eigenes Polling, unabhängig von bestehendem `usePulseGeneration` |
+| `src/components/pulse/reels/ReelConceptCard.tsx` | Reel-Ergebnis-Card: Format-Badge, Hook-Bereich (glass-panel, Ebene 1), Szenen-Timeline, Voiceover (collapsible), Audio-Empfehlung, "Warum es funktioniert" (AI Violet Accent), Caption + Hashtags, Footer CTAs (Planner-Integration disabled) |
+| `src/components/pulse/reels/ReelResultsView.tsx` | Results-Container: Header mit Reel-Count + Plattform-Badges, vertikale Liste der ReelConceptCards |
+
+### Geändert
+
+| Datei | Änderung |
+|---|---|
+| `src/components/pulse/PulsePage.tsx` | Reels als dritter Modus in Mode-Cards (3-Spalten-Grid), NEU-Badge, Clapperboard-Icon, History-Label + Icon für Reels |
+| `src/components/planner/wizard/ModeSelection.tsx` | `PulseMode` um `'reels'` erweitert, dritte Mode-Card mit NEU-Badge, 3-Spalten-Grid |
+| `src/components/planner/wizard/WizardRoot.tsx` | ReelWizard-Import, Rendering wenn `selectedMode === 'reels'` (analog zu VisualWizardRoot-Pattern) |
+| `src/hooks/usePulseGeneration.tsx` | `initialMode` und `reopenPopup` Typen um `'reels'` erweitert |
+
+### Nicht geändert
+- Bestehende Pulse-Logik (Theme/Visual) — kein Code berührt
+- `ContentGeneratorService` — Reels nutzt eigenen Service
+- Supabase-Schema — nutzt bestehende `pulse_configurations` + `pulse_generated_content` Tabellen
+- Routing — kein neuer Route nötig (Reels läuft im bestehenden Popup-Flow)
+- Keine neuen npm-Pakete
+
+### Webhook-Integration
+- Endpoint: `POST /webhook/vektrus-pulse-reels`
+- Auth: JWT via `callN8n()` (bestehendes Pattern)
+- Request: `{ user_id, reel_configuration: { platforms, theme, topic_description?, reel_count, difficulty, show_face, language: 'DE' } }`
+- Polling: `pulse_configurations.status` bis `completed`
+- Ergebnisse: `pulse_generated_content` mit `source = 'pulse_reels'`
+
+### AI-Layer-Regeln
+- Hook-Bereich: `glass-panel` (Ebene 1) — AI-Moment ✓
+- "Warum es funktioniert": `border-left: 3px solid var(--vektrus-ai-violet)` ✓
+- Generating-Overlay: `pulse-gradient-icon`, `ai-typing-dots` ✓
+- Alle anderen Bereiche: Ebene 0 (flach, weiß) ✓
+- Kein hardcoded Hex in neuen Dateien (CSS Custom Properties) ✓
+- Deutsche Umlaute korrekt ✓
+
+### Offene Punkte für spätere Sessions
+- Planner-Integration (CTA "In Planner übernehmen" → aktiv schalten)
+- "Neu generieren" pro Card (einzelne Reels re-generieren)
+- Reels in Pulse-History: `handleOpenReview` für Reels-Ergebnisse (eigene Review-Ansicht)
 
 ---
 

@@ -42,11 +42,11 @@ interface PulseGenerationState {
 interface PulseGenerationContextType extends PulseGenerationState {
   startGeneration: (wizardData: any) => Promise<void>;
   dismissPopup: () => void;
-  reopenPopup: (mode?: 'theme' | 'visual') => void;
+  reopenPopup: (mode?: 'theme' | 'visual' | 'reels') => void;
   reset: () => void;
   toastData: PulseToastData | null;
   dismissToast: () => void;
-  initialMode: 'theme' | 'visual' | null;
+  initialMode: 'theme' | 'visual' | 'reels' | null;
   clearInitialMode: () => void;
 }
 
@@ -122,7 +122,7 @@ export const PulseGenerationProvider: React.FC<{ children: React.ReactNode }> = 
   });
 
   const [toastData, setToastData] = useState<PulseToastData | null>(null);
-  const [initialMode, setInitialMode] = useState<'theme' | 'visual' | null>(null);
+  const [initialMode, setInitialMode] = useState<'theme' | 'visual' | 'reels' | null>(null);
   const popupOpenRef = useRef(false);
   const wizardDataRef = useRef<any>(null);
 
@@ -131,7 +131,7 @@ export const PulseGenerationProvider: React.FC<{ children: React.ReactNode }> = 
     setState(prev => ({ ...prev, popupOpen: false }));
   }, []);
 
-  const reopenPopup = useCallback((mode?: 'theme' | 'visual') => {
+  const reopenPopup = useCallback((mode?: 'theme' | 'visual' | 'reels') => {
     popupOpenRef.current = true;
     if (mode) setInitialMode(mode);
     setState(prev => ({ ...prev, popupOpen: true }));

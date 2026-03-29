@@ -9,6 +9,7 @@ import PostResultsList from './PostResultsList';
 import ReviewModal from './ReviewModal';
 import ModeSelection, { PulseMode } from './ModeSelection';
 import VisualWizardRoot from './visual/VisualWizardRoot';
+import ReelWizard from '../../pulse/reels/ReelWizard';
 import BrandStyleIndicator from './visual/BrandStyleIndicator';
 import { PulseWizardData } from './types';
 import { ContentSlot } from '../types';
@@ -246,6 +247,15 @@ const WizardRoot: React.FC<WizardRootProps> = ({ onComplete, onClose }) => {
     }
     return 'text-[#7A7A7A]';
   };
+
+  if (selectedMode === 'reels') {
+    return (
+      <ReelWizard
+        onClose={onClose}
+        onBack={() => pulse.initialMode ? onClose() : setSelectedMode(null)}
+      />
+    );
+  }
 
   if (selectedMode === 'visual') {
     return (

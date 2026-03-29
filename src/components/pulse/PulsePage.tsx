@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Zap, PenLine, Image, ArrowRight, Calendar, Check, Clock, CircleAlert as AlertCircle, Loader as Loader2, Eye, FileText, X, FlaskConical } from 'lucide-react';
+import { Zap, PenLine, Image, ArrowRight, Calendar, Check, Clock, CircleAlert as AlertCircle, Loader as Loader2, Eye, FileText, X, FlaskConical, Clapperboard } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { usePulseGeneration } from '../../hooks/usePulseGeneration';
 import { supabase } from '../../lib/supabase';
@@ -175,9 +175,9 @@ const PulsePage: React.FC<PulsePageProps> = ({ onModuleChange }) => {
     }
   };
 
-  const handleStartPulse = (mode: 'theme' | 'visual') => {
+  const handleStartPulse = (mode: 'theme' | 'visual' | 'reels') => {
     pulse.reset();
-    pulse.reopenPopup(mode);
+    pulse.reopenPopup(mode as 'theme' | 'visual');
   };
 
   const handleOpenReview = async (run: PulseRun) => {
@@ -272,6 +272,7 @@ const PulsePage: React.FC<PulsePageProps> = ({ onModuleChange }) => {
 
   const getModeLabel = (mode?: string) => {
     if (mode === 'visual') return 'Visual';
+    if (mode === 'reels') return 'Reels';
     return 'Themen-basiert';
   };
 
@@ -287,6 +288,13 @@ const PulsePage: React.FC<PulsePageProps> = ({ onModuleChange }) => {
       icon: Image,
       title: 'Bilder zu Posts',
       description: 'Lade Bilder hoch und Vektrus schreibt den perfekten Post-Text, Hashtags und CTAs dazu.',
+    },
+    {
+      id: 'reels',
+      icon: Clapperboard,
+      title: 'Reels',
+      description: 'KI erstellt fertige Reel-Konzepte mit Szenenplan, Hook und Voiceover-Skript.',
+      badge: 'NEU',
     },
   ];
 
@@ -389,7 +397,7 @@ const PulsePage: React.FC<PulsePageProps> = ({ onModuleChange }) => {
                 />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 relative z-10">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 relative z-10">
                 {modes.map((mode, i) => {
                   const Icon = mode.icon;
                   return (
@@ -398,9 +406,17 @@ const PulsePage: React.FC<PulsePageProps> = ({ onModuleChange }) => {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.1 + i * 0.1, duration: 0.4 }}
-                      onClick={() => handleStartPulse(mode.id as 'theme' | 'visual')}
+                      onClick={() => handleStartPulse(mode.id as 'theme' | 'visual' | 'reels')}
                       className="group relative p-7 rounded-[var(--vektrus-radius-md)] glass-ai-layer border-gradient-ai text-left transition-all duration-300 hover:shadow-elevated hover:scale-[1.01]"
                     >
+                      {'badge' in mode && mode.badge && (
+                        <span
+                          className="absolute top-4 right-4 text-[10px] font-bold tracking-wide px-2.5 py-0.5 rounded-full text-white"
+                          style={{ backgroundColor: 'var(--vektrus-blue)' }}
+                        >
+                          {mode.badge}
+                        </span>
+                      )}
                       <div
                         className="w-14 h-14 rounded-[var(--vektrus-radius-lg)] flex items-center justify-center mb-5 pulse-gradient-icon"
                       >
@@ -535,6 +551,8 @@ const PulsePage: React.FC<PulsePageProps> = ({ onModuleChange }) => {
                               <span className="inline-flex items-center gap-1 text-xs text-[#7A7A7A] bg-[#F4FCFE] px-2 py-0.5 rounded-full">
                                 {run.configuration?.mode === 'visual' ? (
                                   <Image className="w-3 h-3" />
+                                ) : run.configuration?.mode === 'reels' ? (
+                                  <Clapperboard className="w-3 h-3" />
                                 ) : (
                                   <PenLine className="w-3 h-3" />
                                 )}

@@ -19,7 +19,32 @@ import PulseEntryModal from './PulseEntryModal';
 import { PlannerTutorial } from '../OnboardingTour';
 import { usePlannerPerformance } from '../../hooks/usePlannerPerformance';
 
-const ContentPlanner: React.FC = () => {
+class PlannerErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ padding: 40, textAlign: 'center' }}>
+          <h2 style={{ color: '#FA7E70', marginBottom: 8 }}>Planner-Fehler</h2>
+          <pre style={{ background: '#F9FAFB', padding: 16, borderRadius: 8, textAlign: 'left', fontSize: 13, overflow: 'auto', maxHeight: 300 }}>
+            {this.state.error.message}
+            {'\n\n'}
+            {this.state.error.stack}
+          </pre>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+const ContentPlannerInner: React.FC = () => {
   const [selectedWeek, setSelectedWeek] = useState(() => {
     const stored = sessionStorage.getItem('planner-target-date');
     if (stored) {
@@ -771,5 +796,11 @@ const ContentPlanner: React.FC = () => {
     </ModuleWrapper>
   );
 };
+
+const ContentPlanner: React.FC = () => (
+  <PlannerErrorBoundary>
+    <ContentPlannerInner />
+  </PlannerErrorBoundary>
+);
 
 export default ContentPlanner;

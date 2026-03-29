@@ -1,8 +1,8 @@
 import React from 'react';
-import { PenTool, Image, ArrowRight } from 'lucide-react';
+import { PenTool, Image, ArrowRight, Clapperboard } from 'lucide-react';
 import { motion } from 'framer-motion';
 
-export type PulseMode = 'theme' | 'visual';
+export type PulseMode = 'theme' | 'visual' | 'reels';
 
 interface ModeSelectionProps {
   onSelect: (mode: PulseMode) => void;
@@ -29,6 +29,17 @@ const modes = [
     gradient: 'from-[#49D69E] to-[#B4E8E5]',
     bgHover: 'hover:border-[#49D69E]/40 hover:bg-[#49D69E]/4',
   },
+  {
+    id: 'reels' as PulseMode,
+    icon: Clapperboard,
+    title: 'Reels',
+    subtitle: 'Reel-Konzepte mit KI erstellen',
+    description: 'KI erstellt fertige Reel-Konzepte mit Szenenplan, Hook und Voiceover-Skript.',
+    color: '#7C6CF2',
+    gradient: 'from-[#7C6CF2] to-[#B6A8F7]',
+    bgHover: 'hover:border-[#7C6CF2]/40 hover:bg-[#7C6CF2]/4',
+    badge: 'NEU',
+  },
 ];
 
 const ModeSelection: React.FC<ModeSelectionProps> = ({ onSelect }) => {
@@ -46,7 +57,7 @@ const ModeSelection: React.FC<ModeSelectionProps> = ({ onSelect }) => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {modes.map((mode, i) => {
           const Icon = mode.icon;
           return (
@@ -58,6 +69,14 @@ const ModeSelection: React.FC<ModeSelectionProps> = ({ onSelect }) => {
               onClick={() => onSelect(mode.id)}
               className={`group relative p-6 rounded-[var(--vektrus-radius-lg)] border-2 border-[rgba(73,183,227,0.18)] bg-white text-left transition-all duration-300 hover:scale-[1.02] hover:shadow-lg ${mode.bgHover}`}
             >
+              {'badge' in mode && mode.badge && (
+                <span
+                  className="absolute top-3 right-3 text-[10px] font-bold tracking-wide px-2.5 py-0.5 rounded-full text-white"
+                  style={{ backgroundColor: 'var(--vektrus-blue)' }}
+                >
+                  {mode.badge}
+                </span>
+              )}
               <div
                 className={`w-14 h-14 rounded-[var(--vektrus-radius-lg)] bg-gradient-to-br ${mode.gradient} flex items-center justify-center mb-5 shadow-md group-hover:shadow-lg transition-shadow`}
               >
