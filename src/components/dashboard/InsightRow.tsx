@@ -9,7 +9,7 @@ import {
   BarChart3,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import type { BriefingData, DashboardData } from '../../hooks/useDashboardData';
+import type { BriefingData, DashboardData, TopPost } from '../../hooks/useDashboardData';
 
 /* ================================================================
    Insight types
@@ -20,6 +20,7 @@ interface Insight {
   icon: React.FC<{ size?: number; strokeWidth?: number; className?: string }>;
   title: string;
   text: string;
+  preview?: string;
   cta: { label: string; route: string };
 }
 
@@ -28,14 +29,14 @@ interface Insight {
    ================================================================ */
 
 function deriveInsights(data: DashboardData): Insight[] {
-  const { briefing, nextSteps } = data;
+  const { briefing, nextSteps, topPost } = data;
   const insights: Insight[] = [];
 
   /* ── 1. Warning / Gap ────────────────────────────────────────── */
   insights.push(deriveWarning(briefing, nextSteps));
 
   /* ── 2. Winner / Success ─────────────────────────────────────── */
-  insights.push(deriveWinner(briefing));
+  insights.push(deriveWinner(briefing, topPost));
 
   /* ── 3. Strategic Next Step ──────────────────────────────────── */
   insights.push(deriveNextStep(briefing, nextSteps));
@@ -90,10 +91,34 @@ function deriveWarning(
   };
 }
 
-function deriveWinner(briefing: BriefingData): Insight {
-  const bp = briefing.bestPlatform;
+function formatReachGerman(n: number): string {
+  if (n >= 1000000) return `${(n / 1000000).toFixed(1).replace('.', ',')}M`;
+  if (n >= 1000) return n.toLocaleString('de-DE');
+  return String(n);
+}
 
-  // Best platform with ER data → actionable: create more content for that channel
+function deriveWinner(briefing: BriefingData, topPost?: TopPost): Insight {
+  // Top post available → show concrete best post with text preview
+  if (topPost) {
+    const reachStr = topPost.reach > 0 ? ` · ${formatReachGerman(topPost.reach)} Reichweite` : '';
+    const preview = topPost.contentText
+      ? topPost.contentText.length > 60
+        ? topPost.contentText.slice(0, 60).trimEnd() + '…'
+        : topPost.contentText
+      : undefined;
+
+    return {
+      type: 'winner',
+      icon: Trophy,
+      title: `Top-Post: ${topPost.platform}`,
+      text: `${topPost.engagementRate.toFixed(1).replace('.', ',')}% Engagement${reachStr}`,
+      preview,
+      cta: { label: 'Mehr Content planen', route: '/pulse' },
+    };
+  }
+
+  // Fallback: best platform from briefing (platform-level, not post-level)
+  const bp = briefing.bestPlatform;
   const erValue = bp.er ? bp.er.replace(/%$/, '') : '';
   if (bp.name !== '\u2013' && bp.er) {
     return {
@@ -116,7 +141,7 @@ function deriveWinner(briefing: BriefingData): Insight {
     };
   }
 
-  // No win to celebrate yet → honest framing, not fake positivity
+  // No win to celebrate yet
   return {
     type: 'winner',
     icon: BarChart3,
@@ -236,9 +261,18 @@ const InsightCard: React.FC<InsightCardProps> = ({ insight, visible, delay }) =>
       </div>
 
       {/* Body text */}
-      <p className="text-[13px] leading-relaxed text-[#7A7A7A] mb-4 flex-1">
+      <p className="text-[13px] leading-relaxed text-[#7A7A7A] mb-1 flex-1">
         {insight.text}
       </p>
+
+      {/* Optional preview (e.g. top post text) */}
+      {insight.preview && (
+        <p className="text-xs text-[#7A7A7A] leading-relaxed mb-3 truncate" title={insight.preview}>
+          „{insight.preview}"
+        </p>
+      )}
+
+      {!insight.preview && <div className="mb-3" />}
 
       {/* CTA */}
       <button

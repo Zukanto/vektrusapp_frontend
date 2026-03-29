@@ -68,8 +68,23 @@ const PlatformRow: React.FC<PlatformRowProps> = ({ stat, maxReach, visible, dela
       {/* Metrics */}
       <div className="flex items-center gap-4 flex-shrink-0 ml-2">
         <div className="text-right">
-          <div className="text-[13px] font-semibold text-[#111111] tabular-nums">
-            {stat.avgEr > 0 ? `${stat.avgEr}%` : '\u2013'}
+          <div className="flex items-center justify-end gap-1">
+            <span className="text-[13px] font-semibold text-[#111111] tabular-nums">
+              {stat.avgEr > 0 ? `${stat.avgEr}%` : '\u2013'}
+            </span>
+            {stat.avgEr > 0 && stat.previousAvgEr != null && stat.posts >= 3 && (() => {
+              const delta = stat.avgEr - stat.previousAvgEr;
+              if (Math.abs(delta) < 0.1) return null;
+              const isPositive = delta > 0;
+              return (
+                <span
+                  className="text-[10px] font-medium tabular-nums"
+                  style={{ color: isPositive ? '#49D69E' : '#FA7E70' }}
+                >
+                  {isPositive ? '▲' : '▼'} {isPositive ? '+' : ''}{delta.toFixed(1).replace('.', ',')}
+                </span>
+              );
+            })()}
           </div>
           <div className="text-[10px] text-[#7A7A7A] leading-none">ER</div>
         </div>

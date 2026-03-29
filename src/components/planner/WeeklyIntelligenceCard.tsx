@@ -3,10 +3,12 @@ import {
   Zap, CheckCircle, AlertCircle, Sparkles, Target,
   ChevronUp, ChevronDown, ArrowRight, Lightbulb,
   Megaphone, Heart, DollarSign, Rocket, Users,
-  Layers, Hash, Minus, Plus, X, Clock, Calendar
+  Layers, Hash, Minus, Plus, X, Clock, Calendar,
+  TrendingUp, TrendingDown, BarChart3
 } from 'lucide-react';
 import { ContentSlot, PlannerContext, ContentPillar } from './types';
 import SocialIcon from '../ui/SocialIcon';
+import type { PlannerPerformanceData } from '../../hooks/usePlannerPerformance';
 
 interface WeeklyIntelligenceCardProps {
   contentSlots: ContentSlot[];
@@ -16,6 +18,7 @@ interface WeeklyIntelligenceCardProps {
   onNavigatePulse: () => void;
   onFillGaps: () => void;
   onApproveAll: () => void;
+  performanceData?: PlannerPerformanceData | null;
 }
 
 // --- Config ---
@@ -46,7 +49,7 @@ const PILLAR_LABELS: Record<ContentPillar, string> = {
 // --- Analysis ---
 
 interface GapInsight {
-  type: 'platform_gap' | 'pillar_imbalance' | 'funnel_gap' | 'format_gap' | 'frequency_gap' | 'drafts_pending';
+  type: 'platform_gap' | 'pillar_imbalance' | 'funnel_gap' | 'format_gap' | 'frequency_gap' | 'drafts_pending' | 'performance';
   severity: 'high' | 'medium' | 'low';
   label: string;
   detail: string;
@@ -63,7 +66,7 @@ function getWeekStart(date: Date) {
   return d;
 }
 
-function analyzeWeek(weekSlots: ContentSlot[], context: PlannerContext): GapInsight[] {
+function analyzeWeek(weekSlots: ContentSlot[], context: PlannerContext, performanceData?: PlannerPerformanceData | null): GapInsight[] {
   const insights: GapInsight[] = [];
   const recommended = context.frequency || 5;
   const actual = weekSlots.length;
@@ -235,6 +238,77 @@ function analyzeWeek(weekSlots: ContentSlot[], context: PlannerContext): GapInsi
     }
   }
 
+  // Performance-based insights (only with sufficient data)
+  if (performanceData && performanceData.totalPostsLast30Days >= 5) {
+    const perfInsights: GapInsight[] = [];
+
+    // a) Best platform recommendation
+    if (performanceData.bestPlatform) {
+      const bestP = performanceData.bestPlatform.name.toLowerCase();
+      const weekBestCount = platformCounts[bestP] || platformCounts[performanceData.bestPlatform.name] || 0;
+      const otherPlatformCounts = Object.entries(platformCounts).filter(([p]) => p.toLowerCase() !== bestP);
+      const hasMoreOnOthers = otherPlatformCounts.some(([, c]) => c > weekBestCount);
+
+      if (hasMoreOnOthers || (weekBestCount === 0 && actual > 0)) {
+        perfInsights.push({
+          type: 'performance',
+          severity: 'medium',
+          label: `${performanceData.bestPlatform.name} stärken`,
+          detail: `${performanceData.bestPlatform.name} hat ${performanceData.bestPlatform.avgEr}% Engagement — dein stärkster Kanal. Plane dort mehr Content.`,
+        });
+      }
+    }
+
+    // b) Weak platform hint
+    if (performanceData.worstPlatform && performanceData.bestPlatform &&
+        performanceData.bestPlatform.name !== performanceData.worstPlatform.name) {
+      const erDiff = performanceData.bestPlatform.avgEr - performanceData.worstPlatform.avgEr;
+      const worstP = performanceData.worstPlatform.name.toLowerCase();
+      const weekWorstCount = platformCounts[worstP] || platformCounts[performanceData.worstPlatform.name] || 0;
+
+      if (erDiff > 2 && weekWorstCount > 0) {
+        perfInsights.push({
+          type: 'performance',
+          severity: 'low',
+          label: `${performanceData.worstPlatform.name} optimieren`,
+          detail: `${performanceData.worstPlatform.name} hatte zuletzt nur ${performanceData.worstPlatform.avgEr}% Engagement. Teste dort ein anderes Format.`,
+        });
+      }
+    }
+
+    // c) Format recommendation
+    if (performanceData.bestFormat) {
+      const formatLabel: Record<string, string> = {
+        carousel: 'Carousel',
+        video: 'Video',
+        reel: 'Reel',
+        single_image: 'Bild',
+        text_only: 'Text',
+        story_teaser: 'Story',
+        story_standalone: 'Story',
+      };
+      const label = formatLabel[performanceData.bestFormat] || performanceData.bestFormat;
+      const weekHasFormat = weekSlots.some(s =>
+        s.contentType === performanceData.bestFormat ||
+        (performanceData.bestFormat === 'carousel' && s.contentType === 'carousel') ||
+        (performanceData.bestFormat === 'reel' && s.contentType === 'reel') ||
+        (performanceData.bestFormat === 'video' && s.contentType === 'reel')
+      );
+
+      if (!weekHasFormat && actual > 0) {
+        perfInsights.push({
+          type: 'performance',
+          severity: 'low',
+          label: `${label}-Post fehlt`,
+          detail: `${label}-Posts performen bei dir am besten. Diese Woche fehlt noch einer.`,
+        });
+      }
+    }
+
+    // Max 2 performance insights
+    insights.push(...perfInsights.slice(0, 2));
+  }
+
   return insights;
 }
 
@@ -248,6 +322,7 @@ const WeeklyIntelligenceCard: React.FC<WeeklyIntelligenceCardProps> = ({
   onNavigatePulse,
   onFillGaps,
   onApproveAll,
+  performanceData,
 }) => {
   const [isCollapsed, setIsCollapsed] = React.useState(false);
   const [showGoalPicker, setShowGoalPicker] = React.useState(false);
@@ -296,7 +371,7 @@ const WeeklyIntelligenceCard: React.FC<WeeklyIntelligenceCardProps> = ({
     return '#FA7E70';
   };
 
-  const insights = analyzeWeek(weekSlots, context);
+  const insights = analyzeWeek(weekSlots, context, performanceData);
   // Pick the single most important actionable insight
   const primaryInsight = insights.find(i => i.actionType && i.severity !== 'low') || insights.find(i => i.actionType);
   const secondaryInsights = insights.filter(i => i !== primaryInsight).slice(0, 2);

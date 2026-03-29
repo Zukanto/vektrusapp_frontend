@@ -35,11 +35,21 @@ export interface ContentMixItem {
   color: string;
 }
 
+export interface TopPost {
+  platform: string;
+  engagementRate: number;
+  reach: number;
+  contentFormat?: string;
+  publishedAt: string;
+  contentText?: string;
+}
+
 export interface PlatformStat {
   platform: string;
   posts: number;
   avgEr: number;
   totalReach: number;
+  previousAvgEr?: number;
 }
 
 export interface TaskItem {
@@ -58,6 +68,7 @@ export interface DashboardData {
   contentMix: ContentMixItem[];
   platformStats: PlatformStat[];
   tasks: TaskItem[];
+  topPost?: TopPost;
 }
 
 function formatRelativeDate(date: Date): string {
@@ -129,7 +140,10 @@ function buildContentMix(rows: { platform: string }[]): ContentMixItem[] {
     }));
 }
 
-function buildPlatformStats(rows: { platform: string; engagement_rate: number | null; reach: number | null }[]): PlatformStat[] {
+function buildPlatformStats(
+  rows: { platform: string; engagement_rate: number | null; reach: number | null }[],
+  prevRows?: { platform: string; engagement_rate: number | null }[],
+): PlatformStat[] {
   if (!rows.length) return [];
   const groups: Record<string, { ers: number[]; reaches: number[]; count: number }> = {};
   for (const r of rows) {
@@ -139,14 +153,33 @@ function buildPlatformStats(rows: { platform: string; engagement_rate: number | 
     if (r.engagement_rate != null) groups[p].ers.push(r.engagement_rate);
     if (r.reach != null) groups[p].reaches.push(r.reach);
   }
+
+  // Build previous period averages per platform
+  const prevGroups: Record<string, { ers: number[]; count: number }> = {};
+  if (prevRows) {
+    for (const r of prevRows) {
+      const p = (r.platform || 'other').toLowerCase();
+      if (!prevGroups[p]) prevGroups[p] = { ers: [], count: 0 };
+      prevGroups[p].count++;
+      if (r.engagement_rate != null) prevGroups[p].ers.push(r.engagement_rate);
+    }
+  }
+
   return Object.entries(groups)
     .sort((a, b) => b[1].count - a[1].count)
-    .map(([p, g]) => ({
-      platform: capitalize(p),
-      posts: g.count,
-      avgEr: g.ers.length ? parseFloat((g.ers.reduce((a, b) => a + b, 0) / g.ers.length).toFixed(1)) : 0,
-      totalReach: g.reaches.reduce((a, b) => a + b, 0),
-    }));
+    .map(([p, g]) => {
+      const prev = prevGroups[p];
+      const prevAvgEr = prev && prev.ers.length >= 3
+        ? parseFloat((prev.ers.reduce((a, b) => a + b, 0) / prev.ers.length).toFixed(1))
+        : undefined;
+      return {
+        platform: capitalize(p),
+        posts: g.count,
+        avgEr: g.ers.length ? parseFloat((g.ers.reduce((a, b) => a + b, 0) / g.ers.length).toFixed(1)) : 0,
+        totalReach: g.reaches.reduce((a, b) => a + b, 0),
+        previousAvgEr: prevAvgEr,
+      };
+    });
 }
 
 function buildTasks(
@@ -243,8 +276,9 @@ export function useDashboardData() {
 
         const userId = session.user.id;
         const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
+        const sixtyDaysAgo = new Date(Date.now() - 60 * 86400000).toISOString();
 
-        const [cacheResult, userResult, pulseResult, mixResult, analyticsResult, draftsResult, brandResult] = await Promise.all([
+        const [cacheResult, userResult, pulseResult, mixResult, analyticsResult, draftsResult, brandResult, topPostResult, prevAnalyticsResult] = await Promise.all([
           supabase
             .from('dashboard_cache')
             .select('*')
@@ -289,6 +323,23 @@ export function useDashboardData() {
             .from('brand_profiles')
             .select('id', { count: 'exact', head: true })
             .eq('user_id', userId),
+          // Top post: best ER in last 30 days with text preview
+          supabase
+            .from('post_analytics')
+            .select('platform, engagement_rate, reach, content_text, content_format, published_at')
+            .eq('user_id', userId)
+            .gte('published_at', thirtyDaysAgo)
+            .not('engagement_rate', 'is', null)
+            .order('engagement_rate', { ascending: false })
+            .limit(1),
+          // Previous period analytics (31-60 days) for ER trend comparison
+          supabase
+            .from('post_analytics')
+            .select('platform, engagement_rate')
+            .eq('user_id', userId)
+            .gte('published_at', sixtyDaysAgo)
+            .lt('published_at', thirtyDaysAgo)
+            .limit(100),
         ]);
 
         const cache = cacheResult.data;
@@ -301,7 +352,21 @@ export function useDashboardData() {
         const analyticsRows = (analyticsResult.data || []) as { platform: string; engagement_rate: number | null; reach: number | null }[];
         const draftRows = (draftsResult.data || []) as { id: string; platform: string; created_at: string }[];
         const hasBrandProfile = (brandResult.count ?? 0) > 0;
-        const computedPlatformStats = buildPlatformStats(analyticsRows);
+        const prevAnalyticsRows = (prevAnalyticsResult.data || []) as { platform: string; engagement_rate: number | null }[];
+        const computedPlatformStats = buildPlatformStats(analyticsRows, prevAnalyticsRows);
+
+        // Build top post
+        const topPostRow = (topPostResult.data || [])[0] as { platform: string; engagement_rate: number; reach: number; content_text: string | null; content_format: string | null; published_at: string } | undefined;
+        const topPost: TopPost | undefined = topPostRow && topPostRow.engagement_rate > 0
+          ? {
+              platform: capitalize(topPostRow.platform || 'other'),
+              engagementRate: parseFloat(topPostRow.engagement_rate.toFixed(1)),
+              reach: topPostRow.reach || 0,
+              contentFormat: topPostRow.content_format || undefined,
+              publishedAt: topPostRow.published_at,
+              contentText: topPostRow.content_text || undefined,
+            }
+          : undefined;
 
         if (!cache) {
           setData({
@@ -311,6 +376,7 @@ export function useDashboardData() {
             contentMix: buildContentMix(mixRows),
             platformStats: computedPlatformStats,
             tasks: buildTasks(draftRows, hasBrandProfile, computedPlatformStats.length > 0),
+            topPost,
           });
           setLoading(false);
           return;
@@ -395,6 +461,7 @@ export function useDashboardData() {
           contentMix: buildContentMix(mixRows),
           platformStats: computedPlatformStats,
           tasks: buildTasks(draftRows, hasBrandProfile, computedPlatformStats.length > 0),
+          topPost,
         });
       } catch (err) {
         console.error('Dashboard load error:', err);

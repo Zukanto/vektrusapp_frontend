@@ -17,6 +17,7 @@ import { useConnectedPlatforms } from '../../hooks/useConnectedPlatforms';
 import { usePulseGeneration } from '../../hooks/usePulseGeneration';
 import PulseEntryModal from './PulseEntryModal';
 import { PlannerTutorial } from '../OnboardingTour';
+import { usePlannerPerformance } from '../../hooks/usePlannerPerformance';
 
 const ContentPlanner: React.FC = () => {
   const [selectedWeek, setSelectedWeek] = useState(() => {
@@ -45,6 +46,7 @@ const ContentPlanner: React.FC = () => {
   const { selectedMedia, triggerPostCreation, clearSelection } = useMediaInsert();
   const { connectedPlatforms, isLoading: isPlatformsLoading, hasError: platformsError, retry: retryPlatforms } = useConnectedPlatforms();
   const pulse = usePulseGeneration();
+  const { performanceData } = usePlannerPerformance();
   const [showPulseEntry, setShowPulseEntry] = useState(false);
   const loadRequestId = useRef(0);
   const realtimeUnsub = useRef<(() => void) | null>(null);
@@ -595,6 +597,7 @@ const ContentPlanner: React.FC = () => {
             onNavigatePulse={openPulseFromPlanner}
             onFillGaps={handleFillGaps}
             onApproveAll={handleApproveAllDrafts}
+            performanceData={performanceData}
           />
         )}
 
