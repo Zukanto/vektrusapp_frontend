@@ -65,17 +65,51 @@ const MediaPage: React.FC<MediaPageProps> = ({ onModuleChange }) => {
     setLoadError(false);
 
     try {
-      const { data, error } = await supabase
-        .from('media_files')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
+      // Load media_files + finished vision_projects with video_url in parallel
+      const [mediaResult, visionResult] = await Promise.all([
+        supabase
+          .from('media_files')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('vision_projects')
+          .select('id, user_id, product_name, video_url, created_at, status')
+          .eq('user_id', user.id)
+          .eq('status', 'finished')
+          .not('video_url', 'is', null)
+          .order('created_at', { ascending: false }),
+      ]);
 
-      if (error) {
-        console.error('Error loading media:', error);
+      if (mediaResult.error) {
+        console.error('Error loading media:', mediaResult.error);
         setLoadError(true);
       } else {
-        setMediaItems(data || []);
+        const mediaFiles: MediaItem[] = mediaResult.data || [];
+
+        // Map vision videos to MediaItem shape
+        const visionVideos: MediaItem[] = (visionResult.data || [])
+          .filter((v: any) => v.video_url)
+          .map((v: any) => ({
+            id: `vision-${v.id}`,
+            user_id: v.user_id,
+            filename: v.product_name || 'Vision Video',
+            file_type: 'video/mp4',
+            public_url: v.video_url,
+            storage_path: '',
+            generated_by: 'ai-video',
+            generation_prompt: v.product_name || null,
+            source: 'ai_generated',
+            file_size: null,
+            created_at: v.created_at,
+          }));
+
+        // Merge and sort by created_at DESC
+        const merged = [...mediaFiles, ...visionVideos].sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+
+        setMediaItems(merged);
       }
     } catch (error) {
       console.error('Error loading media:', error);
@@ -173,28 +207,38 @@ const MediaPage: React.FC<MediaPageProps> = ({ onModuleChange }) => {
     setDeleteConfirmId(null);
 
     try {
-      const isVideo = mediaToDelete.file_type.startsWith('video/');
-      const bucket = isVideo ? 'temp-videos' : 'user-images';
+      // Vision videos (id starts with "vision-") are managed by vision_projects, not media_files
+      const isVisionVideo = mediaId.startsWith('vision-');
 
-      const { error: storageError } = await supabase.storage
-        .from(bucket)
-        .remove([mediaToDelete.storage_path]);
+      if (isVisionVideo) {
+        // Remove from local state only — Vision videos are managed in Vision module
+        setMediaItems(prev => prev.filter(item => item.id !== mediaId));
+      } else {
+        const isVideo = mediaToDelete.file_type.startsWith('video/');
+        const bucket = isVideo ? 'temp-videos' : 'user-images';
 
-      if (storageError) {
-        console.error('Error deleting from storage:', storageError);
+        if (mediaToDelete.storage_path) {
+          const { error: storageError } = await supabase.storage
+            .from(bucket)
+            .remove([mediaToDelete.storage_path]);
+
+          if (storageError) {
+            console.error('Error deleting from storage:', storageError);
+          }
+        }
+
+        const { error: dbError } = await supabase
+          .from('media_files')
+          .delete()
+          .eq('id', mediaId);
+
+        if (dbError) {
+          console.error('Error deleting from database:', dbError);
+          return;
+        }
+
+        setMediaItems(prev => prev.filter(item => item.id !== mediaId));
       }
-
-      const { error: dbError } = await supabase
-        .from('media_files')
-        .delete()
-        .eq('id', mediaId);
-
-      if (dbError) {
-        console.error('Error deleting from database:', dbError);
-        return;
-      }
-
-      setMediaItems(prev => prev.filter(item => item.id !== mediaId));
 
       if (selectedMediaLocal?.id === mediaId) {
         setShowDetailSidebar(false);

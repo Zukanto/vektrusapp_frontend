@@ -22,7 +22,7 @@ interface ReelWizardData {
 }
 
 const PLATFORM_OPTIONS = [
-  { id: 'instagram', label: 'Instagram Reels' },
+  { id: 'instagram', label: 'Instagram' },
   { id: 'tiktok', label: 'TikTok' },
   { id: 'youtube_shorts', label: 'YouTube Shorts' },
 ];
@@ -49,7 +49,7 @@ const DIFFICULTY_OPTIONS = [
 ];
 
 const GENERATING_PHASES = [
-  'Reel-Konzepte werden entwickelt...',
+  'Video-Konzepte werden entwickelt...',
   'Hook-Strategien werden analysiert...',
   'Szenenplan wird erstellt...',
   'Voiceover-Skripte werden formuliert...',
@@ -189,8 +189,8 @@ const ReelWizard: React.FC<ReelWizardProps> = ({ onClose, onBack }) => {
   };
 
   const getSubtitle = () => {
-    if (phase === 'generating' && !error) return 'Reel-Konzepte werden generiert...';
-    if (phase === 'results') return `${results.length} Reel-Konzepte erstellt`;
+    if (phase === 'generating' && !error) return 'Video-Konzepte werden generiert...';
+    if (phase === 'results') return `${results.length} Video-Konzepte erstellt`;
     return `Schritt ${currentStep + 1} von 3 \u2014 ${stepTitles[currentStep]}`;
   };
 
@@ -225,7 +225,7 @@ const ReelWizard: React.FC<ReelWizardProps> = ({ onClose, onBack }) => {
               </div>
               <div>
                 <h2 className="text-lg font-bold text-[#111111] font-manrope">
-                  Pulse Reels
+                  Pulse Video
                 </h2>
                 <p className={`text-xs ${subtitleColor()}`}>
                   {getSubtitle()}
@@ -330,14 +330,14 @@ const ReelWizard: React.FC<ReelWizardProps> = ({ onClose, onBack }) => {
                     Thema & Umfang
                   </h3>
                   <p className="text-sm text-[#7A7A7A]">
-                    Beschreibe, worum es in deinen Reels gehen soll.
+                    Beschreibe, worum es in deinen Videos gehen soll.
                   </p>
                 </div>
 
                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-semibold text-[#111111] mb-1.5">
-                      Worüber soll das Reel sein? *
+                      Worüber soll das Video sein? *
                     </label>
                     <textarea
                       value={data.theme}
@@ -364,7 +364,7 @@ const ReelWizard: React.FC<ReelWizardProps> = ({ onClose, onBack }) => {
 
                   <div>
                     <label className="block text-sm font-semibold text-[#111111] mb-3">
-                      Anzahl Reels
+                      Anzahl Videos
                     </label>
                     <div className="flex gap-2">
                       {[1, 2, 3, 4].map(n => (
@@ -403,7 +403,7 @@ const ReelWizard: React.FC<ReelWizardProps> = ({ onClose, onBack }) => {
                     Stil & Schwierigkeitsgrad
                   </h3>
                   <p className="text-sm text-[#7A7A7A]">
-                    Wie aufwändig sollen die Reels sein?
+                    Wie aufwändig sollen die Videos sein?
                   </p>
                 </div>
 
@@ -450,7 +450,7 @@ const ReelWizard: React.FC<ReelWizardProps> = ({ onClose, onBack }) => {
                       </p>
                       <p className="text-xs text-[#7A7A7A] mt-0.5">
                         {data.show_face
-                          ? 'Talking-Head-Reels performen oft besser, sind aber nicht für jeden geeignet.'
+                          ? 'Talking-Head-Videos performen oft besser, sind aber nicht für jeden geeignet.'
                           : 'Wir wählen Formate die ohne Gesicht funktionieren.'
                         }
                       </p>
@@ -633,7 +633,7 @@ const ReelWizard: React.FC<ReelWizardProps> = ({ onClose, onBack }) => {
                 }}
               >
                 <Sparkles className="w-4 h-4" />
-                <span>Reels generieren</span>
+                <span>Videos generieren</span>
               </button>
             )}
           </div>

@@ -1,7 +1,240 @@
 # Vektrus App Frontend — Handoff für den nächsten Chat
 
-**Stand:** 2026-03-29
-**Kontext:** AP-01 bis AP-08 vollstaendig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik. **Posting Popup Redesign Phase 1 + Phase 2 + QA Pass abgeschlossen. Chat-to-Planner Handoff V1 + Corrective Pass + QA Pass + Single-Caption Bugfix + QA + Robustness Pass + Robustness QA Pass abgeschlossen. Composer Handoff V2 (Three-State Model + Source-Material Mode) implementiert. Help-Seite Workstream Phase 1 (Audit + Zielarchitektur) + Phase 2 (Implementierung) + Corrective Pass + QA Pass + Finaler Visual QA Pass abgeschlossen. Help Updates-Layer (Produkt-Updates + Transparenz) implementiert. Onboarding Wizard komplett implementiert (Session 1 + Session 2: alle 4 Schritte, OAuth, Completion, Step-Resume, SignUp-Redirect). Onboarding Design Polish Pass abgeschlossen (Premium UI, Framer Motion Transitions, Custom Slider/Dropdown/Tags). SignUpFlow Visual Polish Pass abgeschlossen (Design-Konsistenz mit Onboarding-Wizard). Onboarding OAuth-Callback Sync Bugfix abgeschlossen. Pulse Reels — Session 1 (Frontend) abgeschlossen. Pulse Reels — Session 2 (Design Polish + Brand Icons) abgeschlossen.**
+**Stand:** 2026-03-30
+**Kontext:** AP-01 bis AP-08 vollstaendig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik. **Posting Popup Redesign Phase 1 + Phase 2 + QA Pass abgeschlossen. Chat-to-Planner Handoff V1 + Corrective Pass + QA Pass + Single-Caption Bugfix + QA + Robustness Pass + Robustness QA Pass abgeschlossen. Composer Handoff V2 (Three-State Model + Source-Material Mode) implementiert. Help-Seite Workstream Phase 1 (Audit + Zielarchitektur) + Phase 2 (Implementierung) + Corrective Pass + QA Pass + Finaler Visual QA Pass abgeschlossen. Help Updates-Layer (Produkt-Updates + Transparenz) implementiert. Onboarding Wizard komplett implementiert (Session 1 + Session 2: alle 4 Schritte, OAuth, Completion, Step-Resume, SignUp-Redirect). Onboarding Design Polish Pass abgeschlossen (Premium UI, Framer Motion Transitions, Custom Slider/Dropdown/Tags). SignUpFlow Visual Polish Pass abgeschlossen (Design-Konsistenz mit Onboarding-Wizard). Onboarding OAuth-Callback Sync Bugfix abgeschlossen. Pulse Reels — Session 1 (Frontend) abgeschlossen. Pulse Reels — Session 2 (Design Polish + Brand Icons) abgeschlossen. Vision Rebranding — Session 3 (Video-Werkstatt) abgeschlossen. Vision Session 3 — Corrective Pass abgeschlossen. Vision — Fix Pass (Pulse Button + Thumbnail Webhook) abgeschlossen. Vision & Pulse — Fix Pass (Image Advanced + Label-Rename) abgeschlossen. Vision B-Roll — Funktional machen + Bild-Upload abgeschlossen. Vision B-Roll — Videos in Vision Tab + Mediathek anzeigen abgeschlossen.**
+
+---
+
+## Vision B-Roll — Videos in Vision Tab + Mediathek anzeigen
+
+**Stand:** 2026-03-30
+**Status: Abgeschlossen.**
+
+### Problem 1: Vision Tab Model-Filter
+`VisionPage.tsx`: Model-Filter normalisiert jetzt `'veo'` und `'veo_image'` zu `'Veo 3.1'` — neue B-Roll-Projekte werden nicht mehr vom Filter ausgeblendet.
+
+### Problem 2: Mediathek zeigt Vision-Videos
+`MediaPage.tsx`: `loadMedia()` lädt jetzt parallel `media_files` UND `vision_projects` (status=finished, video_url nicht null). Vision-Videos werden als virtuelle MediaItems mit Prefix `vision-` in die Liste gemerged. Delete-Logik erkennt Vision-Videos (id.startsWith('vision-')) und entfernt sie nur aus dem lokalen State, ohne DB/Storage-Delete.
+
+### Geänderte Dateien
+
+| Datei | Änderung |
+|---|---|
+| `src/components/vision/VisionPage.tsx` | `normalizeModel()` Funktion: 'veo'/'veo_image' → 'Veo 3.1' im Filter |
+| `src/components/media/MediaPage.tsx` | `loadMedia()`: zusätzliche Query auf `vision_projects` (finished + video_url), Merge als MediaItems. Delete-Handler: Vision-Videos nur lokal entfernen |
+
+---
+
+## Vision B-Roll — Funktional machen + Bild-Upload
+
+**Stand:** 2026-03-30
+**Status: Abgeschlossen.**
+
+### Umfang
+VisionBRollStudio komplett neu geschrieben: von einer Kopie des alten VisionCreatorWizard (4-Step Wizard, alter `/webhook/vektrus-vision` Endpoint) zu einem funktionalen B-Roll-Generator mit eigenem Formular, Bild-Upload, neuem Webhook, Polling und Video-Preview.
+
+### Neuer Webhook
+- **Endpoint:** `POST /webhook/vektrus-vision-broll` via `callN8n()`
+- **Alter Endpoint** `/webhook/vektrus-vision` wird NICHT mehr vom B-Roll Studio verwendet
+- **Payload:** `{ user_id, vision_project_id, clip_description, clip_duration, clip_purpose, reel_concept_id?, reference_images? }`
+
+### Formular-Felder
+| Feld | Typ | Pflicht | Details |
+|---|---|---|---|
+| clip_description | Textarea | Ja (min 5 Zeichen) | Szenenbeschreibung, max 500 Zeichen |
+| clip_duration | Segmented Control | Ja | 4s / 6s / 8s, Default: 6s |
+| clip_purpose | Segmented Control | Ja | B-Roll / Intro / Outro / Transition, Default: B-Roll |
+| Reel-Kontext | Dropdown | Nein | Lädt Video-Konzepte aus `pulse_generated_content` (source=pulse_reels) |
+| Referenzbilder | Upload-Zone | Nein | Max 2, max 8MB, JPG/PNG/WebP |
+
+### Bild-Upload
+- **Bucket:** `user-images` (Pfad: `vision/{user_id}/reference/...`)
+- **Pfad:** `{user_id}/reference/{timestamp}_{filename}`
+- **Upload** erfolgt VOR Webhook-Call — URLs gehen ins `reference_images` Array
+- 0 Bilder → Text-to-Video, 1 Bild → Image-to-Video (Start), 2 Bilder → Image-to-Video (Start+Ende)
+- Start/Ende-Label auf Bild-Vorschauen
+
+### Phasen-Modell
+| Phase | UI |
+|---|---|
+| form | Formular mit allen Feldern + Submit-Button |
+| processing | Pulse Gradient Glow, Shimmer-Progress, Polling alle 5s |
+| finished | Video-Player mit Download + „Neuen Clip erstellen" |
+| error | Fehlermeldung mit Retry-Button |
+
+### Status-Handling
+- `finished` → Video-Preview mit `video_url`
+- `failed_timeout` → „Die Generierung hat zu lange gedauert"
+- `failed_generation` → „Die Video-Generierung ist fehlgeschlagen"
+- `failed_download` → „Das Video konnte nicht gespeichert werden"
+- Alle `failed_*` → Retry-Button
+
+### Geänderte Dateien
+
+| Datei | Änderung |
+|---|---|
+| `src/components/vision/VisionBRollStudio.tsx` | Komplett neu: Formular (clip_description, duration, purpose, reel-dropdown, Bild-Upload), callN8n('vektrus-vision-broll'), 4-Phasen-Modell (form→processing→finished→error), Polling auf vision_projects |
+| `src/components/vision/types.ts` | VisionProject.status um `failed_timeout/failed_generation/failed_download` erweitert, `clip_purpose` und `generation_mode` Felder hinzugefügt |
+| `src/components/vision/VisionProjectList.tsx` | Status-Badges für `failed_*` States, `clip_purpose` Badge (B-Roll/Intro/Outro/Transition), `generation_mode` Badge (Text→Video / Bild→Video), `veo` → `Veo 3.1` Normalisierung |
+| `src/components/vision/VisionPage.tsx` | Status-Filter: `failed` matcht jetzt alle `failed*` Prefixe |
+
+### Nicht geändert
+- VisionCreatorWizard.tsx — unverändert (alter Workflow, weiter über Videos-Tab erreichbar)
+- VisionReelConceptView.tsx — unverändert
+- VisionThumbnailGenerator.tsx — unverändert
+- n8n.ts — unverändert (callN8n bereits korrekt)
+- Routing — unverändert (B-Roll Route existierte bereits)
+
+### Risiken / Offene Punkte
+- `vision_projects` Tabelle muss `clip_purpose` und `generation_mode` Spalten haben (JSONB oder String) — falls nicht, ignoriert Supabase die Felder beim INSERT ohne Fehler, aber die Werte gehen verloren
+- Bucket `user-images` wird für Vision-Referenzbilder genutzt (Pfad: `vision/{user_id}/reference/...`)
+- Polling-Intervall: 5s — bei hoher Last ggf. auf 10s erhöhen
+
+---
+
+## Vision & Pulse — Fix Pass (Image Advanced + Label-Rename)
+
+**Stand:** 2026-03-30
+**Status: Abgeschlossen.**
+
+### Fix 1 — „Reels" → „Video" Label-Rename
+Alle user-facing Vorkommen von „Reels" / „Reel" in UI-Copy zu „Video" / „Videos" umbenannt. Betrifft: Mode-Cards, Wizard-Header, Step-Labels, Generating-Phasen, CTA-Buttons, Results-Header, Empty States, Tabs, Breadcrumbs, Toasts. Interne Variablennamen, Typen, Dateinamen, DB-Felder unverändert.
+
+### Fix 2 — Thumbnail Generator: Image Advanced
+- Workflow gewechselt: `vektrus-image-simple` → `vektrus-image-advanced`
+- Payload erweitert: `use_brand_ci: true`, `platform: 'instagram'` hinzugefügt
+- Response-Pfad: `response.data.image_url` → `response.data.images[0].image_url`
+- Manuelle Brand-Farben-Ladung aus `brand_profiles` entfernt (Workflow übernimmt CI intern)
+- Unused imports bereinigt (`supabase`, `useEffect`, `useAuth`)
+
+### Geänderte Dateien
+
+| Datei | Änderung |
+|---|---|
+| `src/components/pulse/PulsePage.tsx` | Mode-Label + Card-Titel/Beschreibung: Reels → Video |
+| `src/components/planner/wizard/ModeSelection.tsx` | Mode-Card: Reels → Video |
+| `src/components/pulse/reels/ReelWizard.tsx` | 11 UI-Labels: Header, Steps, Buttons, Phasen |
+| `src/components/pulse/reels/ReelResultsView.tsx` | Header + Empty State: Reel-Konzepte → Video-Konzepte |
+| `src/components/vision/VisionPage.tsx` | Tab-Label, Subtitle, Empty State |
+| `src/components/vision/VisionReelConceptView.tsx` | Breadcrumb, Toasts, Modal-Texte, Fehler-States |
+| `src/components/vision/VisionThumbnailGenerator.tsx` | Image Advanced Workflow, Payload, Response-Pfad, Subtitle |
+
+---
+
+## Vision — Fix Pass (Pulse Button + Thumbnail Webhook)
+
+**Stand:** 2026-03-30
+**Status: Abgeschlossen.**
+
+### Fix 1 — Pulse Results: „In Vision öffnen" Button
+- `ReelConceptCard.tsx`: Disabled „In Planner übernehmen" Button entfernt. Ersetzt durch aktiven „In Vision öffnen" Button (`navigate(/vision/reel/${contentId})`). Neues Prop `contentId?: string` hinzugefügt. Fallback: disabled Button wenn keine `contentId` vorhanden.
+- `ReelResultsView.tsx`: Parst jetzt `{ id, content }` statt nur `content` aus Results-Array. Gibt `contentId={item.id}` an ReelConceptCard weiter.
+
+### Fix 2 — Thumbnail Webhook Endpoint
+- `VisionThumbnailGenerator.tsx`: `callN8n('r1OojhvUZv3o2EXl', ...)` → `callN8n('vektrus-image-simple', ...)`. Die Workflow-ID war der Test-Endpoint; `callN8n` baut die URL als `https://n8n.vektrus.ai/webhook/${endpoint}`, daher muss der Production-Pfad `vektrus-image-simple` verwendet werden.
+
+### Geänderte Dateien
+
+| Datei | Änderung |
+|---|---|
+| `src/components/pulse/reels/ReelConceptCard.tsx` | Neues Prop `contentId`, „In Vision öffnen" Button statt „In Planner übernehmen" |
+| `src/components/pulse/reels/ReelResultsView.tsx` | Record-ID durchreichen an ReelConceptCard |
+| `src/components/vision/VisionThumbnailGenerator.tsx` | Webhook-Endpoint korrigiert: `vektrus-image-simple` |
+
+---
+
+## Vision Session 3 — Corrective Pass
+
+**Stand:** 2026-03-30
+**Status: Abgeschlossen.**
+
+### Korrektur 1 — Thumbnail Response-Struktur
+`VisionThumbnailGenerator.tsx`: Überflüssigen Fallback `response?.image_url` entfernt. Response wird jetzt ausschließlich als `response.data.image_url` ausgelesen (bestätigte Webhook-Struktur). Duplizierte Toast-Logik bereinigt.
+
+### Korrektur 2 — Datenbankfelder `scheduled_date` und `status`
+**Ergebnis: Beide Felder existieren in `pulse_generated_content`.**
+- `CalendarService` nutzt `scheduled_date` für Abfragen (`.gte()`, `.lte()`) und Updates
+- `CalendarService.createPost()` insertet `scheduled_date` + `status`
+- `CalendarService.updatePost()` schreibt `scheduled_date` + `status`
+- Dashboard-Hooks filtern mit `.eq('status', 'draft')`
+- CalendarPost-Interface definiert: `scheduled_date: string`, `status: 'draft' | 'approved' | 'scheduled' | 'published' | 'failed'`
+- Die UPDATE-Logik in `VisionReelConceptView.tsx` ist damit kompatibel. Kein Handlungsbedarf.
+
+### Geänderte Dateien
+
+| Datei | Änderung |
+|---|---|
+| `src/components/vision/VisionThumbnailGenerator.tsx` | Response-Handling: nur `response.data.image_url`, Fallback entfernt |
+
+---
+
+## Vision Rebranding — Session 3 (Video-Werkstatt)
+
+**Stand:** 2026-03-30
+**Status: Abgeschlossen.**
+
+### Umfang
+Vision wurde von einem Einzweck-KI-Video-Generator zur **Video-Werkstatt** umgebaut. Neue Tab-basierte Landing Page, Detail-View für Reel-Konzepte aus Pulse, B-Roll Studio, Thumbnail Generator.
+
+### User Flow
+```
+Pulse Results → „In Vision öffnen" → /vision/reel/:contentId
+  → VisionReelConceptView (Storyboard + Tools)
+    → „In Planner übernehmen" / „B-Roll generieren" / „Thumbnail erstellen"
+```
+
+### Neue Routen
+
+| Route | Komponente | Beschreibung |
+|---|---|---|
+| `/vision` | VisionPage | Landing mit 4 Tabs (Reel-Konzepte, B-Roll, Thumbnails, Meine Videos) |
+| `/vision/reel/:contentId` | VisionReelConceptView | Detail-View für ein Reel-Konzept |
+| `/vision/b-roll` | VisionBRollStudio | B-Roll Creator (Wizard aus VisionCreatorWizard) |
+| `/vision/b-roll?reelId=:id` | VisionBRollStudio | B-Roll mit Reel-Kontext |
+| `/vision/thumbnails` | VisionThumbnailGenerator | Prompt-basierter Thumbnail-Generator |
+
+### Neue Dateien
+
+| Datei | Beschreibung |
+|---|---|
+| `src/components/vision/VisionRouter.tsx` | Sub-Router für Vision-Modul (reel/:contentId vor Wildcard) |
+| `src/components/vision/VisionReelConceptView.tsx` | Full-Page Detail-View: Storyboard, Hook, Szenen, Caption, Audio, Voiceover, Why-It-Works. Action-Panel: In Planner übernehmen (mit Datum/Uhrzeit-Modal), B-Roll generieren, Thumbnail erstellen, Dreh-Begleiter (Coming Soon), Neu generieren (Danger). Mobile: sticky CTA am Bottom. |
+| `src/components/vision/VisionBRollStudio.tsx` | 4-Step Wizard (identisch zu VisionCreatorWizard), als Page statt Modal. Liest optionalen `?reelId=` Query-Param und zeigt Reel-Kontext-Banner. n8n-Logik 100% unverändert (Workflow `vektrus-vision`). |
+| `src/components/vision/VisionThumbnailGenerator.tsx` | Prompt-basierter Generator mit Headline, Stil-Auswahl (3 Optionen), optionalem Kontext-Feld. Lädt Brand-Farben aus `brand_profiles`. Nutzt `callN8n('r1OojhvUZv3o2EXl')` (Image Simple, synchron). Pulse Gradient Glow bei Generierung (Ebene 1). |
+
+### Geänderte Dateien
+
+| Datei | Änderung |
+|---|---|
+| `src/routes.tsx` | `/vision` → `/vision/*` mit VisionRouter statt VisionPage |
+| `src/components/layout/AppLayout.tsx` | Vision-Modul-Erkennung für Sub-Routen (`/vision/*`) |
+| `src/components/vision/VisionPage.tsx` | Komplett-Redesign: Tab-basierte Landing (Reel-Konzepte, B-Roll, Thumbnails, Meine Videos). Reel-Konzepte Tab lädt aus `pulse_generated_content` mit `source = 'pulse_reels'` Filter. Grid-Karten mit Format-Badge, Difficulty, Szenenanzahl, Dauer. |
+| `src/components/vision/VisionProjectList.tsx` | Empty-State Label „Noch keine Videos", CTA „Video erstellen" |
+
+### Nicht geändert (bewusst)
+- `VisionCreatorWizard.tsx` — bleibt bestehen, wird weiter von VisionPage (Videos Tab) genutzt
+- `VisionHeader.tsx` — nicht mehr direkt genutzt, aber nicht gelöscht
+- `VisionVideoPreview.tsx` — unverändert, weiter im Videos Tab aktiv
+- `visionDemoData.ts` — unverändert
+- Alle Pulse-Komponenten (ReelWizard, ReelConceptCard, ReelResultsView) — unverändert
+- Content Planner — unverändert
+- n8n-Workflows — keine neuen Workflows
+
+### Design-Regeln eingehalten
+- Ebene 0: Tabs, Reel-Konzept-Liste, Storyboard, Action-Panel — flach, ruhig
+- Ebene 1: Planner-Modal (glass-modal), Thumbnail-Generierung (Pulse Gradient Glow)
+- Vision-Modul-Farbe `#EC4899` für Tab-Indikator, Header-Icon, Hover-States
+- Difficulty-Badge-Farben: einfach = `#49D69E`, mittel = `#F4BE9D` / `#c07a3a`, fortgeschritten = `#7C6CF2`
+- Token-System: shadow-subtle, shadow-card, shadow-elevated, vektrus-radius-md/lg, vektrus-mint
+- Manrope für Headlines, Inter für Body
+- Mobile: 1-Spalten-Layout, sticky CTA am Bottom in VisionReelConceptView
+
+### Offene Punkte / Risiken
+- Supabase-Query in VisionPage: `source = 'pulse_reels'` + Client-Filter `content.type === 'reel'` — funktioniert, wenn Pulse Reels korrekt tagged
+- Planner-Integration: UPDATE auf `pulse_generated_content` (scheduled_date, status) — Schema muss `scheduled_date` und `status` Felder haben
+- Thumbnail Generator: Response-Struktur von n8n Workflow `r1OojhvUZv3o2EXl` muss `image_url` oder `data.image_url` liefern
+- VisionCreatorWizard.tsx nicht gelöscht — Entscheidung nach erfolgreichem Test
+- VisionHeader.tsx wird nicht mehr direkt referenziert, kann in einem Cleanup entfernt werden
 
 ---
 

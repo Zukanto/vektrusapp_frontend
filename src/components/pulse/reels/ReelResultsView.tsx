@@ -17,14 +17,14 @@ interface ReelResultsViewProps {
 }
 
 const ReelResultsView: React.FC<ReelResultsViewProps> = ({ results, platforms }) => {
-  const reelContents: ReelContent[] = results
+  const reelItems: { id: string; content: ReelContent }[] = results
     .map(r => {
       const c = typeof r.content === 'string' ? (() => { try { return JSON.parse(r.content); } catch { return null; } })() : r.content;
-      return c;
+      return c ? { id: r.id, content: c } : null;
     })
-    .filter(Boolean);
+    .filter(Boolean) as { id: string; content: ReelContent }[];
 
-  if (reelContents.length === 0) {
+  if (reelItems.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
         <div
@@ -34,7 +34,7 @@ const ReelResultsView: React.FC<ReelResultsViewProps> = ({ results, platforms })
           <Clapperboard className="w-7 h-7" style={{ color: 'var(--vektrus-ai-violet)' }} />
         </div>
         <p className="text-[15px] font-semibold text-[var(--vektrus-anthrazit)] mb-1">
-          Keine Reel-Konzepte gefunden
+          Keine Video-Konzepte gefunden
         </p>
         <p className="text-sm text-[var(--vektrus-gray)]">
           Die Generierung hat keine verwertbaren Ergebnisse geliefert.
@@ -53,12 +53,12 @@ const ReelResultsView: React.FC<ReelResultsViewProps> = ({ results, platforms })
       >
         <div className="flex items-center gap-3 mb-1">
           <h3 className="text-xl font-bold text-[var(--vektrus-anthrazit)] font-manrope">
-            Deine Reel-Konzepte
+            Deine Video-Konzepte
           </h3>
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold text-white"
             style={{ backgroundColor: 'var(--vektrus-blue)' }}
           >
-            {reelContents.length}
+            {reelItems.length}
           </span>
         </div>
         <div className="flex items-center gap-2 mt-2">
@@ -77,8 +77,8 @@ const ReelResultsView: React.FC<ReelResultsViewProps> = ({ results, platforms })
 
       {/* Cards */}
       <div className="space-y-5">
-        {reelContents.map((content, i) => (
-          <ReelConceptCard key={i} content={content} index={i} />
+        {reelItems.map((item, i) => (
+          <ReelConceptCard key={item.id || i} content={item.content} index={i} contentId={item.id} />
         ))}
       </div>
     </div>

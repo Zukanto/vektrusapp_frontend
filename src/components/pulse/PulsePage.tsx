@@ -272,7 +272,7 @@ const PulsePage: React.FC<PulsePageProps> = ({ onModuleChange }) => {
 
   const getModeLabel = (mode?: string) => {
     if (mode === 'visual') return 'Visual';
-    if (mode === 'reels') return 'Reels';
+    if (mode === 'reels') return 'Video';
     return 'Themen-basiert';
   };
 
@@ -292,8 +292,8 @@ const PulsePage: React.FC<PulsePageProps> = ({ onModuleChange }) => {
     {
       id: 'reels',
       icon: Clapperboard,
-      title: 'Reels',
-      description: 'KI erstellt fertige Reel-Konzepte mit Szenenplan, Hook und Voiceover-Skript.',
+      title: 'Video',
+      description: 'KI erstellt fertige Video-Konzepte mit Szenenplan, Hook und Voiceover-Skript.',
       badge: 'NEU',
     },
   ];

@@ -32,9 +32,9 @@ const modes = [
   {
     id: 'reels' as PulseMode,
     icon: Clapperboard,
-    title: 'Reels',
-    subtitle: 'Reel-Konzepte mit KI erstellen',
-    description: 'KI erstellt fertige Reel-Konzepte mit Szenenplan, Hook und Voiceover-Skript.',
+    title: 'Video',
+    subtitle: 'Video-Konzepte mit KI erstellen',
+    description: 'KI erstellt fertige Video-Konzepte mit Szenenplan, Hook und Voiceover-Skript.',
     color: '#7C6CF2',
     gradient: 'from-[#7C6CF2] to-[#B6A8F7]',
     bgHover: 'hover:border-[#7C6CF2]/40 hover:bg-[#7C6CF2]/4',

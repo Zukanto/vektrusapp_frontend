@@ -8,8 +8,6 @@ import {
   Video as VideoIcon,
   Image as ImageIcon,
   MoreVertical,
-  Eye,
-  EyeOff,
 } from 'lucide-react';
 import { VisionProject } from './types';
 
@@ -25,8 +23,6 @@ interface VisionProjectListProps {
   onProjectClick: (p: VisionProject) => void;
   onDelete: (id: string) => void;
   onStartCreator: () => void;
-  showDemo: boolean;
-  onToggleDemo: () => void;
 }
 
 const VisionProjectList: React.FC<VisionProjectListProps> = ({
@@ -41,8 +37,6 @@ const VisionProjectList: React.FC<VisionProjectListProps> = ({
   onProjectClick,
   onDelete,
   onStartCreator,
-  showDemo,
-  onToggleDemo,
 }) => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -58,7 +52,7 @@ const VisionProjectList: React.FC<VisionProjectListProps> = ({
   }, []);
 
   const getStatusBadge = (status: VisionProject['status']) => {
-    const config = {
+    const config: Record<string, { label: string; cls: string; icon: React.ReactNode }> = {
       queued: {
         label: 'In Warteschlange',
         cls: 'bg-[#F4FCFE] text-[#7A7A7A]',
@@ -67,7 +61,7 @@ const VisionProjectList: React.FC<VisionProjectListProps> = ({
       generating: {
         label: 'Wird generiert',
         cls: 'bg-[rgba(124,108,242,0.1)] text-[var(--vektrus-ai-violet)]',
-        icon: <span className="w-2 h-2 bg-[rgba(124,108,242,0.06)]0 rounded-full animate-pulse inline-block" />,
+        icon: <span className="w-2 h-2 bg-[var(--vektrus-ai-violet)] rounded-full animate-pulse inline-block" />,
       },
       finished: {
         label: 'Fertig',
@@ -76,6 +70,21 @@ const VisionProjectList: React.FC<VisionProjectListProps> = ({
       },
       failed: {
         label: 'Fehler',
+        cls: 'bg-red-100 text-red-700',
+        icon: <X className="w-3 h-3" />,
+      },
+      failed_timeout: {
+        label: 'Timeout',
+        cls: 'bg-red-100 text-red-700',
+        icon: <X className="w-3 h-3" />,
+      },
+      failed_generation: {
+        label: 'Fehler',
+        cls: 'bg-red-100 text-red-700',
+        icon: <X className="w-3 h-3" />,
+      },
+      failed_download: {
+        label: 'Download-Fehler',
         cls: 'bg-red-100 text-red-700',
         icon: <X className="w-3 h-3" />,
       },
@@ -94,8 +103,16 @@ const VisionProjectList: React.FC<VisionProjectListProps> = ({
     );
   };
 
+  const PURPOSE_LABELS: Record<string, string> = {
+    b_roll: 'B-Roll',
+    intro: 'Intro',
+    outro: 'Outro',
+    transition: 'Transition',
+  };
+
   const getModelBadge = (model?: string) => {
     if (!model) return null;
+    const normalized = model === 'veo' ? 'Veo 3.1' : model;
     const config: Record<string, string> = {
       'Veo 3.1': 'bg-green-100 text-green-700',
       'Nano + Veo 3.1': 'bg-blue-100 text-blue-700',
@@ -104,10 +121,10 @@ const VisionProjectList: React.FC<VisionProjectListProps> = ({
     return (
       <span
         className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
-          config[model] || 'bg-[#F4FCFE] text-[#7A7A7A]'
+          config[normalized] || 'bg-[#F4FCFE] text-[#7A7A7A]'
         }`}
       >
-        {model}
+        {normalized}
       </span>
     );
   };
@@ -169,17 +186,6 @@ const VisionProjectList: React.FC<VisionProjectListProps> = ({
             <option value="Sora 2">Sora 2</option>
           </select>
           <button
-            onClick={onToggleDemo}
-            className={`flex items-center gap-1.5 px-4 py-2.5 border rounded-[var(--vektrus-radius-md)] text-sm font-medium transition-colors ${
-              showDemo
-                ? 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100'
-                : 'border-[rgba(73,183,227,0.18)] bg-white text-[#7A7A7A] hover:bg-[#F4FCFE]'
-            }`}
-          >
-            {showDemo ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-            <span>Demo-Daten</span>
-          </button>
-          <button
             onClick={onStartCreator}
             className="flex items-center gap-1.5 px-4 py-2.5 border border-[var(--vektrus-ai-violet)] bg-white text-[var(--vektrus-ai-violet)] rounded-[var(--vektrus-radius-md)] text-sm font-medium hover:bg-[rgba(124,108,242,0.06)] transition-colors"
           >
@@ -193,19 +199,16 @@ const VisionProjectList: React.FC<VisionProjectListProps> = ({
             <div className="w-20 h-20 rounded-full bg-[rgba(124,108,242,0.06)] flex items-center justify-center mx-auto mb-6">
               <VideoIcon className="w-10 h-10 text-[var(--vektrus-ai-violet)]/30" />
             </div>
-            <h3 className="text-xl font-semibold text-[#111111] mb-2">Noch keine Vision-Projekte</h3>
-            <p className="text-[#7A7A7A] mb-2">
-              Starte den Creator und erstelle dein erstes UGC-Video!
-            </p>
-            <p className="text-sm text-amber-600 mb-6">
-              Vision befindet sich in der Entwicklung &ndash; teste die Demo und gib uns Feedback.
+            <h3 className="text-xl font-semibold text-[#111111] mb-2">Noch keine Videos</h3>
+            <p className="text-[#7A7A7A] mb-6">
+              Starte den Creator und erstelle dein erstes Video!
             </p>
             <button
               onClick={onStartCreator}
               className="inline-flex items-center gap-2 px-6 py-3 bg-[var(--vektrus-ai-violet)] text-white rounded-[var(--vektrus-radius-md)] font-semibold shadow-card hover:shadow-elevated transition-all"
             >
               <Sparkles className="w-4 h-4" />
-              <span>Vision Creator starten</span>
+              <span>Video erstellen</span>
             </button>
           </div>
         ) : (
@@ -224,14 +227,21 @@ const VisionProjectList: React.FC<VisionProjectListProps> = ({
                     <span className="text-sm font-semibold text-[#111111] truncate">
                       {project.product_name}
                     </span>
-                    {project.isDemo && (
-                      <span className="flex-shrink-0 bg-amber-100 text-amber-700 text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none">
-                        Demo
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span className="text-xs text-[#7A7A7A]/70 truncate">
+                      {project.output_type || 'video'}
+                    </span>
+                    {project.clip_purpose && (
+                      <span className="text-[10px] font-medium text-[#49B7E3] bg-[rgba(73,183,227,0.08)] px-1.5 py-0.5 rounded-full">
+                        {PURPOSE_LABELS[project.clip_purpose] || project.clip_purpose}
                       </span>
                     )}
-                  </div>
-                  <div className="text-xs text-[#7A7A7A]/70 mt-0.5 truncate">
-                    {project.output_type || 'video'}
+                    {project.generation_mode && (
+                      <span className="text-[10px] font-medium text-[#7A7A7A] bg-[#F4FCFE] px-1.5 py-0.5 rounded-full">
+                        {project.generation_mode === 'image_to_video' ? 'Bild → Video' : 'Text → Video'}
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -301,18 +311,16 @@ const VisionProjectList: React.FC<VisionProjectListProps> = ({
                           )}
                         </>
                       )}
-                      {!project.isDemo && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDelete(project.id);
-                            setOpenMenu(null);
-                          }}
-                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-                        >
-                          L&ouml;schen
-                        </button>
-                      )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDelete(project.id);
+                          setOpenMenu(null);
+                        }}
+                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                      >
+                        Löschen
+                      </button>
                     </div>
                   )}
                 </div>

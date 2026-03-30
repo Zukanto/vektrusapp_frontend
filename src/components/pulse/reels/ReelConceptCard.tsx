@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { Camera, ChevronDown, ChevronUp, Clock, Copy, Music, Sparkles, Type, ArrowRight, RefreshCw } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Camera, ChevronDown, ChevronUp, Clock, Copy, Eye, Music, Sparkles, Type, ArrowRight, RefreshCw } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { ReelContent } from '../../../services/reelService';
 
 interface ReelConceptCardProps {
   content: ReelContent;
   index: number;
+  contentId?: string;
 }
 
 const FORMAT_LABELS: Record<string, string> = {
@@ -38,7 +40,8 @@ const DIFFICULTY_STYLES: Record<string, { bg: string; color: string }> = {
   fortgeschritten: { bg: 'rgba(124, 108, 242, 0.12)', color: 'var(--vektrus-ai-violet)' },
 };
 
-const ReelConceptCard: React.FC<ReelConceptCardProps> = ({ content, index }) => {
+const ReelConceptCard: React.FC<ReelConceptCardProps> = ({ content, index, contentId }) => {
+  const navigate = useNavigate();
   const [voiceoverOpen, setVoiceoverOpen] = useState(false);
   const [whyOpen, setWhyOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -255,15 +258,25 @@ const ReelConceptCard: React.FC<ReelConceptCardProps> = ({ content, index }) => 
           <RefreshCw className="w-4 h-4" />
           Neu generieren
         </button>
-        <button
-          className="flex items-center gap-2 text-sm font-semibold text-white px-4 py-2 rounded-[var(--vektrus-radius-sm)] opacity-50 cursor-not-allowed"
-          style={{ backgroundColor: 'var(--vektrus-blue)' }}
-          disabled
-          title="Kommt bald"
-        >
-          In Planner übernehmen
-          <ArrowRight className="w-4 h-4" />
-        </button>
+        {contentId ? (
+          <button
+            onClick={() => navigate(`/vision/reel/${contentId}`)}
+            className="flex items-center gap-2 text-sm font-semibold text-white px-4 py-2 rounded-[var(--vektrus-radius-sm)] transition-all shadow-card hover:shadow-elevated"
+            style={{ backgroundColor: 'var(--vektrus-blue)' }}
+          >
+            <Eye className="w-4 h-4" />
+            In Vision öffnen
+          </button>
+        ) : (
+          <button
+            className="flex items-center gap-2 text-sm font-semibold text-white px-4 py-2 rounded-[var(--vektrus-radius-sm)] opacity-50 cursor-not-allowed"
+            style={{ backgroundColor: 'var(--vektrus-blue)' }}
+            disabled
+          >
+            In Vision öffnen
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </motion.div>
   );

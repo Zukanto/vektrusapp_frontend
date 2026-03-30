@@ -7,7 +7,7 @@ import MediaPage from './components/media/MediaPage';
 import InsightsPage from './components/insights/InsightsPage';
 import HelpPage from './components/help/HelpPage';
 import ToolHubPage from './components/toolhub/ToolHubPage';
-import VisionPage from './components/vision/VisionPage';
+import VisionRouter from './components/vision/VisionRouter';
 import PulsePage from './components/pulse/PulsePage';
 import BrandAnalyzePage from './components/brand/BrandAnalyzePage';
 import DashboardHome from './components/dashboard/DashboardHome';
@@ -69,9 +69,9 @@ export const routes: RouteConfig[] = [
     element: () => <InsightsPage />,
   },
   {
-    path: '/vision',
+    path: '/vision/*',
     moduleId: 'vision',
-    element: () => <VisionPage />,
+    element: () => <VisionRouter />,
   },
   {
     path: '/media',
