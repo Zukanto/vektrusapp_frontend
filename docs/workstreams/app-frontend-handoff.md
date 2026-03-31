@@ -1,7 +1,61 @@
 # Vektrus App Frontend — Handoff für den nächsten Chat
 
 **Stand:** 2026-03-31
-**Kontext:** AP-01 bis AP-08 vollstaendig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik. **Posting Popup Redesign Phase 1 + Phase 2 + QA Pass abgeschlossen. Chat-to-Planner Handoff V1 + Corrective Pass + QA Pass + Single-Caption Bugfix + QA + Robustness Pass + Robustness QA Pass abgeschlossen. Composer Handoff V2 (Three-State Model + Source-Material Mode) implementiert. Help-Seite Workstream Phase 1 (Audit + Zielarchitektur) + Phase 2 (Implementierung) + Corrective Pass + QA Pass + Finaler Visual QA Pass abgeschlossen. Help Updates-Layer (Produkt-Updates + Transparenz) implementiert. Onboarding Wizard komplett implementiert (Session 1 + Session 2: alle 4 Schritte, OAuth, Completion, Step-Resume, SignUp-Redirect). Onboarding Design Polish Pass abgeschlossen (Premium UI, Framer Motion Transitions, Custom Slider/Dropdown/Tags). SignUpFlow Visual Polish Pass abgeschlossen (Design-Konsistenz mit Onboarding-Wizard). Onboarding OAuth-Callback Sync Bugfix abgeschlossen. Pulse Reels — Session 1 (Frontend) abgeschlossen. Pulse Reels — Session 2 (Design Polish + Brand Icons) abgeschlossen. Vision Rebranding — Session 3 (Video-Werkstatt) abgeschlossen. Vision Session 3 — Corrective Pass abgeschlossen. Vision — Fix Pass (Pulse Button + Thumbnail Webhook) abgeschlossen. Vision & Pulse — Fix Pass (Image Advanced + Label-Rename) abgeschlossen. Vision B-Roll — Funktional machen + Bild-Upload abgeschlossen. Vision B-Roll — Videos in Vision Tab + Mediathek anzeigen abgeschlossen. Vektrus Studio Phase 1 (Foundation & Shell) abgeschlossen. Vektrus Studio Phase 2 (Director's Desk / Storyboard) abgeschlossen. Vektrus Studio — Floating Dock abgeschlossen. Vektrus Studio — Corrective Pass + B-Roll View + "Dimming the Lights" abgeschlossen. Vektrus Studio — Echte Supabase-Daten + Entry-Buttons abgeschlossen. Vektrus Studio — B-Roll + Thumbnails + Meine Videos (echte n8n-Integration) abgeschlossen. Vektrus Studio — Production-Ready Cleanup abgeschlossen. Vektrus Studio — Szenen-gebundene B-Roll + Thumbnail-Zuordnung abgeschlossen. Sidebar Icon-Update abgeschlossen. Sidebar Strukturumbau (Gruppierung + Overlines + neue Icons) abgeschlossen. Studio KI-Reel-Ideen + Pulse Reel-Empfehlungen abgeschlossen.**
+**Kontext:** AP-01 bis AP-08 vollstaendig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik. **Posting Popup Redesign Phase 1 + Phase 2 + QA Pass abgeschlossen. Chat-to-Planner Handoff V1 + Corrective Pass + QA Pass + Single-Caption Bugfix + QA + Robustness Pass + Robustness QA Pass abgeschlossen. Composer Handoff V2 (Three-State Model + Source-Material Mode) implementiert. Help-Seite Workstream Phase 1 (Audit + Zielarchitektur) + Phase 2 (Implementierung) + Corrective Pass + QA Pass + Finaler Visual QA Pass abgeschlossen. Help Updates-Layer (Produkt-Updates + Transparenz) implementiert. Onboarding Wizard komplett implementiert (Session 1 + Session 2: alle 4 Schritte, OAuth, Completion, Step-Resume, SignUp-Redirect). Onboarding Design Polish Pass abgeschlossen (Premium UI, Framer Motion Transitions, Custom Slider/Dropdown/Tags). SignUpFlow Visual Polish Pass abgeschlossen (Design-Konsistenz mit Onboarding-Wizard). Onboarding OAuth-Callback Sync Bugfix abgeschlossen. Pulse Reels — Session 1 (Frontend) abgeschlossen. Pulse Reels — Session 2 (Design Polish + Brand Icons) abgeschlossen. Vision Rebranding — Session 3 (Video-Werkstatt) abgeschlossen. Vision Session 3 — Corrective Pass abgeschlossen. Vision — Fix Pass (Pulse Button + Thumbnail Webhook) abgeschlossen. Vision & Pulse — Fix Pass (Image Advanced + Label-Rename) abgeschlossen. Vision B-Roll — Funktional machen + Bild-Upload abgeschlossen. Vision B-Roll — Videos in Vision Tab + Mediathek anzeigen abgeschlossen. Vektrus Studio Phase 1 (Foundation & Shell) abgeschlossen. Vektrus Studio Phase 2 (Director's Desk / Storyboard) abgeschlossen. Vektrus Studio — Floating Dock abgeschlossen. Vektrus Studio — Corrective Pass + B-Roll View + "Dimming the Lights" abgeschlossen. Vektrus Studio — Echte Supabase-Daten + Entry-Buttons abgeschlossen. Vektrus Studio — B-Roll + Thumbnails + Meine Videos (echte n8n-Integration) abgeschlossen. Vektrus Studio — Production-Ready Cleanup abgeschlossen. Vektrus Studio — Szenen-gebundene B-Roll + Thumbnail-Zuordnung abgeschlossen. Sidebar Icon-Update abgeschlossen. Sidebar Strukturumbau (Gruppierung + Overlines + neue Icons) abgeschlossen. Studio KI-Reel-Ideen + Pulse Reel-Empfehlungen abgeschlossen. Studio Polish & Review-Flow abgeschlossen.**
+
+---
+
+## Studio Polish & Review-Flow
+
+**Stand:** 2026-03-31
+**Status: Abgeschlossen.**
+
+### Was wurde gemacht
+
+Drei gezielte Verbesserungen am Studio Hub:
+
+#### Aufgabe 1: Premium Hover-Effekt
+| Datei | Änderung |
+|---|---|
+| `src/index.css` | Neue CSS-Klasse `.reel-ideas-btn` — Gradient-Hintergrund (#49B7E3 → #8B5CF6), Hover: `scale(1.03)` + Violet/Blue Glow (20px + 40px), Active: `scale(0.98)` + verstärkter Glow. Transition: 300ms cubic-bezier. |
+| `src/components/studio/StudioPage.tsx` | Beide "Neue Reel-Ideen" Buttons (Empty State + Hub TopBar) nutzen jetzt `.reel-ideas-btn` statt Inline-Styles. |
+
+#### Aufgabe 2: Branded Ladeanimation
+| Datei | Änderung |
+|---|---|
+| `src/components/studio/ReelGeneratingOverlay.tsx` | **Neu.** Glass-Panel Overlay mit 3 driftenden Gradient-Blobs (ai-blob-drift-1/2/3), pulsierendem Sparkles-Icon, 4 Crossfade-Schritttexten (3.5s Intervall), Pulse-Gradient-Progressbar, AI-Typing-Dots. `fadingOut` Prop für nahtlosen Übergang zur Review-Phase (Blobs faden mit 600ms aus). |
+
+#### Aufgabe 3: Review-Overlay nach Generierung
+| Datei | Änderung |
+|---|---|
+| `src/components/studio/ReelReviewOverlay.tsx` | **Neu.** Zeigt alle generierten Konzepte mit Toggles (Default: alle an). Gestaffeltes Fade-In (100ms pro Karte). Jede Karte: Toggle + Format-Badge + Titel + Meta (Szenen, Dauer, Gesicht). Footer: "Alle verwerfen" (löscht per `pulse_config_id`) + "X von Y übernehmen" (Pulse Gradient CTA, löscht deselektierte per `DELETE .in('id', [...])`, refresht Hub). |
+
+#### Flow-Refactor: ReelAutoModal + StudioPage Orchestrierung
+| Datei | Änderung |
+|---|---|
+| `src/components/studio/ReelAutoModal.tsx` | Komplett refactored. Behält nur Form-Phase. Emittiert `onGenerationStarted(pulseId)` nach erfolgreichem Webhook-Call. Kein internes Polling, keine generating/done/error Phasen mehr. Modal schließt sich nach Start. |
+| `src/components/studio/StudioPage.tsx` | Neuer `OverlayPhase` State-Machine: `none → generating → transitioning → review → none`. Polling auf `pulse_configurations` in StudioPage. Bei `completed`: Konzepte laden → 500ms Blob-Fadeout → ReelReviewOverlay. Bei Review-Done: Hub Refresh. |
+
+### Overlay-Flow
+```
+Modal (form) → onGenerationStarted(pulseId)
+  → Modal schließt → ReelGeneratingOverlay (generating)
+    → Polling pulse_configurations
+      → status: completed → Konzepte laden
+        → overlayPhase: transitioning (Blobs faden 500ms aus)
+          → overlayPhase: review → ReelReviewOverlay
+            → User wählt → "Übernehmen" → DELETE deselected → Hub refresh
+```
+
+### Verifikation
+- ✅ TypeScript: fehlerfrei
+- ✅ Production Build: erfolgreich
+- ✅ "Neue Reel-Ideen" Button: Violet/Blue Glow auf Hover, Rück-Scale auf Active
+- ✅ Ladeanimation: Glass-Panel, driftende Blobs, Crossfade-Texte, kein Spinner
+- ✅ Review-Overlay: Konzepte mit Toggles, gestaffeltes Fade-In
+- ✅ Deselektieren + Übernehmen löscht verworfene aus DB
+- ✅ "Alle verwerfen" löscht gesamten Run
+- ✅ Nahtloser Übergang: Generating → Review (Blobs faden, Panel tauscht)
 
 ---
 

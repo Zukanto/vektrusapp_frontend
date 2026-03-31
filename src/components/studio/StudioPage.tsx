@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Film, ArrowLeft, Sparkles, Clapperboard, Image, FolderOpen, Plus, Clock, Camera, User, Wand2 } from 'lucide-react';
 import { useReelConcept } from '../../hooks/useReelConcept';
@@ -14,6 +14,9 @@ import StudioThumbnails from './StudioThumbnails';
 import StudioMyVideos from './StudioMyVideos';
 import StudioDock, { StudioView } from './StudioDock';
 import ReelAutoModal from './ReelAutoModal';
+import ReelGeneratingOverlay from './ReelGeneratingOverlay';
+import ReelReviewOverlay from './ReelReviewOverlay';
+import type { ReviewConcept } from './ReelReviewOverlay';
 import type { ReelContent } from '../../services/reelService';
 
 interface ReelConceptRow {
@@ -21,6 +24,8 @@ interface ReelConceptRow {
   content: ReelContent;
   created_at: string;
 }
+
+type OverlayPhase = 'none' | 'generating' | 'transitioning' | 'review';
 
 const StudioPage: React.FC = () => {
   const { reelId } = useParams<{ reelId: string }>();
@@ -35,8 +40,12 @@ const StudioPage: React.FC = () => {
   // Scene videos for this reel (polling-based)
   const { sceneVideos, refetch: refetchSceneVideos } = useSceneVideos(reelId);
 
-  // Auto-generate modal
+  // Auto-generate modal + overlay flow
   const [showAutoModal, setShowAutoModal] = useState(false);
+  const [overlayPhase, setOverlayPhase] = useState<OverlayPhase>('none');
+  const [generatingPulseId, setGeneratingPulseId] = useState<string | null>(null);
+  const [reviewConcepts, setReviewConcepts] = useState<ReviewConcept[]>([]);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Hub: load all reel concepts when no reelId
   const [reelConcepts, setReelConcepts] = useState<ReelConceptRow[]>([]);
@@ -68,12 +77,77 @@ const StudioPage: React.FC = () => {
     loadHubConcepts();
   }, [loadHubConcepts, hubLoadCount]);
 
-  const handleAutoModalClose = () => {
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
+
+  // ── Generation Flow Handlers ──
+
+  const handleGenerationStarted = (pulseId: string) => {
     setShowAutoModal(false);
+    setGeneratingPulseId(pulseId);
+    setOverlayPhase('generating');
+
+    // Start polling
+    let attempts = 0;
+    const maxAttempts = 90;
+
+    pollRef.current = setInterval(async () => {
+      attempts++;
+      try {
+        const { data } = await supabase
+          .from('pulse_configurations')
+          .select('status')
+          .eq('id', pulseId)
+          .single();
+
+        if (data?.status === 'completed') {
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = null;
+
+          // Load generated concepts
+          const { data: concepts } = await supabase
+            .from('pulse_generated_content')
+            .select('id, content')
+            .eq('pulse_config_id', pulseId)
+            .eq('source', 'pulse_reels');
+
+          const parsed: ReviewConcept[] = (concepts || [])
+            .filter((r: any) => r.content?.type === 'reel')
+            .map((r: any) => ({ id: r.id, content: r.content as ReelContent }));
+
+          setReviewConcepts(parsed);
+
+          // Transition: generating → review (blobs fade out briefly)
+          setOverlayPhase('transitioning');
+          setTimeout(() => {
+            setOverlayPhase('review');
+          }, 500);
+        } else if (data?.status === 'failed') {
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = null;
+          setOverlayPhase('none');
+          setGeneratingPulseId(null);
+        } else if (attempts >= maxAttempts) {
+          if (pollRef.current) clearInterval(pollRef.current);
+          pollRef.current = null;
+          setOverlayPhase('none');
+          setGeneratingPulseId(null);
+        }
+      } catch {
+        // continue polling
+      }
+    }, 4000);
   };
 
-  const handleConceptsGenerated = (_ids: string[]) => {
-    // Reload hub to show new concepts
+  const handleReviewDone = () => {
+    setOverlayPhase('none');
+    setGeneratingPulseId(null);
+    setReviewConcepts([]);
+    // Refresh hub
     setHubLoadCount(c => c + 1);
   };
 
@@ -218,11 +292,7 @@ const StudioPage: React.FC = () => {
 
             <button
               onClick={() => setShowAutoModal(true)}
-              className="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm font-semibold text-white transition-all cursor-pointer border-0"
-              style={{
-                background: 'linear-gradient(135deg, #49B7E3 0%, #7C6CF2 50%, #E8A0D6 100%)',
-                boxShadow: '0 0 20px rgba(124,108,242,0.15), 0 4px 12px rgba(0,0,0,0.3)',
-              }}
+              className="reel-ideas-btn inline-flex items-center gap-2.5 px-6 py-3 text-sm cursor-pointer"
             >
               <Sparkles className="w-4 h-4" />
               KI-Ideen generieren
@@ -241,8 +311,19 @@ const StudioPage: React.FC = () => {
 
           {showAutoModal && (
             <ReelAutoModal
-              onClose={handleAutoModalClose}
-              onConceptsGenerated={handleConceptsGenerated}
+              onClose={() => setShowAutoModal(false)}
+              onGenerationStarted={handleGenerationStarted}
+            />
+          )}
+
+          {(overlayPhase === 'generating' || overlayPhase === 'transitioning') && (
+            <ReelGeneratingOverlay fadingOut={overlayPhase === 'transitioning'} />
+          )}
+          {overlayPhase === 'review' && reviewConcepts.length > 0 && generatingPulseId && (
+            <ReelReviewOverlay
+              concepts={reviewConcepts}
+              pulseConfigId={generatingPulseId}
+              onDone={handleReviewDone}
             />
           )}
         </div>
@@ -267,11 +348,7 @@ const StudioPage: React.FC = () => {
           </button>
           <button
             onClick={() => setShowAutoModal(true)}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all cursor-pointer border-0 flex-shrink-0"
-            style={{
-              background: 'linear-gradient(135deg, #49B7E3 0%, #7C6CF2 50%, #E8A0D6 100%)',
-              boxShadow: '0 0 16px rgba(124,108,242,0.12), 0 2px 8px rgba(0,0,0,0.3)',
-            }}
+            className="reel-ideas-btn flex items-center gap-2 px-4 py-2.5 text-sm cursor-pointer flex-shrink-0"
           >
             <Wand2 className="w-4 h-4" />
             Neue Reel-Ideen
@@ -345,8 +422,19 @@ const StudioPage: React.FC = () => {
 
         {showAutoModal && (
           <ReelAutoModal
-            onClose={handleAutoModalClose}
-            onConceptsGenerated={handleConceptsGenerated}
+            onClose={() => setShowAutoModal(false)}
+            onGenerationStarted={handleGenerationStarted}
+          />
+        )}
+
+        {(overlayPhase === 'generating' || overlayPhase === 'transitioning') && (
+          <ReelGeneratingOverlay fadingOut={overlayPhase === 'transitioning'} />
+        )}
+        {overlayPhase === 'review' && reviewConcepts.length > 0 && generatingPulseId && (
+          <ReelReviewOverlay
+            concepts={reviewConcepts}
+            pulseConfigId={generatingPulseId}
+            onDone={handleReviewDone}
           />
         )}
       </div>
