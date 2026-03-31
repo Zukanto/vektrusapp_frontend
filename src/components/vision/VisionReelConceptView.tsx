@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
   Camera,
+  Clapperboard,
   Clock,
   Copy,
   Info,
@@ -18,6 +19,7 @@ import {
   Image as ImageIcon,
   Compass,
 } from 'lucide-react';
+import { enterStudio } from '../studio/studioTransition';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../ui/toast';
@@ -542,10 +544,19 @@ const VisionReelConceptView: React.FC = () => {
           {/* Right Column — Action Panel */}
           <div className="lg:sticky lg:top-8 self-start space-y-4">
             <div className="bg-white rounded-[var(--vektrus-radius-md)] border border-[rgba(73,183,227,0.10)] shadow-card p-5 space-y-3">
-              {/* Primary: In Planner übernehmen */}
+              {/* Primary: Im Studio öffnen */}
+              <button
+                onClick={() => enterStudio(navigate, record.id)}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#49B7E3] text-white rounded-[var(--vektrus-radius-md)] font-semibold shadow-card hover:shadow-elevated transition-all"
+              >
+                <Clapperboard className="w-4 h-4" />
+                Im Studio öffnen
+              </button>
+
+              {/* Secondary: In Planner übernehmen */}
               <button
                 onClick={() => setPlannerOpen(true)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#49B7E3] text-white rounded-[var(--vektrus-radius-md)] font-semibold shadow-card hover:shadow-elevated transition-all"
+                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-[rgba(73,183,227,0.18)] bg-white text-[#111111] rounded-[var(--vektrus-radius-md)] text-sm font-medium hover:bg-[#F4FCFE] transition-colors"
               >
                 <Calendar className="w-4 h-4" />
                 In Planner übernehmen

@@ -17,6 +17,7 @@ import ForgotPasswordPage from './components/auth/ForgotPasswordPage';
 import ResetPasswordPage from './components/auth/ResetPasswordPage';
 import LoggedOutPage from './components/auth/LoggedOutPage';
 import Onboarding from './pages/Onboarding';
+import StudioPage from './components/studio/StudioPage';
 
 function PulseToastRenderer() {
   const pulse = usePulseGeneration();
@@ -193,6 +194,22 @@ function AppRoutes() {
           element={
             <ProtectedRoute>
               <Onboarding />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/studio/:reelId"
+          element={
+            <ProtectedRoute>
+              <StudioPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/studio"
+          element={
+            <ProtectedRoute>
+              <StudioPage />
             </ProtectedRoute>
           }
         />

@@ -8,10 +8,12 @@ import {
   FolderOpen,
   Clock,
   Camera,
+  Clapperboard,
   User,
   Loader,
   Sparkles,
 } from 'lucide-react';
+import { enterStudio } from '../studio/studioTransition';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { useToast } from '../ui/toast';
@@ -400,7 +402,27 @@ const VisionPage: React.FC = () => {
                             </span>
                           )}
                         </div>
-                        <p className="text-[11px] text-[#7A7A7A]/60 mt-2">{formatDate(row.created_at)}</p>
+                        <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-[rgba(73,183,227,0.06)]">
+                          <p className="text-[11px] text-[#7A7A7A]/60">{formatDate(row.created_at)}</p>
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              enterStudio(navigate, row.id);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.stopPropagation();
+                                enterStudio(navigate, row.id);
+                              }
+                            }}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium text-[#49B7E3] hover:bg-[rgba(73,183,227,0.08)] transition-colors cursor-pointer"
+                          >
+                            <Clapperboard className="w-3 h-3" />
+                            Studio
+                          </span>
+                        </div>
                       </button>
                     );
                   })}

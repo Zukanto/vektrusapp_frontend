@@ -1,7 +1,379 @@
 # Vektrus App Frontend — Handoff für den nächsten Chat
 
-**Stand:** 2026-03-30
-**Kontext:** AP-01 bis AP-08 vollstaendig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik. **Posting Popup Redesign Phase 1 + Phase 2 + QA Pass abgeschlossen. Chat-to-Planner Handoff V1 + Corrective Pass + QA Pass + Single-Caption Bugfix + QA + Robustness Pass + Robustness QA Pass abgeschlossen. Composer Handoff V2 (Three-State Model + Source-Material Mode) implementiert. Help-Seite Workstream Phase 1 (Audit + Zielarchitektur) + Phase 2 (Implementierung) + Corrective Pass + QA Pass + Finaler Visual QA Pass abgeschlossen. Help Updates-Layer (Produkt-Updates + Transparenz) implementiert. Onboarding Wizard komplett implementiert (Session 1 + Session 2: alle 4 Schritte, OAuth, Completion, Step-Resume, SignUp-Redirect). Onboarding Design Polish Pass abgeschlossen (Premium UI, Framer Motion Transitions, Custom Slider/Dropdown/Tags). SignUpFlow Visual Polish Pass abgeschlossen (Design-Konsistenz mit Onboarding-Wizard). Onboarding OAuth-Callback Sync Bugfix abgeschlossen. Pulse Reels — Session 1 (Frontend) abgeschlossen. Pulse Reels — Session 2 (Design Polish + Brand Icons) abgeschlossen. Vision Rebranding — Session 3 (Video-Werkstatt) abgeschlossen. Vision Session 3 — Corrective Pass abgeschlossen. Vision — Fix Pass (Pulse Button + Thumbnail Webhook) abgeschlossen. Vision & Pulse — Fix Pass (Image Advanced + Label-Rename) abgeschlossen. Vision B-Roll — Funktional machen + Bild-Upload abgeschlossen. Vision B-Roll — Videos in Vision Tab + Mediathek anzeigen abgeschlossen.**
+**Stand:** 2026-03-31
+**Kontext:** AP-01 bis AP-08 vollstaendig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik. **Posting Popup Redesign Phase 1 + Phase 2 + QA Pass abgeschlossen. Chat-to-Planner Handoff V1 + Corrective Pass + QA Pass + Single-Caption Bugfix + QA + Robustness Pass + Robustness QA Pass abgeschlossen. Composer Handoff V2 (Three-State Model + Source-Material Mode) implementiert. Help-Seite Workstream Phase 1 (Audit + Zielarchitektur) + Phase 2 (Implementierung) + Corrective Pass + QA Pass + Finaler Visual QA Pass abgeschlossen. Help Updates-Layer (Produkt-Updates + Transparenz) implementiert. Onboarding Wizard komplett implementiert (Session 1 + Session 2: alle 4 Schritte, OAuth, Completion, Step-Resume, SignUp-Redirect). Onboarding Design Polish Pass abgeschlossen (Premium UI, Framer Motion Transitions, Custom Slider/Dropdown/Tags). SignUpFlow Visual Polish Pass abgeschlossen (Design-Konsistenz mit Onboarding-Wizard). Onboarding OAuth-Callback Sync Bugfix abgeschlossen. Pulse Reels — Session 1 (Frontend) abgeschlossen. Pulse Reels — Session 2 (Design Polish + Brand Icons) abgeschlossen. Vision Rebranding — Session 3 (Video-Werkstatt) abgeschlossen. Vision Session 3 — Corrective Pass abgeschlossen. Vision — Fix Pass (Pulse Button + Thumbnail Webhook) abgeschlossen. Vision & Pulse — Fix Pass (Image Advanced + Label-Rename) abgeschlossen. Vision B-Roll — Funktional machen + Bild-Upload abgeschlossen. Vision B-Roll — Videos in Vision Tab + Mediathek anzeigen abgeschlossen. Vektrus Studio Phase 1 (Foundation & Shell) abgeschlossen. Vektrus Studio Phase 2 (Director's Desk / Storyboard) abgeschlossen. Vektrus Studio — Floating Dock abgeschlossen. Vektrus Studio — Corrective Pass + B-Roll View + "Dimming the Lights" abgeschlossen. Vektrus Studio — Echte Supabase-Daten + Entry-Buttons abgeschlossen. Vektrus Studio — B-Roll + Thumbnails + Meine Videos (echte n8n-Integration) abgeschlossen.**
+
+---
+
+## Vektrus Studio — B-Roll + Thumbnails + Meine Videos (echte n8n-Integration)
+
+**Stand:** 2026-03-31
+**Status: Abgeschlossen.**
+
+### Was wurde gemacht
+Die drei verbleibenden Dock-Views (B-Roll Studio, Thumbnails, Meine Videos) mit echter Backend-Anbindung implementiert. Kontext-Vorausfüllung vom Storyboard-Inspektor zum B-Roll-Tab. Bugfixes aus Code-Review.
+
+### View 1: B-Roll Studio (StudioBRoll.tsx) — Komplett neu
+
+Vollständige B-Roll Video-Generierung mit echtem n8n-Backend:
+
+**Ablauf:** Supabase `vision_projects` INSERT → `callN8n('vektrus-vision-broll')` → recursive setTimeout Polling (4s Intervall) → Status-Update
+
+**UI (Dark Theme):**
+- Clip-Beschreibung Textarea (min 5 Zeichen, max 500)
+- Clip-Dauer als Button-Chips (3–8 Sekunden)
+- Clip-Typ Segmented Control (B-Roll/Intro/Outro/Transition)
+- Referenzbild-Upload (Supabase Storage, max 2 Bilder, Drag & Drop)
+- AI Violet Generieren-Button mit Disabled-State
+- **Processing:** 9:16 Container mit pulsierendem Violet Glow (`studio-generating-glow` CSS)
+- **Finished:** Video autoplay/muted/loop + Download/Retry Buttons
+- **Error:** Fehler-Meldung + Retry
+- **Letzte Clips:** Grid mit bisherigen fertigen Clips, klickbar zum Player
+
+**Technisch:**
+- Polling mit Cancel-Ref (kein State-Update nach Unmount)
+- Prefill-Props von StudioInspector (description, duration, reelConceptId)
+- `BRollPrefill` Interface exportiert für StudioPage
+
+### View 2: Thumbnails (StudioThumbnails.tsx) — Neu
+
+Synchrone Thumbnail-Generierung via `callN8n('vektrus-image-simple')`:
+
+**UI (Dark Theme, Split-Layout):**
+- Links: Thumbnail-Text Input, Stil-Auswahl (Modern/Bold/Minimal/Elegant), Brand-Farben mit Toggle
+- Rechts: 9:16 Preview-Container mit Generating-Glow, Image-Anzeige, Download/Nochmal Buttons
+
+**Brand-Farben:** Auto-Loading aus `brand_profiles.colors` (JSONB). 3 Farbkreise + Toggle. Fallback: "Keine Brand-Farben hinterlegt."
+
+**Prompt-Building:** Frontend baut den vollständigen Prompt mit Headline, Brand-Farben und Stil-Anweisung.
+
+### View 3: Meine Videos (StudioMyVideos.tsx) — Neu
+
+Grid-Übersicht aller `vision_projects`:
+
+**UI:**
+- 2–4 Spalten responsive Grid mit 9:16 Video-Karten
+- Status-Badges: Fertig (Success Green), Wird generiert (AI Violet + Spinner), Fehlgeschlagen (rot)
+- Relative Zeitangaben (vor X Min/Std/Tagen)
+- Click → Fullscreen Video-Player Overlay (9:16, controls, autoplay)
+- Download-Button im Player
+- Empty State: "Noch keine Videos erstellt" + Button zum B-Roll Tab
+
+**Polling:** Stabile Interval-Lösung mit useRef für Pending-IDs (kein Interval-Recreation bei State-Updates)
+
+### Kontext-Vorausfüllung (Storyboard → B-Roll)
+
+**Flow:** StudioInspector "KI-Video generieren" Button → `onGenerateBRoll(description, duration)` → StudioStoryboard durchleitet → StudioPage setzt `brollPrefill` + wechselt zu B-Roll Tab → StudioBRoll übernimmt Prefill-Daten
+
+**Inspector-Textarea jetzt kontrolliert:** User kann B-Roll-Beschreibung vor dem Generieren editieren. Button sendet editierten Text statt hardcoded `scene.action`.
+
+### CSS-Erweiterungen (index.css)
+
+| Animation | Zweck |
+|---|---|
+| `studioGeneratingGlow` | Pulsierender AI Violet Glow (2s, box-shadow) für Processing-Container |
+| `studioShimmer` | Diagonaler Shimmer-Effekt in Processing-Containern |
+| `.studio-generating-glow` | Utility-Klasse für den Glow-Effekt |
+
+### Neue Dateien
+| Datei | Zweck |
+|---|---|
+| `src/components/studio/StudioThumbnails.tsx` | Thumbnail-Generator mit Brand-Farben + synchronem callN8n |
+| `src/components/studio/StudioMyVideos.tsx` | Video-Grid mit Polling, Player-Overlay, Empty State |
+
+### Geänderte Dateien
+| Datei | Änderung |
+|---|---|
+| `src/components/studio/StudioBRoll.tsx` | Komplett neu: echte Generierung statt Platzhalter |
+| `src/components/studio/StudioPage.tsx` | 3 neue Views integriert, Prefill-Context, useCallback |
+| `src/components/studio/StudioStoryboard.tsx` | `onGenerateBRoll` Prop durchgeleitet |
+| `src/components/studio/StudioInspector.tsx` | Textarea kontrolliert, Button sendet editierten Text, `onGenerateBRoll` Prop |
+| `src/index.css` | `studioGeneratingGlow`, `studioShimmer`, `.studio-generating-glow` |
+
+### Bugfixes aus Code-Review
+| Bug | Fix |
+|---|---|
+| StudioBRoll: Polling ohne Cleanup → State-Update nach Unmount | Cancel-Ref Pattern implementiert |
+| StudioBRoll: `ImageIcon` unused import | Entfernt |
+| StudioMyVideos: Polling interval recreates on every state change | useRef für Pending-IDs statt projects in deps |
+| StudioMyVideos: `Clock` unused import | Entfernt |
+| StudioThumbnails: Shimmer-Div `absolute` ohne `relative` Parent | `relative` hinzugefügt |
+| StudioThumbnails: `brandLoading` nie `false` wenn kein User | Early return setzt `setBrandLoading(false)` |
+| StudioInspector: Textarea uncontrolled, Button ignoriert Edits | Kontrollierter State + editierter Text im Callback |
+
+### Offene Punkte für nächste Sessions
+- Planner WeekView: "Im Studio öffnen"-Button für Reel-Einträge
+- PulseReels Ergebnis-Karte: "Im Studio öffnen"-Button nach Generierung
+- "In Planner übernehmen" Backend-Logik im Studio
+- Thumbnail-Vorlagen / Template-System (nice-to-have)
+- B-Roll → Storyboard-Szene zuweisen (Clip in 9:16 Platzhalter einsetzen)
+
+---
+
+## Vektrus Studio — Echte Supabase-Daten + Entry-Buttons
+
+**Stand:** 2026-03-31
+**Status: Abgeschlossen.**
+
+### Was wurde gemacht
+Studio-Storyboard von Mock-Daten auf echte Supabase-Daten umgestellt, Route parametrisiert, Loading/Error/Empty States im Dark-Theme implementiert, "Im Studio öffnen"-Buttons in Video-Werkstatt integriert.
+
+### Block C: Storyboard auf echte Supabase-Daten
+
+1. **`useReelConcept` Hook erstellt** (`src/hooks/useReelConcept.ts`): Lädt ein einzelnes Reel-Konzept aus `pulse_generated_content` WHERE `id = reelId`. Parsed das JSONB `content`-Feld, validiert `type === 'reel'`. Gibt `record`, `loading`, `error` zurück.
+
+2. **Route parametrisiert**: `App.tsx` hat jetzt `/studio/:reelId` UND `/studio` (ohne ID) als geschützte Routen. StudioPage liest `reelId` aus `useParams`.
+
+3. **StudioPage komplett auf echte Daten umgestellt**:
+   - Mit `reelId`: Lädt aus Supabase via `useReelConcept`
+   - Ohne `reelId`: Nutzt `mockReelConcept` als Dev-Fallback
+   - **Loading State**: Dark-Theme Skeleton-Platzhalter (pulsierende `#121214` Rechtecke) die das 3-Spalten-Layout spiegeln
+   - **Error State**: Zentrierter Hinweis mit FA7E70 Icon, "Konzept nicht gefunden" + Buttons zu Planner/Pulse
+   - **Empty State** (kein reelId, kein Fallback): Hinweis "Kein Reel-Konzept ausgewählt" + Buttons zu Video-Werkstatt/Pulse
+
+4. **`studioTransition.ts` erweitert**: `enterStudio(navigate, reelId?)` akzeptiert jetzt optionalen `reelId` Parameter. Navigiert zu `/studio/<reelId>` statt nur `/studio`.
+
+### Entry-Buttons ("Im Studio öffnen")
+
+1. **VisionReelConceptView**: Neuer primärer CTA "Im Studio öffnen" (Clapperboard-Icon, Vektrus Blue) ersetzt "In Planner übernehmen" als Primary-Button. Planner-Button rutscht auf Secondary-Styling. Nutzt `enterStudio(navigate, record.id)` für Dimming-Transition.
+
+2. **VisionPage Reel-Karten**: Jede Reel-Konzept-Karte hat jetzt einen kompakten "Studio"-Link (Clapperboard-Icon, Vektrus Blue Text) im Footer-Bereich. `onClick` stoppt Propagation und ruft `enterStudio(navigate, row.id)`. Karten-Click geht weiterhin zur Detail-Ansicht.
+
+### Neue Dateien
+| Datei | Zweck |
+|---|---|
+| `src/hooks/useReelConcept.ts` | Hook zum Laden eines Reel-Konzepts aus Supabase |
+
+### Geänderte Dateien
+| Datei | Änderung |
+|---|---|
+| `src/App.tsx` | Route `/studio/:reelId` hinzugefügt |
+| `src/components/studio/StudioPage.tsx` | Echte Daten via useReelConcept, Loading/Error/Empty States |
+| `src/components/studio/studioTransition.ts` | `enterStudio` akzeptiert optionalen `reelId` Parameter |
+| `src/components/vision/VisionReelConceptView.tsx` | "Im Studio öffnen" als Primary CTA, enterStudio Integration |
+| `src/components/vision/VisionPage.tsx` | "Studio"-Button auf Reel-Konzept-Karten |
+
+### Offene Punkte für nächste Sessions
+- Planner WeekView/ContentSlotEditor: "Im Studio öffnen"-Button für Reel-Einträge (wenn im Planner Reel-Konzepte angezeigt werden)
+- PulseReels Ergebnis-Karte: "Im Studio öffnen"-Button nach Generierung
+- B-Roll View, Thumbnail View, Meine Videos View (kommt in Prompt 2)
+- "In Planner übernehmen" Backend-Logik im Studio
+
+---
+
+## Vektrus Studio — Corrective Pass + B-Roll View + "Dimming the Lights"
+
+**Stand:** 2026-03-31
+**Status: Abgeschlossen.**
+
+### Was wurde gemacht
+Layout-Korrekturen am Storyboard (Block A), cinematic "Dimming the Lights" Entry/Exit-Transition (Block B), und echtes B-Roll View UI (Block C).
+
+### Block A: Layout-Fixes
+
+1. **Hook-Text Clipping behoben:** StudioScript refactored — Hook ist jetzt ein `flex-shrink-0` Header der niemals scrollt, nur die Info-Cards darunter sind scrollbar (`overflow-y-auto`).
+2. **Linke Spalte Spacing verbessert:** Spaltenbreite von 25% auf 28% erhöht, Padding von `px-4 py-2` auf `px-5 py-3`, alle Info-Cards von `p-4` auf `p-5`. Card-Gap auf `space-y-4`.
+3. **Inspector Empty State verbessert:** MousePointerClick-Icon mit subtiler Pulse-Animation, zweizeiliger Hinweis, plus Konzept-Übersicht-Card (Titel, Format, Dauer, Szenenanzahl) damit die rechte Spalte nicht leer wirkt.
+4. **Responsivität:** Spalten stacken vertikal bei < 1280px (`flex-col xl:flex-row`), linke Spalte hat `max-h-[40vh]` im gestackten Modus.
+
+### Block B: "Dimming the Lights" Transition
+
+Cinematic Entry/Exit-Transition zwischen App und Studio, implementiert als DOM-basiertes Overlay-System.
+
+#### Architektur
+- **`studioTransition.ts`**: Exportiert `enterStudio(navigate)` und `exitStudio(navigate, targetPath)`. Erzeugt ein DOM-Overlay (`#studio-dimming-overlay`) direkt am `<body>`, das Route-Wechsel nahtlos überspannt.
+- **CSS Stagger Classes** in `index.css`: `.studio-reveal-topbar`, `.studio-reveal-dock`, `.studio-reveal-content` — jeweils mit eigenem Keyframe, Delay, und `cubic-bezier(0.16, 1, 0.3, 1)` Kurve.
+- **`data-studio-root`** Attribut auf StudioPage für Exit-Animation.
+
+#### Entry-Choreografie ("Dimming the Lights", ~800ms total)
+| Phase | Timing | Was passiert |
+|---|---|---|
+| Phase 2: Licht aus | 0–300ms | Overlay (#09090b) fährt opacity 0→1 über aktueller Seite (ease-out) |
+| Darkness Pause | 300–450ms | Bildschirm komplett schwarz, Route wechselt zu /studio |
+| Phase 3: Stagger Reveal | 450–800ms | Studio-Elemente erscheinen gestaffelt: |
+| — TopBar | +150ms delay | Fade In (250ms, `studioRevealFade`) |
+| — Floating Dock | +250ms delay | Slide Up 20px→0 + Fade (300ms, `studioRevealSlideUp`) |
+| — Storyboard/Content | +350ms delay | Scale 0.985→1 + Fade (300ms, `studioRevealContent`) |
+
+#### Exit-Choreografie ("Lights On", ~400ms total)
+| Phase | Timing | Was passiert |
+|---|---|---|
+| Elemente raus | 0–200ms | Alle `data-studio-root` Kinder: opacity→0, translateY(+8px) |
+| Overlay + Navigate | 200ms | Overlay opacity 1 (= Studio bg, unsichtbar), Route wechselt |
+| Reveal Destination | 200–400ms | Overlay opacity 1→0, helle Zielseite wird sichtbar |
+
+#### Nutzung von anderen Modulen
+```typescript
+import { enterStudio } from './components/studio/studioTransition';
+// Statt navigate('/studio'):
+enterStudio(navigate);
+```
+Trigger-Buttons (Planner, Pulse, etc.) müssen künftig `enterStudio()` statt `navigate('/studio')` aufrufen, um den Dimming-Effekt zu bekommen. Direkte URL-Navigation zeigt nur den Stagger Reveal (ohne Dimming). Phase 1 (Button Active State) muss noch an den jeweiligen Trigger-Buttons implementiert werden.
+
+### Block C: B-Roll View
+
+Neue Komponente `StudioBRoll.tsx` ersetzt den Platzhalter im Dock:
+- Zentriertes Layout mit Manrope-Headline "B-Roll generieren", Beschreibungstext
+- Textarea mit Dark-Mode Styling (#121214 bg, focus-border #49B7E3)
+- AI Violet (#7C6CF2) Generate-Button, disabled wenn leer
+- Empty State Grid mit Film-Icon und Hinweistext
+- Toast-Hinweis "B-Roll Generierung kommt bald" beim Klick auf Generate
+
+### Neue Dateien
+| Datei | Zweck |
+|---|---|
+| `src/components/studio/StudioBRoll.tsx` | B-Roll Generierungs-View mit Input, Button, Empty Grid |
+| `src/components/studio/studioTransition.ts` | "Dimming the Lights" Entry/Exit-Transition (enterStudio, exitStudio) |
+
+### Geänderte Dateien
+| Datei | Änderung |
+|---|---|
+| `src/components/studio/StudioScript.tsx` | Hook als sticky Header, scrollbare Info-Cards, Padding erhöht |
+| `src/components/studio/StudioStoryboard.tsx` | Spaltenbreiten angepasst (28%/47%/25%), responsive xl-Breakpoint |
+| `src/components/studio/StudioInspector.tsx` | Empty State mit Icon, Pulse, Konzept-Übersicht; `concept` Prop hinzugefügt |
+| `src/components/studio/StudioPage.tsx` | `data-studio-root`, 3 Stagger-Reveal-Layer, StudioBRoll Rendering |
+| `src/components/studio/StudioTopBar.tsx` | Exit via `exitStudio()` statt direktem `navigate()` |
+| `src/components/studio/StudioDock.tsx` | `className` Prop für Reveal-Animation |
+| `src/index.css` | 3 Stagger-Keyframes, 3 Reveal-Klassen, Inspector-Pulse-Keyframe |
+
+### Nicht angefasst (bewusst)
+- Thumbnails View (bleibt Platzhalter)
+- Meine Videos View (bleibt Platzhalter)
+- Echte B-Roll Generierung / n8n-Anbindung
+- Supabase-Datenanbindung
+- Trigger-Buttons in Planner/Pulse (müssen künftig `enterStudio()` nutzen)
+- Phase 1 Button Active State (pro Trigger-Button individuell)
+- Audio-Feedback (optional, nicht implementiert)
+- StudioSceneCard, StudioSceneList (unverändert)
+
+### Nächste Schritte
+- `enterStudio()` in bestehende Trigger-Buttons einbauen (Planner "Im Studio öffnen", Pulse Reel-Karte)
+- Phase 1 Button Active State (kurzes Vektrus-Blue Leuchten beim Klick)
+- Thumbnails View echtes UI
+- Meine Videos View echtes UI
+- B-Roll n8n-Anbindung für echte Generierung
+- Echte Datenanbindung (Supabase pulse_generated_content)
+- Audio-Feedback (optional: hauchzartes Swoosh beim Transition-Start)
+
+---
+
+## Vektrus Studio — Floating Dock
+
+**Stand:** 2026-03-31
+**Status: Abgeschlossen.**
+
+### Was wurde gemacht
+Floating Dock am unteren Bildschirmrand des Studios — adaptiert vom HoverGradientNavBar-Pattern (21st.dev). 4 Tabs: Storyboard, B-Roll, Thumbnails, Meine Videos. Framer Motion 3D-Flip-Animation auf Hover, per-Item Radial-Gradient-Glow, aktiver Tab mit permanentem Glow.
+
+### Komponente
+`src/components/studio/StudioDock.tsx` — exportiert `StudioView` Type und `StudioDock` Komponente. Props: `activeView`, `onViewChange`.
+
+### Integration
+`StudioPage.tsx` hält `activeView` State. Dock ruft `onViewChange` auf → StudioContent rendert konditional die passende View (Storyboard oder Platzhalter für B-Roll/Thumbnails/Videos).
+
+### Design-Anpassungen vs. Original
+- Dark-Mode: `bg-[#121214]/90` statt `bg-white/90`, Border `#FAFAFA/6%`
+- Studio-Farbpalette: Vektrus Blue (Storyboard), Pink (B-Roll), Warm Peach (Thumbnails), Success Green (Videos)
+- Aktiver Tab: permanenter Gradient-Glow + volle Textfarbe
+- Kein Mobile-Layout (Studio ist Desktop-only) — horizontale Labels immer sichtbar
+- Keine `href`-Links, sondern `button` mit `onClick`
+
+### Neue Dateien
+| Datei | Zweck |
+|---|---|
+| `src/components/studio/StudioDock.tsx` | Floating Dock mit 3D-Flip, Glow, View-Switching |
+
+### Geänderte Dateien
+| Datei | Änderung |
+|---|---|
+| `src/components/studio/StudioPage.tsx` | `activeView` State, Dock eingehängt, konditionales View-Rendering |
+
+---
+
+## Vektrus Studio — Phase 2: Director's Desk (Storyboard)
+
+**Stand:** 2026-03-31
+**Status: Abgeschlossen.**
+
+### Was wurde gemacht
+3-Spalten Storyboard-Layout ("Director's Desk") innerhalb der Studio Content-Area. Zeigt ein Reel-Konzept aus Pulse als editierbares Storyboard an. Aktuell mit Mock-Daten, echte Supabase-Anbindung folgt in späterer Phase.
+
+### Layout-Architektur
+- **Spalte 1 (25%) — Das Drehbuch (`StudioScript.tsx`):** Hook-Headline (Manrope 700, groß), Hook-Type/Delivery Badges, "Warum es funktioniert" Card (AI Violet Akzent), Voiceover mit Copy-Button, Audio-Empfehlung, Metadaten-Badges (Format, Difficulty, Dauer, Effort)
+- **Spalte 2 (50%) — Die Stage (`StudioSceneList.tsx` + `StudioSceneCard.tsx`):** Vertikale Szenen-Karten mit Timeline-Connector (Vektrus Blue Linie), 9:16 Media-Platzhalter, Regie-Infos (Action, Badges, Tipp, Text-Overlay). Klickbar für Inspector-Interaktion
+- **Spalte 3 (25%) — KI-Inspektor (`StudioInspector.tsx`):** Kontext-sensitiv — zeigt Details nur bei ausgewählter Szene. B-Roll Textarea, deaktivierter "KI-Video generieren" Button, Dreh-Details, Auto-Edit Toggles (Jump-Cuts, Untertitel — beide disabled/Platzhalter)
+
+### State-Management
+`selectedSceneIndex` in `StudioStoryboard.tsx` — wird an SceneList und Inspector durchgereicht. Klick auf Szenen-Karte setzt Index, Inspektor reagiert sofort.
+
+### Neue Dateien
+| Datei | Zweck |
+|---|---|
+| `src/components/studio/mockReelConcept.ts` | Realistische deutsche Mock-Daten (Küchenbauer, 4 Szenen, Talking Head) |
+| `src/components/studio/StudioStoryboard.tsx` | 3-Spalten-Container, hält selectedSceneIndex State |
+| `src/components/studio/StudioScript.tsx` | Linke Spalte: Hook, Why-it-works, Voiceover, Audio, Metadaten |
+| `src/components/studio/StudioSceneList.tsx` | Mittlere Spalte: Vertikale Szenen-Liste mit Timeline |
+| `src/components/studio/StudioSceneCard.tsx` | Einzelne Szenen-Karte: Regie + 9:16 Platzhalter |
+| `src/components/studio/StudioInspector.tsx` | Rechte Spalte: Kontext-sensitiver Inspektor |
+
+### Geänderte Dateien
+| Datei | Änderung |
+|---|---|
+| `src/components/studio/StudioPage.tsx` | Storyboard mit Mock-Daten eingehängt, Titel an TopBar übergeben |
+| `src/index.css` | `.studio-scrollbar` CSS hinzugefügt (dünne, dunkle Scrollbar) |
+
+### Nicht angefasst (bewusst)
+- Floating Dock (separater Workstream)
+- Echte Supabase-Datenanbindung
+- Video-Upload/Generierung (nur Platzhalter)
+- Entry/Exit-Animationen (Phase 3)
+
+### Nächste Schritte (Phase 3)
+- Floating Dock (Tab-Navigation: Storyboard, B-Roll, Thumbnails, Meine Videos)
+- Echte Datenanbindung (Supabase pulse_generated_content)
+- Video-Upload und KI-Generierung aktivieren
+- Micro-Interactions (Violet Glow, Media Pop)
+
+---
+
+## Vektrus Studio — Phase 1: Foundation & Shell
+
+**Stand:** 2026-03-31
+**Status: Abgeschlossen.**
+
+### Was wurde gemacht
+Vision → Studio Rename (Phase 1). Neues Full-Screen Dark-Mode "Screening Room" als Foundation für das kommende Storyboard/B-Roll/Thumbnail-UI.
+
+### Routing
+- `/studio` rendert **außerhalb** von AppLayout (kein Sidebar, kein Scrolling) — eigene ProtectedRoute in `App.tsx`, selbes Pattern wie `/onboarding`
+- `/vision` (Index) redirected zu `/studio`
+- `/vision/*` Sub-Routen (b-roll, thumbnails, reel/:id) bleiben unverändert innerhalb AppLayout
+
+### Neue Dateien
+| Datei | Zweck |
+|---|---|
+| `src/components/studio/StudioPage.tsx` | Full-Screen Dark Canvas (fixed, 100vh/100vw, #09090b Midnight Onyx) |
+| `src/components/studio/StudioTopBar.tsx` | Minimale Top-Bar: Ghost-Button "Zurück zum Planner" (links), CTA "In Planner übernehmen" in Vektrus Blue (rechts), optionaler Titel (Mitte) |
+| `src/components/studio/StudioContent.tsx` | Flex-Container für spätere Views, aktuell mit Platzhalter-Text |
+
+### Geänderte Dateien
+| Datei | Änderung |
+|---|---|
+| `src/App.tsx` | `/studio` Route als ProtectedRoute vor dem `/*` Catch-all eingefügt |
+| `src/routes.tsx` | `studio: '/studio'` in MODULE_TO_PATH, `/vision` Index-Redirect zu `/studio` |
+| `src/styles/module-colors.ts` | `studio` Farbset hinzugefügt (gleiche Werte wie vision) |
+| `src/components/dashboard/VektrusSidebar.tsx` | "Vision" → "Studio" (Label, moduleId, Farbreferenz) |
+| `src/components/layout/AppLayout.tsx` | `/vision` Pfad-Erkennung mappt auf `studio` statt `vision` |
+
+### Nicht angefasst (bewusst)
+- Alle Dateien in `src/components/vision/` — Produktlogik (n8n Webhooks, Supabase Polling, Wizard) bleibt erhalten
+- Keine Glass-Effekte, kein AI Violet, kein Pulse Gradient
+- Floating Dock wird separat gebaut
+
+### Nächste Schritte (Phase 2)
+- Floating Dock (Tab-Navigation: Storyboard, B-Roll, Thumbnails, Meine Videos)
+- Storyboard 3-Spalten-Layout + Szenen-Karten
+- Produktlogik aus Vision-Dateien in Studio-Views extrahieren
 
 ---
 
