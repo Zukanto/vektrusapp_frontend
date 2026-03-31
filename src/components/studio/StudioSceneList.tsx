@@ -1,16 +1,19 @@
 import React from 'react';
 import type { ReelScene } from '../../services/reelService';
+import type { SceneVideoMap } from '../../hooks/useSceneVideos';
 import StudioSceneCard from './StudioSceneCard';
 
 interface StudioSceneListProps {
   scenes: ReelScene[];
   selectedSceneIndex: number | null;
+  sceneVideos: SceneVideoMap;
   onSelectScene: (index: number) => void;
 }
 
 const StudioSceneList: React.FC<StudioSceneListProps> = ({
   scenes,
   selectedSceneIndex,
+  sceneVideos,
   onSelectScene,
 }) => {
   return (
@@ -22,6 +25,7 @@ const StudioSceneList: React.FC<StudioSceneListProps> = ({
             scene={scene}
             isSelected={selectedSceneIndex === index}
             isLast={index === scenes.length - 1}
+            sceneVideo={sceneVideos[scene.nr] || null}
             onClick={() => onSelectScene(index)}
           />
         ))}

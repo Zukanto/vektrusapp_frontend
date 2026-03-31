@@ -1,7 +1,79 @@
 # Vektrus App Frontend — Handoff für den nächsten Chat
 
 **Stand:** 2026-03-31
-**Kontext:** AP-01 bis AP-08 vollstaendig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik. **Posting Popup Redesign Phase 1 + Phase 2 + QA Pass abgeschlossen. Chat-to-Planner Handoff V1 + Corrective Pass + QA Pass + Single-Caption Bugfix + QA + Robustness Pass + Robustness QA Pass abgeschlossen. Composer Handoff V2 (Three-State Model + Source-Material Mode) implementiert. Help-Seite Workstream Phase 1 (Audit + Zielarchitektur) + Phase 2 (Implementierung) + Corrective Pass + QA Pass + Finaler Visual QA Pass abgeschlossen. Help Updates-Layer (Produkt-Updates + Transparenz) implementiert. Onboarding Wizard komplett implementiert (Session 1 + Session 2: alle 4 Schritte, OAuth, Completion, Step-Resume, SignUp-Redirect). Onboarding Design Polish Pass abgeschlossen (Premium UI, Framer Motion Transitions, Custom Slider/Dropdown/Tags). SignUpFlow Visual Polish Pass abgeschlossen (Design-Konsistenz mit Onboarding-Wizard). Onboarding OAuth-Callback Sync Bugfix abgeschlossen. Pulse Reels — Session 1 (Frontend) abgeschlossen. Pulse Reels — Session 2 (Design Polish + Brand Icons) abgeschlossen. Vision Rebranding — Session 3 (Video-Werkstatt) abgeschlossen. Vision Session 3 — Corrective Pass abgeschlossen. Vision — Fix Pass (Pulse Button + Thumbnail Webhook) abgeschlossen. Vision & Pulse — Fix Pass (Image Advanced + Label-Rename) abgeschlossen. Vision B-Roll — Funktional machen + Bild-Upload abgeschlossen. Vision B-Roll — Videos in Vision Tab + Mediathek anzeigen abgeschlossen. Vektrus Studio Phase 1 (Foundation & Shell) abgeschlossen. Vektrus Studio Phase 2 (Director's Desk / Storyboard) abgeschlossen. Vektrus Studio — Floating Dock abgeschlossen. Vektrus Studio — Corrective Pass + B-Roll View + "Dimming the Lights" abgeschlossen. Vektrus Studio — Echte Supabase-Daten + Entry-Buttons abgeschlossen. Vektrus Studio — B-Roll + Thumbnails + Meine Videos (echte n8n-Integration) abgeschlossen. Vektrus Studio — Production-Ready Cleanup abgeschlossen.**
+**Kontext:** AP-01 bis AP-08 vollstaendig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik. **Posting Popup Redesign Phase 1 + Phase 2 + QA Pass abgeschlossen. Chat-to-Planner Handoff V1 + Corrective Pass + QA Pass + Single-Caption Bugfix + QA + Robustness Pass + Robustness QA Pass abgeschlossen. Composer Handoff V2 (Three-State Model + Source-Material Mode) implementiert. Help-Seite Workstream Phase 1 (Audit + Zielarchitektur) + Phase 2 (Implementierung) + Corrective Pass + QA Pass + Finaler Visual QA Pass abgeschlossen. Help Updates-Layer (Produkt-Updates + Transparenz) implementiert. Onboarding Wizard komplett implementiert (Session 1 + Session 2: alle 4 Schritte, OAuth, Completion, Step-Resume, SignUp-Redirect). Onboarding Design Polish Pass abgeschlossen (Premium UI, Framer Motion Transitions, Custom Slider/Dropdown/Tags). SignUpFlow Visual Polish Pass abgeschlossen (Design-Konsistenz mit Onboarding-Wizard). Onboarding OAuth-Callback Sync Bugfix abgeschlossen. Pulse Reels — Session 1 (Frontend) abgeschlossen. Pulse Reels — Session 2 (Design Polish + Brand Icons) abgeschlossen. Vision Rebranding — Session 3 (Video-Werkstatt) abgeschlossen. Vision Session 3 — Corrective Pass abgeschlossen. Vision — Fix Pass (Pulse Button + Thumbnail Webhook) abgeschlossen. Vision & Pulse — Fix Pass (Image Advanced + Label-Rename) abgeschlossen. Vision B-Roll — Funktional machen + Bild-Upload abgeschlossen. Vision B-Roll — Videos in Vision Tab + Mediathek anzeigen abgeschlossen. Vektrus Studio Phase 1 (Foundation & Shell) abgeschlossen. Vektrus Studio Phase 2 (Director's Desk / Storyboard) abgeschlossen. Vektrus Studio — Floating Dock abgeschlossen. Vektrus Studio — Corrective Pass + B-Roll View + "Dimming the Lights" abgeschlossen. Vektrus Studio — Echte Supabase-Daten + Entry-Buttons abgeschlossen. Vektrus Studio — B-Roll + Thumbnails + Meine Videos (echte n8n-Integration) abgeschlossen. Vektrus Studio — Production-Ready Cleanup abgeschlossen. Vektrus Studio — Szenen-gebundene B-Roll + Thumbnail-Zuordnung abgeschlossen.**
+
+---
+
+## Vektrus Studio — Szenen-gebundene B-Roll + Thumbnail-Zuordnung
+
+**Stand:** 2026-03-31
+**Status: Abgeschlossen.**
+
+### Problemstellung
+B-Rolls und Thumbnails hatten keinen Bezug zum Reel-Konzept oder zur konkreten Szene. Der "KI-Video generieren"-Button im Inspektor wechselte zum B-Roll Tab — der User verlor seinen Kontext.
+
+### DB-Schema (bereits erweitert)
+- `vision_projects.scene_nr` (INTEGER) — Zuordnung zur Szene
+- `vision_projects.reel_concept_id` (UUID) — Zuordnung zum Reel
+- `pulse_generated_content.thumbnail_url` (TEXT) — Thumbnail für das Reel
+
+### Was wurde gemacht
+
+#### Block A: useSceneVideos Hook
+| Datei | Änderung |
+|---|---|
+| `src/hooks/useSceneVideos.ts` | **Neu.** Lädt alle `vision_projects` mit `scene_nr` für ein `reel_concept_id`. Returns `SceneVideoMap` (neuestes Video pro Szene). Polling alle 4s bei Status "generating"/"queued", stoppt wenn alle fertig/failed. |
+
+#### Block B: Inspektor Inline-Generierung
+| Datei | Änderung |
+|---|---|
+| `src/components/studio/StudioInspector.tsx` | Komplett umgebaut. Generierung passiert jetzt direkt im Inspektor (kein Tab-Wechsel). Neues Props: `reelConceptId`, `sceneVideo`, `onVideoGenerated`. Insert in `vision_projects` mit `scene_nr` + `reel_concept_id`. Webhook-Call direkt. 4 Zustände: Default (Button), Generating (Violet Status-Zeile), Finished (Grüne Bestätigung + Nochmal), Failed (Rot + Retry). Clip-Dauer-Auswahl (3–8s) inline. Alte `onGenerateBRoll` Prop entfernt. |
+
+#### Block C: Szenen-Karten zeigen Videos
+| Datei | Änderung |
+|---|---|
+| `src/components/studio/StudioSceneCard.tsx` | Neues Prop `sceneVideo`. 3 Zustände des 9:16-Containers: (1) Leer — dunkle Fläche mit Plus-Icon, (2) Generierend — AI Violet Glow (`studioGeneratingGlow`) + Shimmer, (3) Fertig — `<video>` autoplay/muted/loop mit Fade-In (300ms `studioVideoFadeIn`). Play/Pause Overlay auf Hover. |
+| `src/index.css` | `@keyframes studioVideoFadeIn` hinzugefügt (opacity + scale transition). |
+
+#### Block D: Plumbing (Datenfluss)
+| Datei | Änderung |
+|---|---|
+| `src/components/studio/StudioSceneList.tsx` | Neues Prop `sceneVideos: SceneVideoMap`. Wird an jede `StudioSceneCard` per `scene.nr` weitergereicht. |
+| `src/components/studio/StudioStoryboard.tsx` | Props geändert: `onGenerateBRoll` entfernt → `reelConceptId`, `sceneVideos`, `onVideoGenerated` hinzugefügt. Leitet alles an SceneList + Inspector weiter. |
+| `src/components/studio/StudioPage.tsx` | `useSceneVideos(reelId)` integriert. Alte `brollPrefill` / `handleGenerateBRoll` / `BRollPrefill` komplett entfernt. `StudioBRoll` bekommt keine Props mehr. `StudioThumbnails` bekommt `reelConceptId`. `StudioTopBar` bekommt `reelConceptId`. |
+
+#### Block E: Thumbnail-Zuordnung
+| Datei | Änderung |
+|---|---|
+| `src/components/studio/StudioThumbnails.tsx` | Neues Prop `reelConceptId`. Lädt bestehendes `thumbnail_url` vom Reel und zeigt es als "Aktuelles Thumbnail" an. Nach Generierung: `thumbnail_url` wird automatisch auf `pulse_generated_content` gespeichert. Grüne Bestätigung "Thumbnail für dieses Reel gespeichert". Button-Text wechselt zu "Neu generieren" wenn Thumbnail existiert. |
+| `src/components/studio/StudioTopBar.tsx` | Neues Prop `reelConceptId`. Lädt `thumbnail_url` und zeigt 40×72px Preview neben dem Titel. Re-checkt alle 10s (falls Thumbnail auf anderem Tab generiert wird). |
+
+#### Block F: B-Roll Tab Cleanup
+| Datei | Änderung |
+|---|---|
+| `src/components/studio/StudioBRoll.tsx` | `BRollPrefill` Interface + Export entfernt. `prefill`/`onPrefillConsumed` Props entfernt. Prefill-useEffect entfernt. `reel_concept_id` im Insert ist jetzt immer `null` (standalone-only). Komponente ist jetzt `React.FC` ohne Props. |
+
+#### Block G: Meine Videos erweitert
+| Datei | Änderung |
+|---|---|
+| `src/components/studio/StudioMyVideos.tsx` | Query erweitert um `scene_nr` + `reel_concept_id`. Szenen-Badge auf Karten: "Szene {nr}" mit Clapperboard-Icon. Reel-Titel wird per Join geladen und unter dem Video-Namen angezeigt. Filter-Pillen: "Alle" / "Zu Reels" / "Standalone" (nur sichtbar wenn beide Typen vorhanden). Video-Player-Overlay zeigt Szene-Info. |
+
+### Verifikation
+- ✅ TypeScript: fehlerfrei (`tsc --noEmit`)
+- ✅ Inspektor: Video für Szene generieren ohne Tab-Wechsel
+- ✅ Violet Glow auf dem richtigen Szenen-Karten-Platzhalter
+- ✅ Video erscheint in Szenen-Karte per Fade-In
+- ✅ `scene_nr` + `reel_concept_id` werden in `vision_projects` gespeichert
+- ✅ `thumbnail_url` wird auf `pulse_generated_content` gespeichert
+- ✅ B-Roll Tab funktioniert standalone (keine Props, kein Prefill)
+- ✅ Alle callN8n-Calls nutzen JWT Auth via `src/lib/n8n.ts`
+
+### Architektur-Entscheidungen
+- **useSceneVideos** pollt nur wenn nötig (generating/queued) und stoppt automatisch
+- **Inspektor** triggert `onVideoGenerated` → `refetch` des Hooks → SceneCards updaten reaktiv
+- **StudioTopBar** pollt Thumbnail unabhängig (10s Intervall) — decoupled vom Thumbnail-Tab
+- **B-Roll Tab** ist jetzt clean standalone — kein Cross-Tab State mehr
 
 ---
 

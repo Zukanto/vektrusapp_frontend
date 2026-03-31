@@ -6,6 +6,7 @@ import {
   FolderOpen,
   Loader,
   X,
+  Clapperboard,
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
@@ -19,6 +20,8 @@ interface VisionProject {
   video_url?: string;
   clip_purpose?: string;
   created_at?: string;
+  scene_nr?: number | null;
+  reel_concept_id?: string | null;
 }
 
 const PURPOSE_LABELS: Record<string, string> = {
@@ -27,6 +30,8 @@ const PURPOSE_LABELS: Record<string, string> = {
   outro: 'Outro',
   transition: 'Transition',
 };
+
+type FilterMode = 'all' | 'reel' | 'standalone';
 
 interface StudioMyVideosProps {
   onSwitchView?: (view: StudioView) => void;
@@ -37,6 +42,10 @@ const StudioMyVideos: React.FC<StudioMyVideosProps> = ({ onSwitchView }) => {
   const [projects, setProjects] = useState<VisionProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProject, setSelectedProject] = useState<VisionProject | null>(null);
+  const [filter, setFilter] = useState<FilterMode>('all');
+
+  // Reel title cache for reel_concept_id → title lookup
+  const [reelTitles, setReelTitles] = useState<Record<string, string>>({});
 
   const loadProjects = useCallback(async () => {
     if (!user?.id) return;
@@ -44,11 +53,35 @@ const StudioMyVideos: React.FC<StudioMyVideosProps> = ({ onSwitchView }) => {
 
     const { data } = await supabase
       .from('vision_projects')
-      .select('id, product_name, user_description, status, video_url, clip_purpose, created_at')
+      .select('id, product_name, user_description, status, video_url, clip_purpose, created_at, scene_nr, reel_concept_id')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
-    if (data) setProjects(data as VisionProject[]);
+    if (data) {
+      setProjects(data as VisionProject[]);
+
+      // Load reel titles for all unique reel_concept_ids
+      const reelIds = [...new Set(
+        (data as VisionProject[])
+          .map((p) => p.reel_concept_id)
+          .filter((id): id is string => !!id)
+      )];
+
+      if (reelIds.length > 0) {
+        const { data: reels } = await supabase
+          .from('pulse_generated_content')
+          .select('id, content')
+          .in('id', reelIds);
+
+        if (reels) {
+          const titles: Record<string, string> = {};
+          for (const reel of reels as any[]) {
+            titles[reel.id] = reel.content?.title || 'Reel';
+          }
+          setReelTitles(titles);
+        }
+      }
+    }
     setLoading(false);
   }, [user?.id]);
 
@@ -56,7 +89,7 @@ const StudioMyVideos: React.FC<StudioMyVideosProps> = ({ onSwitchView }) => {
     loadProjects();
   }, [loadProjects]);
 
-  // Poll generating projects — use ref to avoid interval recreation on state changes
+  // Poll generating projects
   const pendingIdsRef = useRef<string[]>([]);
   useEffect(() => {
     pendingIdsRef.current = projects
@@ -73,7 +106,7 @@ const StudioMyVideos: React.FC<StudioMyVideosProps> = ({ onSwitchView }) => {
 
       const { data } = await supabase
         .from('vision_projects')
-        .select('id, product_name, user_description, status, video_url, clip_purpose, created_at')
+        .select('id, product_name, user_description, status, video_url, clip_purpose, created_at, scene_nr, reel_concept_id')
         .eq('user_id', user.id)
         .in('id', ids);
 
@@ -127,6 +160,16 @@ const StudioMyVideos: React.FC<StudioMyVideosProps> = ({ onSwitchView }) => {
     }
   };
 
+  // Apply filter
+  const filteredProjects = projects.filter((p) => {
+    if (filter === 'reel') return !!p.scene_nr;
+    if (filter === 'standalone') return !p.scene_nr;
+    return true;
+  });
+
+  const reelCount = projects.filter((p) => !!p.scene_nr).length;
+  const standaloneCount = projects.filter((p) => !p.scene_nr).length;
+
   // Loading
   if (loading) {
     return (
@@ -172,12 +215,37 @@ const StudioMyVideos: React.FC<StudioMyVideosProps> = ({ onSwitchView }) => {
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-y-auto studio-scrollbar px-6 py-8">
-      <h2 className="text-2xl font-manrope font-bold text-[#FAFAFA] mb-6">
-        Meine Videos
-      </h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-manrope font-bold text-[#FAFAFA]">
+          Meine Videos
+        </h2>
+
+        {/* Filter pills */}
+        {reelCount > 0 && standaloneCount > 0 && (
+          <div className="flex gap-1.5">
+            {([
+              { id: 'all' as FilterMode, label: 'Alle', count: projects.length },
+              { id: 'reel' as FilterMode, label: 'Zu Reels', count: reelCount },
+              { id: 'standalone' as FilterMode, label: 'Standalone', count: standaloneCount },
+            ]).map((f) => (
+              <button
+                key={f.id}
+                onClick={() => setFilter(f.id)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer border ${
+                  filter === f.id
+                    ? 'bg-[#49B7E3]/15 text-[#49B7E3] border-[#49B7E3]/30'
+                    : 'bg-transparent text-[#FAFAFA]/40 border-transparent hover:text-[#FAFAFA]/60'
+                }`}
+              >
+                {f.label} ({f.count})
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
-        {projects.map((project) => {
+        {filteredProjects.map((project) => {
           const statusInfo = getStatusInfo(project.status);
           const isFinished = project.status === 'finished' && project.video_url;
 
@@ -223,6 +291,16 @@ const StudioMyVideos: React.FC<StudioMyVideosProps> = ({ onSwitchView }) => {
                 </div>
               )}
 
+              {/* Scene badge — top right */}
+              {project.scene_nr && (
+                <div className="absolute top-2 right-2 z-10 flex items-center gap-1 px-2 py-1 rounded-md bg-black/60 backdrop-blur-sm border border-[#FAFAFA]/10">
+                  <Clapperboard className="w-3 h-3 text-[#49B7E3]/70" />
+                  <span className="text-[10px] font-semibold text-[#FAFAFA]/70">
+                    Szene {project.scene_nr}
+                  </span>
+                </div>
+              )}
+
               {/* Gradient overlay for info */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
 
@@ -248,6 +326,12 @@ const StudioMyVideos: React.FC<StudioMyVideosProps> = ({ onSwitchView }) => {
                     </span>
                   )}
                 </div>
+                {/* Reel title */}
+                {project.reel_concept_id && reelTitles[project.reel_concept_id] && (
+                  <p className="text-[10px] text-[#49B7E3]/50 mt-1 truncate">
+                    {reelTitles[project.reel_concept_id]}
+                  </p>
+                )}
                 <p className="text-[10px] text-[#FAFAFA]/20 mt-1">
                   {formatRelativeDate(project.created_at)}
                 </p>
@@ -293,9 +377,17 @@ const StudioMyVideos: React.FC<StudioMyVideosProps> = ({ onSwitchView }) => {
                 <p className="text-sm text-[#FAFAFA] font-medium">
                   {selectedProject.product_name}
                 </p>
-                <p className="text-[11px] text-[#FAFAFA]/30 mt-0.5">
-                  {formatRelativeDate(selectedProject.created_at)}
-                </p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  {selectedProject.scene_nr && (
+                    <span className="inline-flex items-center gap-1 text-[11px] text-[#49B7E3]/60">
+                      <Clapperboard className="w-3 h-3" />
+                      Szene {selectedProject.scene_nr}
+                    </span>
+                  )}
+                  <span className="text-[11px] text-[#FAFAFA]/30">
+                    {formatRelativeDate(selectedProject.created_at)}
+                  </span>
+                </div>
               </div>
               <a
                 href={selectedProject.video_url}

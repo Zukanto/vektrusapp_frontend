@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Camera, Clock, Type, Wand2, Subtitles, Scissors, MousePointerClick, Clapperboard, Film, Timer } from 'lucide-react';
+import { Camera, Clock, Type, Wand2, Subtitles, Scissors, MousePointerClick, Clapperboard, Film, Timer, Check, RefreshCw, Loader, X } from 'lucide-react';
 import type { ReelScene, ReelContent } from '../../services/reelService';
+import type { SceneVideo } from '../../hooks/useSceneVideos';
+import { supabase } from '../../lib/supabase';
+import { callN8n } from '../../lib/n8n';
+import { useAuth } from '../../hooks/useAuth';
 
 const CAMERA_LABELS: Record<string, string> = {
   frontal_selfie: 'Frontal',
@@ -21,19 +25,91 @@ const FORMAT_LABELS: Record<string, string> = {
   listicle: 'Listicle',
 };
 
+const DURATION_OPTIONS = [3, 4, 5, 6, 7, 8] as const;
+
+const FAILED_MESSAGES: Record<string, string> = {
+  failed_timeout: 'Die Generierung hat zu lange gedauert.',
+  failed_generation: 'Die Video-Generierung ist fehlgeschlagen.',
+  failed_download: 'Das Video konnte nicht gespeichert werden.',
+  failed: 'Ein Fehler ist aufgetreten.',
+};
+
 interface StudioInspectorProps {
   scene: ReelScene | null;
   concept?: ReelContent;
-  onGenerateBRoll?: (description: string, duration: number) => void;
+  reelConceptId?: string;
+  sceneVideo?: SceneVideo | null;
+  onVideoGenerated?: () => void;
 }
 
-const StudioInspector: React.FC<StudioInspectorProps> = ({ scene, concept, onGenerateBRoll }) => {
+const StudioInspector: React.FC<StudioInspectorProps> = ({
+  scene,
+  concept,
+  reelConceptId,
+  sceneVideo,
+  onVideoGenerated,
+}) => {
+  const { user } = useAuth();
   const [brollDescription, setBrollDescription] = useState(scene?.action || '');
+  const [clipDuration, setClipDuration] = useState(scene?.duration_seconds || 5);
+  const [submitting, setSubmitting] = useState(false);
 
-  // Sync textarea when scene changes
+  // Sync textarea + duration when scene changes
   useEffect(() => {
     setBrollDescription(scene?.action || '');
-  }, [scene?.nr, scene?.action]);
+    setClipDuration(scene?.duration_seconds || 5);
+  }, [scene?.nr, scene?.action, scene?.duration_seconds]);
+
+  // Determine display state from sceneVideo
+  const isGenerating = sceneVideo?.status === 'generating' || sceneVideo?.status === 'queued';
+  const isFinished = sceneVideo?.status === 'finished' && !!sceneVideo?.video_url;
+  const isFailed = sceneVideo?.status?.startsWith('failed') || false;
+
+  const handleGenerate = async () => {
+    if (!user?.id || !scene || !reelConceptId) return;
+    setSubmitting(true);
+
+    try {
+      // 1. Insert vision_project with scene_nr + reel_concept_id
+      const { data: project, error: insertError } = await supabase
+        .from('vision_projects')
+        .insert({
+          user_id: user.id,
+          product_name: (brollDescription || scene.action).substring(0, 100),
+          user_description: brollDescription || scene.action,
+          status: 'queued',
+          model_selection: 'veo',
+          reel_concept_id: reelConceptId,
+          scene_nr: scene.nr,
+        })
+        .select()
+        .single();
+
+      if (insertError || !project) throw insertError || new Error('Insert fehlgeschlagen');
+
+      // 2. Call n8n webhook
+      try {
+        await callN8n('vektrus-vision-broll', {
+          user_id: user.id,
+          vision_project_id: project.id,
+          clip_description: brollDescription || scene.action,
+          clip_duration: clipDuration,
+          clip_purpose: 'b_roll',
+          reel_concept_id: reelConceptId,
+          reference_images: [],
+        });
+      } catch {
+        // Webhook fire-and-forget; polling will pick up status
+      }
+
+      // 3. Trigger refetch so useSceneVideos picks up the new record
+      onVideoGenerated?.();
+    } catch {
+      // Error handled silently — user sees the scene stays without video
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   if (!scene) {
     return (
@@ -97,7 +173,7 @@ const StudioInspector: React.FC<StudioInspectorProps> = ({ scene, concept, onGen
           </p>
         </div>
 
-        {/* B-Roll Input */}
+        {/* B-Roll Inline Generation */}
         <div className="rounded-xl bg-[#121214] p-4">
           <span className="text-[11px] uppercase tracking-wider font-medium text-[#FAFAFA]/40 block mb-2">
             B-Roll Beschreibung
@@ -107,14 +183,95 @@ const StudioInspector: React.FC<StudioInspectorProps> = ({ scene, concept, onGen
             onChange={(e) => setBrollDescription(e.target.value)}
             className="w-full bg-[#1A1A1E] text-[#FAFAFA]/80 text-sm rounded-lg border border-[#FAFAFA]/5 p-3 resize-none focus:outline-none focus:border-[#49B7E3]/30 transition-colors"
             rows={3}
+            disabled={isGenerating || submitting}
           />
-          <button
-            onClick={() => onGenerateBRoll?.(brollDescription || scene.action, scene.duration_seconds)}
-            className="mt-3 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#7C6CF2] text-white hover:bg-[#6b5ce0] transition-colors cursor-pointer"
-          >
-            <Wand2 className="w-4 h-4" />
-            KI-Video generieren
-          </button>
+
+          {/* Duration chips */}
+          <div className="mt-3">
+            <span className="text-[10px] uppercase tracking-wider font-medium text-[#FAFAFA]/30 block mb-1.5">
+              Clip-Dauer
+            </span>
+            <div className="flex gap-1.5">
+              {DURATION_OPTIONS.map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setClipDuration(d)}
+                  disabled={isGenerating || submitting}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer border ${
+                    clipDuration === d
+                      ? 'bg-[#49B7E3]/15 text-[#49B7E3] border-[#49B7E3]/40'
+                      : 'bg-[#1A1A1E] text-[#FAFAFA]/40 border-transparent hover:border-[rgba(255,255,255,0.08)]'
+                  }`}
+                >
+                  {d}s
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Generate / Status area */}
+          <div className="mt-3">
+            {isGenerating ? (
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#7C6CF2]/10 border border-[#7C6CF2]/20">
+                <Loader className="w-4 h-4 text-[#7C6CF2] animate-spin flex-shrink-0" />
+                <span className="text-sm text-[#7C6CF2]/80 font-medium">Video wird erstellt...</span>
+              </div>
+            ) : isFinished ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#49D69E]/10 border border-[#49D69E]/20">
+                  <Check className="w-4 h-4 text-[#49D69E] flex-shrink-0" />
+                  <span className="text-sm text-[#49D69E]/80 font-medium">Video erstellt</span>
+                </div>
+                <button
+                  onClick={handleGenerate}
+                  disabled={submitting}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-medium text-[#FAFAFA]/50 hover:text-[#FAFAFA]/70 border border-[#FAFAFA]/10 hover:border-[#FAFAFA]/20 transition-colors cursor-pointer bg-transparent"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  Nochmal generieren
+                </button>
+              </div>
+            ) : isFailed ? (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#FA7E70]/10 border border-[#FA7E70]/20">
+                  <X className="w-4 h-4 text-[#FA7E70] flex-shrink-0" />
+                  <span className="text-sm text-[#FA7E70]/80 font-medium">
+                    {FAILED_MESSAGES[sceneVideo?.status || ''] || FAILED_MESSAGES.failed}
+                  </span>
+                </div>
+                <button
+                  onClick={handleGenerate}
+                  disabled={submitting}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-[#7C6CF2] text-white hover:bg-[#6b5ce0] transition-colors cursor-pointer"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Erneut versuchen
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={handleGenerate}
+                disabled={submitting || !reelConceptId}
+                className={`w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors cursor-pointer ${
+                  submitting
+                    ? 'bg-[#7C6CF2]/50 text-white/70 cursor-wait'
+                    : 'bg-[#7C6CF2] text-white hover:bg-[#6b5ce0]'
+                }`}
+              >
+                {submitting ? (
+                  <>
+                    <Loader className="w-4 h-4 animate-spin" />
+                    Wird gestartet...
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="w-4 h-4" />
+                    KI-Video generieren
+                  </>
+                )}
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Scene Details */}

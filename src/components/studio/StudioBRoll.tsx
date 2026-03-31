@@ -33,18 +33,7 @@ const FAILED_MESSAGES: Record<string, string> = {
   failed: 'Ein Fehler ist aufgetreten. Bitte versuche es erneut.',
 };
 
-export interface BRollPrefill {
-  description: string;
-  duration: number;
-  reelConceptId?: string;
-}
-
-interface StudioBRollProps {
-  prefill?: BRollPrefill | null;
-  onPrefillConsumed?: () => void;
-}
-
-const StudioBRoll: React.FC<StudioBRollProps> = ({ prefill, onPrefillConsumed }) => {
+const StudioBRoll: React.FC = () => {
   const { user } = useAuth();
   const { addToast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -77,17 +66,6 @@ const StudioBRoll: React.FC<StudioBRollProps> = ({ prefill, onPrefillConsumed })
     { id: string; video_url: string; product_name: string; created_at: string }[]
   >([]);
   const [selectedClipUrl, setSelectedClipUrl] = useState<string | null>(null);
-
-  // Apply prefill from Storyboard Inspector
-  useEffect(() => {
-    if (prefill) {
-      setClipDescription(prefill.description);
-      setClipDuration(Math.min(8, Math.max(3, prefill.duration)));
-      setPhase('form');
-      setVideoUrl(null);
-      onPrefillConsumed?.();
-    }
-  }, [prefill, onPrefillConsumed]);
 
   // Load recent finished clips
   useEffect(() => {
@@ -216,7 +194,7 @@ const StudioBRoll: React.FC<StudioBRollProps> = ({ prefill, onPrefillConsumed })
           status: 'queued',
           clip_purpose: clipPurpose,
           generation_mode: referenceImages.length > 0 ? 'image_to_video' : 'text_to_video',
-          reel_concept_id: prefill?.reelConceptId || null,
+          reel_concept_id: null,
         })
         .select()
         .single();
@@ -231,7 +209,7 @@ const StudioBRoll: React.FC<StudioBRollProps> = ({ prefill, onPrefillConsumed })
           clip_description: clipDescription,
           clip_duration: clipDuration,
           clip_purpose: clipPurpose,
-          reel_concept_id: prefill?.reelConceptId || null,
+          reel_concept_id: null,
           reference_images: referenceImages.map((img) => img.url),
         });
       } catch {

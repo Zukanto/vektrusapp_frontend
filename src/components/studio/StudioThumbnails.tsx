@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
+  Check,
   Download,
   Image as ImageIcon,
   Loader,
@@ -29,9 +30,10 @@ interface BrandColors {
 
 interface StudioThumbnailsProps {
   reelTitle?: string;
+  reelConceptId?: string;
 }
 
-const StudioThumbnails: React.FC<StudioThumbnailsProps> = ({ reelTitle }) => {
+const StudioThumbnails: React.FC<StudioThumbnailsProps> = ({ reelTitle, reelConceptId }) => {
   const { user } = useAuth();
   const { addToast } = useToast();
 
@@ -39,6 +41,10 @@ const StudioThumbnails: React.FC<StudioThumbnailsProps> = ({ reelTitle }) => {
   const [style, setStyle] = useState<StyleOption>('modern');
   const [generating, setGenerating] = useState(false);
   const [imageUrl, setImageUrl] = useState<string | null>(null);
+
+  // Existing thumbnail from reel concept
+  const [existingThumbnail, setExistingThumbnail] = useState<string | null>(null);
+  const [savedConfirmation, setSavedConfirmation] = useState(false);
 
   // Brand colors
   const [brandColors, setBrandColors] = useState<BrandColors | null>(null);
@@ -49,6 +55,22 @@ const StudioThumbnails: React.FC<StudioThumbnailsProps> = ({ reelTitle }) => {
   useEffect(() => {
     if (reelTitle && !headline) setHeadline(reelTitle);
   }, [reelTitle, headline]);
+
+  // Load existing thumbnail from reel concept
+  useEffect(() => {
+    if (!reelConceptId) return;
+    const load = async () => {
+      const { data } = await supabase
+        .from('pulse_generated_content')
+        .select('thumbnail_url')
+        .eq('id', reelConceptId)
+        .single();
+      if (data?.thumbnail_url) {
+        setExistingThumbnail(data.thumbnail_url);
+      }
+    };
+    load();
+  }, [reelConceptId]);
 
   // Load brand colors
   useEffect(() => {
@@ -91,10 +113,25 @@ No photos of people, use abstract or geometric backgrounds.
 Clean layout, high contrast between text and background.`;
   };
 
+  const saveThumbnailToReel = async (url: string) => {
+    if (!reelConceptId) return;
+    const { error } = await supabase
+      .from('pulse_generated_content')
+      .update({ thumbnail_url: url })
+      .eq('id', reelConceptId);
+
+    if (!error) {
+      setExistingThumbnail(url);
+      setSavedConfirmation(true);
+      setTimeout(() => setSavedConfirmation(false), 3000);
+    }
+  };
+
   const handleGenerate = async () => {
     if (!headline.trim()) return;
     setGenerating(true);
     setImageUrl(null);
+    setSavedConfirmation(false);
 
     try {
       const response = await callN8n('vektrus-image-simple', {
@@ -110,10 +147,18 @@ Clean layout, high contrast between text and background.`;
       if (!result) throw new Error('Kein Bild in der Antwort');
 
       setImageUrl(result);
+
+      // Auto-save to reel if in reel context
+      if (reelConceptId) {
+        await saveThumbnailToReel(result);
+      }
+
       addToast({
         type: 'success',
         title: 'Thumbnail generiert',
-        description: 'Dein Thumbnail ist fertig.',
+        description: reelConceptId
+          ? 'Thumbnail für dieses Reel gespeichert.'
+          : 'Dein Thumbnail ist fertig.',
         duration: 4000,
       });
     } catch {
@@ -141,6 +186,26 @@ Clean layout, high contrast between text and background.`;
               Erstelle ein 9:16 Thumbnail für dein Video mit KI.
             </p>
           </div>
+
+          {/* Existing thumbnail indicator */}
+          {existingThumbnail && !imageUrl && (
+            <div className="rounded-xl bg-[#121214] p-4 border border-[rgba(255,255,255,0.06)]">
+              <span className="text-[11px] uppercase tracking-wider font-medium text-[#FAFAFA]/40 block mb-2">
+                Aktuelles Thumbnail
+              </span>
+              <div className="flex items-center gap-3">
+                <img
+                  src={existingThumbnail}
+                  alt="Aktuelles Thumbnail"
+                  className="w-10 h-[72px] object-cover rounded-lg border border-[rgba(255,255,255,0.06)]"
+                  style={{ aspectRatio: '9/16' }}
+                />
+                <p className="text-xs text-[#FAFAFA]/50">
+                  Dieses Reel hat bereits ein Thumbnail. Generiere ein neues, um es zu ersetzen.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* Headline */}
           <div>
@@ -262,6 +327,11 @@ Clean layout, high contrast between text and background.`;
                 <Loader className="w-4 h-4 animate-spin" />
                 Wird erstellt...
               </>
+            ) : existingThumbnail ? (
+              <>
+                <RefreshCw className="w-4 h-4" />
+                Neu generieren
+              </>
             ) : (
               <>
                 <Sparkles className="w-4 h-4" />
@@ -269,6 +339,16 @@ Clean layout, high contrast between text and background.`;
               </>
             )}
           </button>
+
+          {/* Saved confirmation */}
+          {savedConfirmation && (
+            <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#49D69E]/10 border border-[#49D69E]/20">
+              <Check className="w-4 h-4 text-[#49D69E] flex-shrink-0" />
+              <span className="text-sm text-[#49D69E]/80 font-medium">
+                Thumbnail für dieses Reel gespeichert
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Right: Preview area */}

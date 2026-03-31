@@ -1,7 +1,8 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Film, ArrowLeft, Sparkles, Clapperboard, Image, FolderOpen, Plus, Clock, Camera, User } from 'lucide-react';
 import { useReelConcept } from '../../hooks/useReelConcept';
+import { useSceneVideos } from '../../hooks/useSceneVideos';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { enterStudio, exitStudio } from './studioTransition';
@@ -9,7 +10,6 @@ import StudioTopBar from './StudioTopBar';
 import StudioContent from './StudioContent';
 import StudioStoryboard from './StudioStoryboard';
 import StudioBRoll from './StudioBRoll';
-import type { BRollPrefill } from './StudioBRoll';
 import StudioThumbnails from './StudioThumbnails';
 import StudioMyVideos from './StudioMyVideos';
 import StudioDock, { StudioView } from './StudioDock';
@@ -27,13 +27,12 @@ const StudioPage: React.FC = () => {
   const { user } = useAuth();
   const [activeView, setActiveView] = useState<StudioView>('storyboard');
 
-  // B-Roll prefill from Storyboard Inspector
-  const [brollPrefill, setBrollPrefill] = useState<BRollPrefill | null>(null);
-
   // Load single reel concept when reelId is present
   const { record, loading, error } = useReelConcept(reelId);
-
   const concept = record?.content ?? null;
+
+  // Scene videos for this reel (polling-based)
+  const { sceneVideos, refetch: refetchSceneVideos } = useSceneVideos(reelId);
 
   // Hub: load all reel concepts when no reelId
   const [reelConcepts, setReelConcepts] = useState<ReelConceptRow[]>([]);
@@ -62,23 +61,6 @@ const StudioPage: React.FC = () => {
     })();
     return () => { cancelled = true; };
   }, [reelId, user?.id]);
-
-  // When Inspector's "KI-Video generieren" is clicked
-  const handleGenerateBRoll = useCallback(
-    (description: string, duration: number) => {
-      setBrollPrefill({
-        description,
-        duration,
-        reelConceptId: reelId || undefined,
-      });
-      setActiveView('b-roll');
-    },
-    [reelId]
-  );
-
-  const handlePrefillConsumed = useCallback(() => {
-    setBrollPrefill(null);
-  }, []);
 
   // ── Loading State ──
   if (reelId && loading) {
@@ -380,23 +362,25 @@ const StudioPage: React.FC = () => {
     >
       {/* Stagger Layer 1: TopBar */}
       <div className="studio-reveal-topbar flex-shrink-0">
-        <StudioTopBar title={concept.title} />
+        <StudioTopBar title={concept.title} reelConceptId={reelId} />
       </div>
 
       {/* Stagger Layer 3: Content */}
       <div className="studio-reveal-content flex-1 flex flex-col min-h-0">
         <StudioContent>
           {activeView === 'storyboard' && (
-            <StudioStoryboard concept={concept} onGenerateBRoll={handleGenerateBRoll} />
-          )}
-          {activeView === 'b-roll' && (
-            <StudioBRoll
-              prefill={brollPrefill}
-              onPrefillConsumed={handlePrefillConsumed}
+            <StudioStoryboard
+              concept={concept}
+              reelConceptId={reelId}
+              sceneVideos={sceneVideos}
+              onVideoGenerated={refetchSceneVideos}
             />
           )}
+          {activeView === 'b-roll' && (
+            <StudioBRoll />
+          )}
           {activeView === 'thumbnails' && (
-            <StudioThumbnails reelTitle={concept.title} />
+            <StudioThumbnails reelTitle={concept.title} reelConceptId={reelId} />
           )}
           {activeView === 'videos' && (
             <StudioMyVideos onSwitchView={setActiveView} />

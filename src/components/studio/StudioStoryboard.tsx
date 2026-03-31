@@ -1,15 +1,23 @@
 import React, { useState } from 'react';
 import type { ReelContent } from '../../services/reelService';
+import type { SceneVideoMap } from '../../hooks/useSceneVideos';
 import StudioScript from './StudioScript';
 import StudioSceneList from './StudioSceneList';
 import StudioInspector from './StudioInspector';
 
 interface StudioStoryboardProps {
   concept: ReelContent;
-  onGenerateBRoll?: (description: string, duration: number) => void;
+  reelConceptId?: string;
+  sceneVideos: SceneVideoMap;
+  onVideoGenerated?: () => void;
 }
 
-const StudioStoryboard: React.FC<StudioStoryboardProps> = ({ concept, onGenerateBRoll }) => {
+const StudioStoryboard: React.FC<StudioStoryboardProps> = ({
+  concept,
+  reelConceptId,
+  sceneVideos,
+  onVideoGenerated,
+}) => {
   const [selectedSceneIndex, setSelectedSceneIndex] = useState<number | null>(null);
 
   const selectedScene =
@@ -27,13 +35,20 @@ const StudioStoryboard: React.FC<StudioStoryboardProps> = ({ concept, onGenerate
         <StudioSceneList
           scenes={concept.scenes}
           selectedSceneIndex={selectedSceneIndex}
+          sceneVideos={sceneVideos}
           onSelectScene={setSelectedSceneIndex}
         />
       </div>
 
       {/* Column 3: KI-Inspektor */}
       <div className="xl:w-1/4 flex-shrink-0 px-5 py-3 min-h-0">
-        <StudioInspector scene={selectedScene} concept={concept} onGenerateBRoll={onGenerateBRoll} />
+        <StudioInspector
+          scene={selectedScene}
+          concept={concept}
+          reelConceptId={reelConceptId}
+          sceneVideo={selectedScene ? sceneVideos[selectedScene.nr] || null : null}
+          onVideoGenerated={onVideoGenerated}
+        />
       </div>
     </div>
   );

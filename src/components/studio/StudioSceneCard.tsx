@@ -1,6 +1,7 @@
-import React from 'react';
-import { Plus, Clock, Camera } from 'lucide-react';
+import React, { useState } from 'react';
+import { Plus, Clock, Camera, Play, Pause } from 'lucide-react';
 import type { ReelScene } from '../../services/reelService';
+import type { SceneVideo } from '../../hooks/useSceneVideos';
 
 const CAMERA_LABELS: Record<string, string> = {
   frontal_selfie: 'Frontal',
@@ -15,6 +16,7 @@ interface StudioSceneCardProps {
   scene: ReelScene;
   isSelected: boolean;
   isLast: boolean;
+  sceneVideo?: SceneVideo | null;
   onClick: () => void;
 }
 
@@ -22,8 +24,28 @@ const StudioSceneCard: React.FC<StudioSceneCardProps> = ({
   scene,
   isSelected,
   isLast,
+  sceneVideo,
   onClick,
 }) => {
+  const [paused, setPaused] = useState(false);
+
+  const isGenerating = sceneVideo?.status === 'generating' || sceneVideo?.status === 'queued';
+  const isFinished = sceneVideo?.status === 'finished' && !!sceneVideo?.video_url;
+
+  const handleVideoClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const video = e.currentTarget.querySelector('video');
+    if (video) {
+      if (video.paused) {
+        video.play();
+        setPaused(false);
+      } else {
+        video.pause();
+        setPaused(true);
+      }
+    }
+  };
+
   return (
     <div className="relative flex gap-5">
       {/* Timeline connector */}
@@ -88,11 +110,59 @@ const StudioSceneCard: React.FC<StudioSceneCardProps> = ({
             )}
           </div>
 
-          {/* Right side: 9:16 Media Placeholder */}
+          {/* Right side: 9:16 Media Container */}
           <div className="flex-shrink-0 w-[100px]">
-            <div className="aspect-[9/16] rounded-xl bg-[#1A1A1E] border border-[#FAFAFA]/5 flex items-center justify-center">
-              <Plus className="w-5 h-5 text-[#FAFAFA]/20" />
-            </div>
+            {isGenerating ? (
+              /* State 2: Generating — Violet glow + shimmer */
+              <div
+                className="aspect-[9/16] rounded-xl overflow-hidden relative flex items-center justify-center"
+                style={{
+                  backgroundColor: '#1A1A1E',
+                  animation: 'studioGeneratingGlow 2s ease-in-out infinite',
+                  boxShadow: '0 0 20px rgba(124,108,242,0.25), inset 0 0 12px rgba(124,108,242,0.05)',
+                }}
+              >
+                {/* Shimmer overlay */}
+                <div
+                  className="absolute inset-0 opacity-15"
+                  style={{
+                    background:
+                      'linear-gradient(135deg, transparent 30%, rgba(124,108,242,0.4) 50%, transparent 70%)',
+                    backgroundSize: '200% 200%',
+                    animation: 'studioShimmer 2s ease-in-out infinite',
+                  }}
+                />
+              </div>
+            ) : isFinished ? (
+              /* State 3: Finished — Video with fade-in */
+              <div
+                className="aspect-[9/16] rounded-xl overflow-hidden relative group/video"
+                style={{ animation: 'studioVideoFadeIn 300ms ease-out' }}
+                onClick={handleVideoClick}
+              >
+                <video
+                  src={sceneVideo.video_url!}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+                {/* Play/Pause overlay on hover */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/video:opacity-100 transition-opacity bg-black/20">
+                  {paused ? (
+                    <Play className="w-6 h-6 text-white/80" />
+                  ) : (
+                    <Pause className="w-6 h-6 text-white/80" />
+                  )}
+                </div>
+              </div>
+            ) : (
+              /* State 1: No video — dark placeholder */
+              <div className="aspect-[9/16] rounded-xl bg-[#1A1A1E] border border-[#FAFAFA]/5 flex items-center justify-center">
+                <Plus className="w-5 h-5 text-[#FAFAFA]/20" />
+              </div>
+            )}
           </div>
         </div>
       </button>
