@@ -4,7 +4,7 @@ import { useModuleColors } from '../../hooks/useModuleColors';
 
 interface ModuleButtonProps {
   /** Target module for color theming */
-  module: 'chat' | 'planner' | 'insights' | 'vision' | 'media' | 'profile';
+  module: 'chat' | 'planner' | 'insights' | 'studio' | 'vision' | 'media' | 'profile';
   /** Button text */
   children: React.ReactNode;
   /** Button icon */

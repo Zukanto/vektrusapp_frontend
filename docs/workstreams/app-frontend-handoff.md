@@ -1,7 +1,50 @@
 # Vektrus App Frontend — Handoff für den nächsten Chat
 
 **Stand:** 2026-03-31
-**Kontext:** AP-01 bis AP-08 vollstaendig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik. **Posting Popup Redesign Phase 1 + Phase 2 + QA Pass abgeschlossen. Chat-to-Planner Handoff V1 + Corrective Pass + QA Pass + Single-Caption Bugfix + QA + Robustness Pass + Robustness QA Pass abgeschlossen. Composer Handoff V2 (Three-State Model + Source-Material Mode) implementiert. Help-Seite Workstream Phase 1 (Audit + Zielarchitektur) + Phase 2 (Implementierung) + Corrective Pass + QA Pass + Finaler Visual QA Pass abgeschlossen. Help Updates-Layer (Produkt-Updates + Transparenz) implementiert. Onboarding Wizard komplett implementiert (Session 1 + Session 2: alle 4 Schritte, OAuth, Completion, Step-Resume, SignUp-Redirect). Onboarding Design Polish Pass abgeschlossen (Premium UI, Framer Motion Transitions, Custom Slider/Dropdown/Tags). SignUpFlow Visual Polish Pass abgeschlossen (Design-Konsistenz mit Onboarding-Wizard). Onboarding OAuth-Callback Sync Bugfix abgeschlossen. Pulse Reels — Session 1 (Frontend) abgeschlossen. Pulse Reels — Session 2 (Design Polish + Brand Icons) abgeschlossen. Vision Rebranding — Session 3 (Video-Werkstatt) abgeschlossen. Vision Session 3 — Corrective Pass abgeschlossen. Vision — Fix Pass (Pulse Button + Thumbnail Webhook) abgeschlossen. Vision & Pulse — Fix Pass (Image Advanced + Label-Rename) abgeschlossen. Vision B-Roll — Funktional machen + Bild-Upload abgeschlossen. Vision B-Roll — Videos in Vision Tab + Mediathek anzeigen abgeschlossen. Vektrus Studio Phase 1 (Foundation & Shell) abgeschlossen. Vektrus Studio Phase 2 (Director's Desk / Storyboard) abgeschlossen. Vektrus Studio — Floating Dock abgeschlossen. Vektrus Studio — Corrective Pass + B-Roll View + "Dimming the Lights" abgeschlossen. Vektrus Studio — Echte Supabase-Daten + Entry-Buttons abgeschlossen. Vektrus Studio — B-Roll + Thumbnails + Meine Videos (echte n8n-Integration) abgeschlossen.**
+**Kontext:** AP-01 bis AP-08 vollstaendig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik. **Posting Popup Redesign Phase 1 + Phase 2 + QA Pass abgeschlossen. Chat-to-Planner Handoff V1 + Corrective Pass + QA Pass + Single-Caption Bugfix + QA + Robustness Pass + Robustness QA Pass abgeschlossen. Composer Handoff V2 (Three-State Model + Source-Material Mode) implementiert. Help-Seite Workstream Phase 1 (Audit + Zielarchitektur) + Phase 2 (Implementierung) + Corrective Pass + QA Pass + Finaler Visual QA Pass abgeschlossen. Help Updates-Layer (Produkt-Updates + Transparenz) implementiert. Onboarding Wizard komplett implementiert (Session 1 + Session 2: alle 4 Schritte, OAuth, Completion, Step-Resume, SignUp-Redirect). Onboarding Design Polish Pass abgeschlossen (Premium UI, Framer Motion Transitions, Custom Slider/Dropdown/Tags). SignUpFlow Visual Polish Pass abgeschlossen (Design-Konsistenz mit Onboarding-Wizard). Onboarding OAuth-Callback Sync Bugfix abgeschlossen. Pulse Reels — Session 1 (Frontend) abgeschlossen. Pulse Reels — Session 2 (Design Polish + Brand Icons) abgeschlossen. Vision Rebranding — Session 3 (Video-Werkstatt) abgeschlossen. Vision Session 3 — Corrective Pass abgeschlossen. Vision — Fix Pass (Pulse Button + Thumbnail Webhook) abgeschlossen. Vision & Pulse — Fix Pass (Image Advanced + Label-Rename) abgeschlossen. Vision B-Roll — Funktional machen + Bild-Upload abgeschlossen. Vision B-Roll — Videos in Vision Tab + Mediathek anzeigen abgeschlossen. Vektrus Studio Phase 1 (Foundation & Shell) abgeschlossen. Vektrus Studio Phase 2 (Director's Desk / Storyboard) abgeschlossen. Vektrus Studio — Floating Dock abgeschlossen. Vektrus Studio — Corrective Pass + B-Roll View + "Dimming the Lights" abgeschlossen. Vektrus Studio — Echte Supabase-Daten + Entry-Buttons abgeschlossen. Vektrus Studio — B-Roll + Thumbnails + Meine Videos (echte n8n-Integration) abgeschlossen. Vektrus Studio — Production-Ready Cleanup abgeschlossen.**
+
+---
+
+## Vektrus Studio — Production-Ready Cleanup
+
+**Stand:** 2026-03-31
+**Status: Abgeschlossen.**
+
+### Was wurde gemacht
+Komplett-Cleanup: alle Mock-/Demo-Daten entfernt, alle alten Vision-Dateien gelöscht, Routing und Navigation auf Studio umgestellt.
+
+### Block A: Mock-Daten entfernt
+| Datei | Änderung |
+|---|---|
+| `src/components/studio/mockReelConcept.ts` | **Gelöscht** |
+| `src/components/studio/StudioPage.tsx` | Import + Fallback auf Mock entfernt. Empty State: "Kein Reel-Konzept geladen. Erstelle dein erstes Reel in Pulse." + Button zu /pulse |
+
+### Block B: Vision-Dateien gelöscht
+Gesamtes Verzeichnis `src/components/vision/` entfernt (11 Dateien):
+VisionPage, VisionRouter, VisionReelConceptView, VisionBRollStudio, VisionThumbnailGenerator, VisionCreatorWizard, VisionProjectList, VisionVideoPreview, VisionHeader, visionDemoData, types.
+
+Alle Funktionalität lebt jetzt in `src/components/studio/`.
+
+### Block C: Routing & Navigation
+| Datei | Änderung |
+|---|---|
+| `src/routes.tsx` | VisionRouter-Import entfernt. `/vision` + `/vision/*` redirecten zu `/studio`. moduleId → `studio` |
+| `src/components/pulse/reels/ReelConceptCard.tsx` | Navigation `/vision/reel/:id` → `/studio/:id` |
+| `src/components/ToolHub.tsx` | Label "Vision" → "Studio", module `'vision'` → `'studio'` |
+| `src/components/toolhub/ToolGrid.tsx` | Label "Vision" → "Studio", module `'vision'` → `'studio'` |
+| `src/components/ui/ModuleWrapper.tsx` | Type union: `'studio'` hinzugefügt |
+| `src/components/ui/ModuleButton.tsx` | Type union: `'studio'` hinzugefügt |
+| `src/components/ui/ModuleBadge.tsx` | Type union + `studio` config hinzugefügt, `vision.label` → "Studio" |
+| `src/components/ui/CrossModuleAction.tsx` | Type union: `'studio'` hinzugefügt |
+| `src/styles/module-colors.ts` | `vision` Eintrag bleibt (Fallback für alte Referenzen), `studio` Eintrag existiert bereits |
+
+### Verifikation
+- ✅ TypeScript: fehlerfrei (`tsc --noEmit`)
+- ✅ Build: erfolgreich (`vite build`)
+- ✅ Keine `mockReelConcept` Referenzen im Projekt
+- ✅ Keine imports aus `components/vision/`
+- ✅ Kein "Vision" in user-facing Strings (nur interne Keys/helpData-Slugs)
+- ✅ `/vision` + `/vision/*` redirecten sauber zu `/studio`
 
 ---
 

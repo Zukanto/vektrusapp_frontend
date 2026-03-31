@@ -29,8 +29,8 @@ const ToolHub: React.FC<ToolHubProps> = ({ onModuleChange }) => {
     {
       icon: <Sparkles className="w-6 h-6" />,
       color: 'mint',
-      label: 'Vision',
-      onClick: () => onModuleChange('vision')
+      label: 'Studio',
+      onClick: () => onModuleChange('studio')
     },
     {
       icon: <Image className="w-6 h-6" />,

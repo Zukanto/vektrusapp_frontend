@@ -3,7 +3,7 @@ import { LucideIcon, MessageSquare, Calendar, BarChart3, Sparkles, Image as Imag
 import { useModuleColors } from '../../hooks/useModuleColors';
 
 interface ModuleBadgeProps {
-  module: 'chat' | 'planner' | 'insights' | 'vision' | 'media' | 'profile';
+  module: 'chat' | 'planner' | 'insights' | 'studio' | 'vision' | 'media' | 'profile';
   size?: 'sm' | 'md' | 'lg';
   showLabel?: boolean;
   onClick?: () => void;
@@ -24,8 +24,12 @@ const MODULE_CONFIG = {
     label: 'Insights',
     icon: BarChart3,
   },
+  studio: {
+    label: 'Studio',
+    icon: Sparkles,
+  },
   vision: {
-    label: 'Vision',
+    label: 'Studio',
     icon: Sparkles,
   },
   media: {

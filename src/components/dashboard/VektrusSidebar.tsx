@@ -23,7 +23,7 @@ export function VektrusSidebar({ activeModule = 'dashboard', onModuleChange }: V
   const plannerColors = useModuleColors('planner');
   const pulseColors = useModuleColors('pulse');
   const insightsColors = useModuleColors('insights');
-  const visionColors = useModuleColors('vision');
+  const studioColors = useModuleColors('studio');
   const mediaColors = useModuleColors('media');
   const brandColors = useModuleColors('brand');
   const profileColors = useModuleColors('profile');
@@ -37,7 +37,7 @@ export function VektrusSidebar({ activeModule = 'dashboard', onModuleChange }: V
     planner: plannerColors,
     pulse: pulseColors,
     insights: insightsColors,
-    vision: visionColors,
+    studio: studioColors,
     media: mediaColors,
     brand: brandColors,
     profile: profileColors,
@@ -135,15 +135,15 @@ export function VektrusSidebar({ activeModule = 'dashboard', onModuleChange }: V
       id: 'insights'
     },
     {
-      label: "Vision",
-      href: MODULE_TO_PATH.vision,
+      label: "Studio",
+      href: MODULE_TO_PATH.studio,
       icon: (
         <Sparkles
           className="h-5 w-5 flex-shrink-0"
-          style={{ color: activeModule === 'vision' ? visionColors.primary : '#7A7A7A' }}
+          style={{ color: activeModule === 'studio' ? studioColors.primary : '#7A7A7A' }}
         />
       ),
-      id: 'vision'
+      id: 'studio'
     },
     {
       label: "Media",

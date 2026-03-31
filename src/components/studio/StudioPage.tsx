@@ -1,7 +1,10 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Film, ArrowLeft, Sparkles } from 'lucide-react';
+import { Film, ArrowLeft, Sparkles, Clapperboard, Image, FolderOpen, Plus, Clock, Camera, User } from 'lucide-react';
 import { useReelConcept } from '../../hooks/useReelConcept';
+import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../hooks/useAuth';
+import { enterStudio, exitStudio } from './studioTransition';
 import StudioTopBar from './StudioTopBar';
 import StudioContent from './StudioContent';
 import StudioStoryboard from './StudioStoryboard';
@@ -10,20 +13,55 @@ import type { BRollPrefill } from './StudioBRoll';
 import StudioThumbnails from './StudioThumbnails';
 import StudioMyVideos from './StudioMyVideos';
 import StudioDock, { StudioView } from './StudioDock';
-import { mockReelConcept } from './mockReelConcept';
+import type { ReelContent } from '../../services/reelService';
+
+interface ReelConceptRow {
+  id: string;
+  content: ReelContent;
+  created_at: string;
+}
 
 const StudioPage: React.FC = () => {
   const { reelId } = useParams<{ reelId: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [activeView, setActiveView] = useState<StudioView>('storyboard');
 
   // B-Roll prefill from Storyboard Inspector
   const [brollPrefill, setBrollPrefill] = useState<BRollPrefill | null>(null);
 
-  // Load real data when reelId is present, otherwise use mock for dev
+  // Load single reel concept when reelId is present
   const { record, loading, error } = useReelConcept(reelId);
 
-  const concept = record?.content ?? (reelId ? null : mockReelConcept);
+  const concept = record?.content ?? null;
+
+  // Hub: load all reel concepts when no reelId
+  const [reelConcepts, setReelConcepts] = useState<ReelConceptRow[]>([]);
+  const [hubLoading, setHubLoading] = useState(!reelId);
+
+  useEffect(() => {
+    if (reelId || !user?.id) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('pulse_generated_content')
+        .select('id, content, created_at')
+        .eq('user_id', user.id)
+        .eq('source', 'pulse_reels')
+        .order('created_at', { ascending: false })
+        .limit(12);
+
+      if (!cancelled && data) {
+        setReelConcepts(
+          data
+            .filter((r: any) => r.content?.type === 'reel')
+            .map((r: any) => ({ id: r.id, content: r.content as ReelContent, created_at: r.created_at }))
+        );
+      }
+      if (!cancelled) setHubLoading(false);
+    })();
+    return () => { cancelled = true; };
+  }, [reelId, user?.id]);
 
   // When Inspector's "KI-Video generieren" is clicked
   const handleGenerateBRoll = useCallback(
@@ -82,46 +120,219 @@ const StudioPage: React.FC = () => {
     );
   }
 
-  // ── Error State ──
-  if (reelId && error) {
+  // ── Studio Hub (no reelId) ──
+  if (!reelId) {
+    const FORMAT_LABELS: Record<string, string> = {
+      talking_head: 'Talking Head',
+      produkt_showcase: 'Produkt-Showcase',
+      tutorial: 'Tutorial',
+      behind_the_scenes: 'Behind the Scenes',
+      vorher_nachher: 'Vorher/Nachher',
+      b_roll_montage: 'B-Roll Montage',
+      listicle: 'Listicle',
+    };
+
+    const formatDate = (d: string) =>
+      new Date(d).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    // Hub loading skeleton
+    if (hubLoading) {
+      return (
+        <div
+          data-studio-root
+          className="fixed inset-0 flex flex-col"
+          style={{ backgroundColor: '#09090b' }}
+        >
+          <div className="flex-1 overflow-auto px-6 md:px-10 py-10">
+            <div className="max-w-5xl mx-auto">
+              <div className="h-8 w-48 rounded-lg bg-[#FAFAFA]/5 animate-pulse mb-2" />
+              <div className="h-4 w-72 rounded bg-[#FAFAFA]/5 animate-pulse mb-10" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="h-40 rounded-2xl bg-[#121214] animate-pulse" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // True empty — no reels at all
+    if (reelConcepts.length === 0) {
+      return (
+        <div
+          data-studio-root
+          className="fixed inset-0 flex flex-col items-center justify-center"
+          style={{ backgroundColor: '#09090b' }}
+        >
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background: 'radial-gradient(ellipse 60% 40% at 50% 45%, rgba(73,183,227,0.04) 0%, transparent 70%)',
+            }}
+          />
+          <div className="relative z-10 text-center px-6 max-w-lg">
+            {/* Brand icon cluster */}
+            <div className="flex items-center justify-center gap-3 mb-8">
+              <div className="w-10 h-10 rounded-xl bg-[#FAFAFA]/[0.04] border border-[#FAFAFA]/[0.06] flex items-center justify-center">
+                <Clapperboard className="w-[18px] h-[18px] text-[#49B7E3]/50" />
+              </div>
+              <div
+                className="w-14 h-14 rounded-2xl border border-[#FAFAFA]/[0.08] flex items-center justify-center"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(73,183,227,0.10) 0%, rgba(124,108,242,0.08) 50%, rgba(236,72,153,0.06) 100%)',
+                }}
+              >
+                <Film className="w-6 h-6 text-[#FAFAFA]/60" />
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-[#FAFAFA]/[0.04] border border-[#FAFAFA]/[0.06] flex items-center justify-center">
+                <Image className="w-[18px] h-[18px] text-[#EC4899]/40" />
+              </div>
+            </div>
+
+            <h1 className="font-manrope font-bold text-2xl text-[#FAFAFA] mb-2 tracking-tight">
+              Vektrus Studio
+            </h1>
+            <p className="text-[#FAFAFA]/35 text-sm leading-relaxed mb-10 max-w-sm mx-auto">
+              Dein kreatives Cockpit für Reels — vom Storyboard bis zum fertigen Video.
+            </p>
+
+            {/* Capability hints */}
+            <div className="grid grid-cols-2 gap-2.5 mb-10 max-w-sm mx-auto">
+              {[
+                { icon: <Clapperboard className="w-4 h-4" />, label: 'Storyboard', desc: 'Szenen planen & ordnen' },
+                { icon: <Film className="w-4 h-4" />, label: 'B-Roll', desc: 'KI-Videos generieren' },
+                { icon: <Image className="w-4 h-4" />, label: 'Thumbnails', desc: 'Cover-Bilder erstellen' },
+                { icon: <FolderOpen className="w-4 h-4" />, label: 'Meine Videos', desc: 'Alle Ergebnisse im Blick' },
+              ].map((cap) => (
+                <div
+                  key={cap.label}
+                  className="flex items-center gap-3 px-3.5 py-3 rounded-xl bg-[#FAFAFA]/[0.03] border border-[#FAFAFA]/[0.05] text-left"
+                >
+                  <span className="text-[#FAFAFA]/30 flex-shrink-0">{cap.icon}</span>
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-medium text-[#FAFAFA]/70 leading-tight">{cap.label}</p>
+                    <p className="text-[11px] text-[#FAFAFA]/25 leading-tight mt-0.5">{cap.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <button
+              onClick={() => navigate('/pulse')}
+              className="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm font-semibold text-white transition-all cursor-pointer border-0"
+              style={{
+                background: 'linear-gradient(135deg, #49B7E3 0%, #3aa5d1 100%)',
+                boxShadow: '0 0 20px rgba(73,183,227,0.15), 0 4px 12px rgba(0,0,0,0.3)',
+              }}
+            >
+              <Plus className="w-4 h-4" />
+              Erstes Reel in Pulse erstellen
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Hub with reel concept cards
     return (
       <div
         data-studio-root
-        className="fixed inset-0 flex flex-col items-center justify-center"
+        className="fixed inset-0 flex flex-col"
         style={{ backgroundColor: '#09090b' }}
       >
-        <div className="text-center px-6 max-w-md">
-          <div className="w-16 h-16 rounded-full bg-[#FA7E70]/10 flex items-center justify-center mx-auto mb-5">
-            <Film className="w-8 h-8 text-[#FA7E70]/60" />
-          </div>
-          <h2 className="font-manrope font-bold text-xl text-[#FAFAFA] mb-2">
-            Konzept nicht gefunden
-          </h2>
-          <p className="text-[#FAFAFA]/40 text-sm mb-8 leading-relaxed">
-            {error}
-          </p>
-          <div className="flex gap-3 justify-center">
-            <button
-              onClick={() => navigate('/planner')}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-[#FAFAFA]/60 hover:text-[#FAFAFA] border border-[#FAFAFA]/10 hover:border-[#FAFAFA]/20 transition-colors cursor-pointer bg-transparent"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Zum Planner
-            </button>
-            <button
-              onClick={() => navigate('/pulse')}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold bg-[#49B7E3] text-white hover:bg-[#3aa5d1] transition-colors cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4" />
-              Neues Reel in Pulse
-            </button>
+        {/* TopBar — stagger layer 1 (reveals first at 450ms) */}
+        <div className="studio-reveal-topbar flex items-center justify-between px-6 md:px-10 py-4 flex-shrink-0">
+          <button
+            onClick={() => exitStudio(navigate, '/dashboard')}
+            className="flex items-center gap-2 text-[#FAFAFA]/50 hover:text-[#FAFAFA] transition-colors text-sm font-medium bg-transparent border-none cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Zurück</span>
+          </button>
+          <button
+            onClick={() => navigate('/pulse')}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all cursor-pointer border-0 flex-shrink-0"
+            style={{
+              background: 'linear-gradient(135deg, #49B7E3 0%, #3aa5d1 100%)',
+              boxShadow: '0 0 16px rgba(73,183,227,0.12), 0 2px 8px rgba(0,0,0,0.3)',
+            }}
+          >
+            <Plus className="w-4 h-4" />
+            Neues Reel
+          </button>
+        </div>
+
+        {/* Content — stagger layer 2 (reveals at 650ms) */}
+        <div className="studio-reveal-content flex-1 overflow-auto px-6 md:px-10 pb-10">
+          <div className="max-w-5xl mx-auto">
+            {/* Header */}
+            <div className="mb-8">
+              <h1 className="font-manrope font-bold text-2xl text-[#FAFAFA] tracking-tight mb-1">
+                Vektrus Studio
+              </h1>
+              <p className="text-[#FAFAFA]/35 text-sm">
+                Wähle ein Reel-Konzept, um im Studio zu arbeiten.
+              </p>
+            </div>
+
+            {/* Reel grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {reelConcepts.map((row) => {
+                const c = row.content;
+                return (
+                  <button
+                    key={row.id}
+                    onClick={() => enterStudio(navigate, row.id)}
+                    className="group relative bg-[#121214] hover:bg-[#18181b] rounded-2xl border border-[#FAFAFA]/[0.06] hover:border-[#FAFAFA]/[0.12] transition-all text-left p-5 cursor-pointer"
+                  >
+                    {/* Format badge */}
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#FAFAFA]/[0.06] text-[#FAFAFA]/50 mb-3">
+                      {FORMAT_LABELS[c.format] || c.format}
+                    </span>
+
+                    {/* Title */}
+                    <h3 className="font-manrope font-bold text-[15px] text-[#FAFAFA]/90 leading-snug mb-3 group-hover:text-[#49B7E3] transition-colors line-clamp-2">
+                      {c.title}
+                    </h3>
+
+                    {/* Meta row */}
+                    <div className="flex items-center gap-3 text-[11px] text-[#FAFAFA]/30">
+                      <span className="inline-flex items-center gap-1">
+                        <Camera className="w-3 h-3" />
+                        {c.scenes.length} Szenen
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {c.total_duration_seconds}s
+                      </span>
+                      {c.needs_face && (
+                        <span className="inline-flex items-center gap-1">
+                          <User className="w-3 h-3" />
+                          Gesicht
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Date */}
+                    <p className="text-[11px] text-[#FAFAFA]/20 mt-3 pt-3 border-t border-[#FAFAFA]/[0.04]">
+                      {formatDate(row.created_at)}
+                    </p>
+
+                    {/* Hover accent line */}
+                    <div className="absolute bottom-0 left-4 right-4 h-[2px] rounded-full bg-[#49B7E3] opacity-0 group-hover:opacity-40 transition-opacity" />
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
-  // ── No reelId and no fallback ──
+  // ── Error: reelId present but concept not found ──
   if (!concept) {
     return (
       <div
@@ -134,18 +345,18 @@ const StudioPage: React.FC = () => {
             <Film className="w-8 h-8 text-[#49B7E3]/40" />
           </div>
           <h2 className="font-manrope font-bold text-xl text-[#FAFAFA] mb-2">
-            Kein Reel-Konzept ausgewählt
+            Konzept nicht gefunden
           </h2>
           <p className="text-[#FAFAFA]/40 text-sm mb-8 leading-relaxed">
-            Öffne ein Reel-Konzept aus der Video-Werkstatt oder erstelle ein neues in Pulse.
+            Dieses Reel-Konzept konnte nicht geladen werden.
           </p>
           <div className="flex gap-3 justify-center">
             <button
-              onClick={() => navigate('/vision')}
+              onClick={() => navigate('/studio')}
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-[#FAFAFA]/60 hover:text-[#FAFAFA] border border-[#FAFAFA]/10 hover:border-[#FAFAFA]/20 transition-colors cursor-pointer bg-transparent"
             >
-              <Film className="w-4 h-4" />
-              Video-Werkstatt
+              <ArrowLeft className="w-4 h-4" />
+              Zur Übersicht
             </button>
             <button
               onClick={() => navigate('/pulse')}

@@ -260,7 +260,7 @@ const ReelConceptCard: React.FC<ReelConceptCardProps> = ({ content, index, conte
         </button>
         {contentId ? (
           <button
-            onClick={() => navigate(`/vision/reel/${contentId}`)}
+            onClick={() => navigate(`/studio/${contentId}`)}
             className="flex items-center gap-2 text-sm font-semibold text-white px-4 py-2 rounded-[var(--vektrus-radius-sm)] transition-all shadow-card hover:shadow-elevated"
             style={{ backgroundColor: 'var(--vektrus-blue)' }}
           >

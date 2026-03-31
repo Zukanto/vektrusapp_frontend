@@ -11,7 +11,7 @@ export const ToolGrid: React.FC<ToolGridProps> = ({ onModuleChange }) => {
     { icon: <MessageSquare className="w-6 h-6" />, color: 'teal', label: 'Vektrus Chat', onClick: () => onModuleChange?.('chat') },
     { icon: <Calendar className="w-6 h-6" />, color: 'blue', label: 'Content Planner', onClick: () => onModuleChange?.('planner') },
     { icon: <BarChart3 className="w-6 h-6" />, color: 'purple', label: 'Insights', onClick: () => onModuleChange?.('insights') },
-    { icon: <Sparkles className="w-6 h-6" />, color: 'rose', label: 'Vision', onClick: () => onModuleChange?.('vision') },
+    { icon: <Sparkles className="w-6 h-6" />, color: 'rose', label: 'Studio', onClick: () => onModuleChange?.('studio') },
     { icon: <Image className="w-6 h-6" />, color: 'orange', label: 'Mediathek', onClick: () => onModuleChange?.('media') },
     { icon: <User className="w-6 h-6" />, color: 'indigo', label: 'Profil', onClick: () => onModuleChange?.('profile') },
   ];

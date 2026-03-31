@@ -10,7 +10,7 @@ const AppLayout: React.FC = () => {
 
   const activeModule = PATH_TO_MODULE[location.pathname]
     || (location.pathname.startsWith('/help') ? 'help' : null)
-    || (location.pathname.startsWith('/vision') ? 'vision' : null)
+    || (location.pathname.startsWith('/vision') ? 'studio' : null)
     || 'dashboard';
 
   useEffect(() => {

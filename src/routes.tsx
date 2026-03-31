@@ -7,7 +7,7 @@ import MediaPage from './components/media/MediaPage';
 import InsightsPage from './components/insights/InsightsPage';
 import HelpPage from './components/help/HelpPage';
 import ToolHubPage from './components/toolhub/ToolHubPage';
-import VisionRouter from './components/vision/VisionRouter';
+
 import PulsePage from './components/pulse/PulsePage';
 import BrandAnalyzePage from './components/brand/BrandAnalyzePage';
 import DashboardHome from './components/dashboard/DashboardHome';
@@ -25,6 +25,7 @@ export const MODULE_TO_PATH: Record<string, string> = {
   planner: '/planner',
   pulse: '/pulse',
   insights: '/insights',
+  studio: '/studio',
   vision: '/vision',
   media: '/media',
   brand: '/brand',
@@ -69,9 +70,14 @@ export const routes: RouteConfig[] = [
     element: () => <InsightsPage />,
   },
   {
+    path: '/vision',
+    moduleId: 'studio',
+    element: () => <Navigate to="/studio" replace />,
+  },
+  {
     path: '/vision/*',
-    moduleId: 'vision',
-    element: () => <VisionRouter />,
+    moduleId: 'studio',
+    element: () => <Navigate to="/studio" replace />,
   },
   {
     path: '/media',

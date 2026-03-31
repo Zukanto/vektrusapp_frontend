@@ -5,9 +5,9 @@ import ModuleBadge from './ModuleBadge';
 
 interface CrossModuleActionProps {
   /** Source module (current) */
-  sourceModule: 'chat' | 'planner' | 'insights' | 'vision' | 'media' | 'profile';
+  sourceModule: 'chat' | 'planner' | 'insights' | 'studio' | 'vision' | 'media' | 'profile';
   /** Target module (destination) */
-  targetModule: 'chat' | 'planner' | 'insights' | 'vision' | 'media' | 'profile';
+  targetModule: 'chat' | 'planner' | 'insights' | 'studio' | 'vision' | 'media' | 'profile';
   /** Action title */
   title: string;
   /** Action description */
