@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Film, ArrowLeft, Sparkles, Clapperboard, Image, FolderOpen, Plus, Clock, Camera, User, Wand2 } from 'lucide-react';
+import { Film, ArrowLeft, Sparkles, Clapperboard, Image, FolderOpen, Plus, Clock, Camera, User, Wand2, X } from 'lucide-react';
 import { useReelConcept } from '../../hooks/useReelConcept';
 import { useSceneVideos } from '../../hooks/useSceneVideos';
 import { supabase } from '../../lib/supabase';
@@ -147,8 +147,16 @@ const StudioPage: React.FC = () => {
     setOverlayPhase('none');
     setGeneratingPulseId(null);
     setReviewConcepts([]);
-    // Refresh hub
     setHubLoadCount(c => c + 1);
+  };
+
+  const handleDeleteConcept = async (conceptId: string) => {
+    // Optimistic removal from list
+    setReelConcepts(prev => prev.filter(r => r.id !== conceptId));
+    await supabase
+      .from('pulse_generated_content')
+      .delete()
+      .eq('id', conceptId);
   };
 
   // ── Loading State ──
@@ -378,6 +386,18 @@ const StudioPage: React.FC = () => {
                     onClick={() => enterStudio(navigate, row.id)}
                     className="group relative bg-[#121214] hover:bg-[#18181b] rounded-2xl border border-[#FAFAFA]/[0.06] hover:border-[#FAFAFA]/[0.12] transition-all text-left p-5 cursor-pointer"
                   >
+                    {/* Delete button — visible on hover */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={(e) => { e.stopPropagation(); handleDeleteConcept(row.id); }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); handleDeleteConcept(row.id); } }}
+                      className="absolute top-3 right-3 w-6 h-6 rounded-full flex items-center justify-center text-[#FAFAFA]/20 hover:text-[#FA7E70] hover:bg-[#FA7E70]/10 opacity-0 group-hover:opacity-100 transition-all z-10 cursor-pointer"
+                      title="Konzept löschen"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </div>
+
                     {/* Format badge */}
                     <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#FAFAFA]/[0.06] text-[#FAFAFA]/50 mb-3">
                       {FORMAT_LABELS[c.format] || c.format}
