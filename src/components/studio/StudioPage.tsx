@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Film, ArrowLeft, Sparkles, Clapperboard, Image, FolderOpen, Plus, Clock, Camera, User } from 'lucide-react';
+import { Film, ArrowLeft, Sparkles, Clapperboard, Image, FolderOpen, Plus, Clock, Camera, User, Wand2 } from 'lucide-react';
 import { useReelConcept } from '../../hooks/useReelConcept';
 import { useSceneVideos } from '../../hooks/useSceneVideos';
 import { supabase } from '../../lib/supabase';
@@ -13,6 +13,7 @@ import StudioBRoll from './StudioBRoll';
 import StudioThumbnails from './StudioThumbnails';
 import StudioMyVideos from './StudioMyVideos';
 import StudioDock, { StudioView } from './StudioDock';
+import ReelAutoModal from './ReelAutoModal';
 import type { ReelContent } from '../../services/reelService';
 
 interface ReelConceptRow {
@@ -34,33 +35,47 @@ const StudioPage: React.FC = () => {
   // Scene videos for this reel (polling-based)
   const { sceneVideos, refetch: refetchSceneVideos } = useSceneVideos(reelId);
 
+  // Auto-generate modal
+  const [showAutoModal, setShowAutoModal] = useState(false);
+
   // Hub: load all reel concepts when no reelId
   const [reelConcepts, setReelConcepts] = useState<ReelConceptRow[]>([]);
   const [hubLoading, setHubLoading] = useState(!reelId);
+  const [hubLoadCount, setHubLoadCount] = useState(0);
+
+  const loadHubConcepts = useCallback(async () => {
+    if (reelId || !user?.id) return;
+    setHubLoading(true);
+    const { data } = await supabase
+      .from('pulse_generated_content')
+      .select('id, content, created_at')
+      .eq('user_id', user.id)
+      .eq('source', 'pulse_reels')
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (data) {
+      setReelConcepts(
+        data
+          .filter((r: any) => r.content?.type === 'reel')
+          .map((r: any) => ({ id: r.id, content: r.content as ReelContent, created_at: r.created_at }))
+      );
+    }
+    setHubLoading(false);
+  }, [reelId, user?.id]);
 
   useEffect(() => {
-    if (reelId || !user?.id) return;
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from('pulse_generated_content')
-        .select('id, content, created_at')
-        .eq('user_id', user.id)
-        .eq('source', 'pulse_reels')
-        .order('created_at', { ascending: false })
-        .limit(12);
+    loadHubConcepts();
+  }, [loadHubConcepts, hubLoadCount]);
 
-      if (!cancelled && data) {
-        setReelConcepts(
-          data
-            .filter((r: any) => r.content?.type === 'reel')
-            .map((r: any) => ({ id: r.id, content: r.content as ReelContent, created_at: r.created_at }))
-        );
-      }
-      if (!cancelled) setHubLoading(false);
-    })();
-    return () => { cancelled = true; };
-  }, [reelId, user?.id]);
+  const handleAutoModalClose = () => {
+    setShowAutoModal(false);
+  };
+
+  const handleConceptsGenerated = (_ids: string[]) => {
+    // Reload hub to show new concepts
+    setHubLoadCount(c => c + 1);
+  };
 
   // ── Loading State ──
   if (reelId && loading) {
@@ -202,17 +217,34 @@ const StudioPage: React.FC = () => {
             </div>
 
             <button
-              onClick={() => navigate('/pulse')}
+              onClick={() => setShowAutoModal(true)}
               className="inline-flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm font-semibold text-white transition-all cursor-pointer border-0"
               style={{
-                background: 'linear-gradient(135deg, #49B7E3 0%, #3aa5d1 100%)',
-                boxShadow: '0 0 20px rgba(73,183,227,0.15), 0 4px 12px rgba(0,0,0,0.3)',
+                background: 'linear-gradient(135deg, #49B7E3 0%, #7C6CF2 50%, #E8A0D6 100%)',
+                boxShadow: '0 0 20px rgba(124,108,242,0.15), 0 4px 12px rgba(0,0,0,0.3)',
               }}
             >
-              <Plus className="w-4 h-4" />
-              Erstes Reel in Pulse erstellen
+              <Sparkles className="w-4 h-4" />
+              KI-Ideen generieren
             </button>
+
+            <p className="text-[#FAFAFA]/20 text-xs mt-4">
+              oder{' '}
+              <button
+                onClick={() => navigate('/pulse')}
+                className="text-[#49B7E3]/60 hover:text-[#49B7E3] transition-colors underline bg-transparent border-none cursor-pointer text-xs"
+              >
+                manuell in Pulse erstellen
+              </button>
+            </p>
           </div>
+
+          {showAutoModal && (
+            <ReelAutoModal
+              onClose={handleAutoModalClose}
+              onConceptsGenerated={handleConceptsGenerated}
+            />
+          )}
         </div>
       );
     }
@@ -234,15 +266,15 @@ const StudioPage: React.FC = () => {
             <span>Zurück</span>
           </button>
           <button
-            onClick={() => navigate('/pulse')}
+            onClick={() => setShowAutoModal(true)}
             className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white transition-all cursor-pointer border-0 flex-shrink-0"
             style={{
-              background: 'linear-gradient(135deg, #49B7E3 0%, #3aa5d1 100%)',
-              boxShadow: '0 0 16px rgba(73,183,227,0.12), 0 2px 8px rgba(0,0,0,0.3)',
+              background: 'linear-gradient(135deg, #49B7E3 0%, #7C6CF2 50%, #E8A0D6 100%)',
+              boxShadow: '0 0 16px rgba(124,108,242,0.12), 0 2px 8px rgba(0,0,0,0.3)',
             }}
           >
-            <Plus className="w-4 h-4" />
-            Neues Reel
+            <Wand2 className="w-4 h-4" />
+            Neue Reel-Ideen
           </button>
         </div>
 
@@ -310,6 +342,13 @@ const StudioPage: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {showAutoModal && (
+          <ReelAutoModal
+            onClose={handleAutoModalClose}
+            onConceptsGenerated={handleConceptsGenerated}
+          />
+        )}
       </div>
     );
   }

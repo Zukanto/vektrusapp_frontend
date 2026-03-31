@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { CircleCheck as CheckCircle, Copy, Download, ChevronDown, ChevronUp, Image as ImageIcon, Calendar, Target, Sparkles, RefreshCw, Loader as Loader2, CircleCheck as CheckCircle2, CircleAlert as AlertCircle } from 'lucide-react';
 import { GeneratedPost, ContentFormat } from './types';
 import { WebhookResponse } from '../../../services/contentGenerator';
@@ -9,6 +9,9 @@ import GenerationProgressBanner from './GenerationProgressBanner';
 import { useDesignRegen } from '../../../hooks/useDesignRegen';
 import CarouselSlideNavigator, { CarouselExpandedList } from './CarouselSlideNavigator';
 import StoryPostCard from './StoryPostCard';
+import ReelSuggestionsSection from './ReelSuggestionsSection';
+import type { ReelSuggestion } from './ReelSuggestionsSection';
+import { supabase } from '../../../lib/supabase';
 
 interface PostResultsListProps {
   posts: GeneratedPost[];
@@ -426,6 +429,8 @@ const PostResultsList: React.FC<PostResultsListProps> = ({
   onNavigateToBrandStudio,
 }) => {
   const [regenModalPostId, setRegenModalPostId] = useState<string | null>(null);
+  const [reelSuggestions, setReelSuggestions] = useState<ReelSuggestion[]>([]);
+  const [suggestionPlatforms, setSuggestionPlatforms] = useState<string[]>([]);
 
   const imageCount = posts.filter(p => p.imageUrl).length;
   const regenModalPost = regenModalPostId ? posts.find(p => p.id === regenModalPostId) : null;
@@ -434,6 +439,56 @@ const PostResultsList: React.FC<PostResultsListProps> = ({
   const isTimeout = pulseStatus === 'timeout';
   const isCompleted = pulseStatus === 'completed' || (!pulseStatus && posts.length > 0);
   const showProgressBanner = pulseStatus !== undefined;
+
+  // Load reel_suggestions from last post's raw content
+  useEffect(() => {
+    if (!isCompleted || posts.length === 0) return;
+
+    const loadSuggestions = async () => {
+      // Get all post IDs, query their raw content to find reel_suggestions
+      const postIds = posts.map(p => p.id);
+      const { data } = await supabase
+        .from('pulse_generated_content')
+        .select('content, pulse_config_id')
+        .in('id', postIds)
+        .order('post_number', { ascending: false })
+        .limit(5);
+
+      if (!data || data.length === 0) return;
+
+      // Find reel_suggestions in any post (usually the last one)
+      for (const row of data) {
+        const content = typeof row.content === 'string'
+          ? (() => { try { return JSON.parse(row.content); } catch { return null; } })()
+          : row.content;
+
+        if (content?.reel_suggestions && Array.isArray(content.reel_suggestions) && content.reel_suggestions.length > 0) {
+          setReelSuggestions(content.reel_suggestions);
+
+          // Try to get platforms from pulse_configurations
+          if (row.pulse_config_id) {
+            const { data: configData } = await supabase
+              .from('pulse_configurations')
+              .select('configuration')
+              .eq('id', row.pulse_config_id)
+              .single();
+
+            if (configData?.configuration) {
+              const cfg = typeof configData.configuration === 'string'
+                ? JSON.parse(configData.configuration)
+                : configData.configuration;
+              const enabledPlatforms = (cfg?.platforms || [])
+                .filter((p: any) => p.enabled)
+                .map((p: any) => p.id);
+              setSuggestionPlatforms(enabledPlatforms.length > 0 ? enabledPlatforms : ['instagram']);
+            }
+          }
+          break;
+        }
+      }
+    };
+    loadSuggestions();
+  }, [isCompleted, posts]);
 
   return (
     <div className="flex flex-col items-center py-8 px-4">
@@ -491,10 +546,18 @@ const PostResultsList: React.FC<PostResultsListProps> = ({
         ))}
       </div>
 
+      {/* Reel Suggestions — only shown when available */}
+      {reelSuggestions.length > 0 && isCompleted && (
+        <ReelSuggestionsSection
+          suggestions={reelSuggestions}
+          platforms={suggestionPlatforms}
+        />
+      )}
+
       <button
         onClick={onViewInCalendar}
         disabled={posts.length === 0}
-        className="w-full max-w-md flex items-center justify-center space-x-2 px-6 py-3.5 bg-[#49B7E3] hover:bg-[#3a9fd1] text-white rounded-[var(--vektrus-radius-sm)] font-semibold transition-all hover:scale-[1.02] shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
+        className="w-full max-w-md flex items-center justify-center space-x-2 px-6 py-3.5 bg-[#49B7E3] hover:bg-[#3a9fd1] text-white rounded-[var(--vektrus-radius-sm)] font-semibold transition-all hover:scale-[1.02] shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 mt-6"
       >
         <Calendar className="w-5 h-5" />
         <span>Posts in Kalender übernehmen</span>

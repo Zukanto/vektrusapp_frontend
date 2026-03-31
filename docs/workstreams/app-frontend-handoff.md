@@ -1,7 +1,112 @@
 # Vektrus App Frontend — Handoff für den nächsten Chat
 
 **Stand:** 2026-03-31
-**Kontext:** AP-01 bis AP-08 vollstaendig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik. **Posting Popup Redesign Phase 1 + Phase 2 + QA Pass abgeschlossen. Chat-to-Planner Handoff V1 + Corrective Pass + QA Pass + Single-Caption Bugfix + QA + Robustness Pass + Robustness QA Pass abgeschlossen. Composer Handoff V2 (Three-State Model + Source-Material Mode) implementiert. Help-Seite Workstream Phase 1 (Audit + Zielarchitektur) + Phase 2 (Implementierung) + Corrective Pass + QA Pass + Finaler Visual QA Pass abgeschlossen. Help Updates-Layer (Produkt-Updates + Transparenz) implementiert. Onboarding Wizard komplett implementiert (Session 1 + Session 2: alle 4 Schritte, OAuth, Completion, Step-Resume, SignUp-Redirect). Onboarding Design Polish Pass abgeschlossen (Premium UI, Framer Motion Transitions, Custom Slider/Dropdown/Tags). SignUpFlow Visual Polish Pass abgeschlossen (Design-Konsistenz mit Onboarding-Wizard). Onboarding OAuth-Callback Sync Bugfix abgeschlossen. Pulse Reels — Session 1 (Frontend) abgeschlossen. Pulse Reels — Session 2 (Design Polish + Brand Icons) abgeschlossen. Vision Rebranding — Session 3 (Video-Werkstatt) abgeschlossen. Vision Session 3 — Corrective Pass abgeschlossen. Vision — Fix Pass (Pulse Button + Thumbnail Webhook) abgeschlossen. Vision & Pulse — Fix Pass (Image Advanced + Label-Rename) abgeschlossen. Vision B-Roll — Funktional machen + Bild-Upload abgeschlossen. Vision B-Roll — Videos in Vision Tab + Mediathek anzeigen abgeschlossen. Vektrus Studio Phase 1 (Foundation & Shell) abgeschlossen. Vektrus Studio Phase 2 (Director's Desk / Storyboard) abgeschlossen. Vektrus Studio — Floating Dock abgeschlossen. Vektrus Studio — Corrective Pass + B-Roll View + "Dimming the Lights" abgeschlossen. Vektrus Studio — Echte Supabase-Daten + Entry-Buttons abgeschlossen. Vektrus Studio — B-Roll + Thumbnails + Meine Videos (echte n8n-Integration) abgeschlossen. Vektrus Studio — Production-Ready Cleanup abgeschlossen. Vektrus Studio — Szenen-gebundene B-Roll + Thumbnail-Zuordnung abgeschlossen.**
+**Kontext:** AP-01 bis AP-08 vollstaendig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik. **Posting Popup Redesign Phase 1 + Phase 2 + QA Pass abgeschlossen. Chat-to-Planner Handoff V1 + Corrective Pass + QA Pass + Single-Caption Bugfix + QA + Robustness Pass + Robustness QA Pass abgeschlossen. Composer Handoff V2 (Three-State Model + Source-Material Mode) implementiert. Help-Seite Workstream Phase 1 (Audit + Zielarchitektur) + Phase 2 (Implementierung) + Corrective Pass + QA Pass + Finaler Visual QA Pass abgeschlossen. Help Updates-Layer (Produkt-Updates + Transparenz) implementiert. Onboarding Wizard komplett implementiert (Session 1 + Session 2: alle 4 Schritte, OAuth, Completion, Step-Resume, SignUp-Redirect). Onboarding Design Polish Pass abgeschlossen (Premium UI, Framer Motion Transitions, Custom Slider/Dropdown/Tags). SignUpFlow Visual Polish Pass abgeschlossen (Design-Konsistenz mit Onboarding-Wizard). Onboarding OAuth-Callback Sync Bugfix abgeschlossen. Pulse Reels — Session 1 (Frontend) abgeschlossen. Pulse Reels — Session 2 (Design Polish + Brand Icons) abgeschlossen. Vision Rebranding — Session 3 (Video-Werkstatt) abgeschlossen. Vision Session 3 — Corrective Pass abgeschlossen. Vision — Fix Pass (Pulse Button + Thumbnail Webhook) abgeschlossen. Vision & Pulse — Fix Pass (Image Advanced + Label-Rename) abgeschlossen. Vision B-Roll — Funktional machen + Bild-Upload abgeschlossen. Vision B-Roll — Videos in Vision Tab + Mediathek anzeigen abgeschlossen. Vektrus Studio Phase 1 (Foundation & Shell) abgeschlossen. Vektrus Studio Phase 2 (Director's Desk / Storyboard) abgeschlossen. Vektrus Studio — Floating Dock abgeschlossen. Vektrus Studio — Corrective Pass + B-Roll View + "Dimming the Lights" abgeschlossen. Vektrus Studio — Echte Supabase-Daten + Entry-Buttons abgeschlossen. Vektrus Studio — B-Roll + Thumbnails + Meine Videos (echte n8n-Integration) abgeschlossen. Vektrus Studio — Production-Ready Cleanup abgeschlossen. Vektrus Studio — Szenen-gebundene B-Roll + Thumbnail-Zuordnung abgeschlossen. Sidebar Icon-Update abgeschlossen. Sidebar Strukturumbau (Gruppierung + Overlines + neue Icons) abgeschlossen. Studio KI-Reel-Ideen + Pulse Reel-Empfehlungen abgeschlossen.**
+
+---
+
+## Studio KI-Reel-Ideen + Pulse Reel-Empfehlungen
+
+**Stand:** 2026-03-31
+**Status: Abgeschlossen.**
+
+### Feature 1: KI-Reel-Ideen direkt im Studio generieren
+
+Nutzer können direkt im Studio Hub Reel-Konzepte generieren lassen, ohne den Pulse Wizard durchlaufen zu müssen.
+
+| Datei | Änderung |
+|---|---|
+| `src/components/studio/ReelAutoModal.tsx` | **Neu.** Kompaktes Modal mit 3 Settings: Plattform-Toggle-Pills (Instagram/TikTok/YouTube Shorts, Default aus `useConnectedPlatforms`), Gesicht-Toggle, Anzahl-Stepper (1-3). CTA mit Pulse Gradient. Phasen: form → generating (mit Polling auf `pulse_configurations`) → done → error. Ruft `callN8n('vektrus-pulse-reels')` mit `theme: "auto"` auf. |
+| `src/components/studio/StudioPage.tsx` | Empty State CTA "KI-Ideen generieren" statt "Erstes Reel in Pulse erstellen". Hub TopBar-Button "Neue Reel-Ideen" (Pulse Gradient, Wand2 Icon). Modal-State `showAutoModal`. Nach Generierung: Hub-Reload via `hubLoadCount` Trigger. Sekundärer Link "manuell in Pulse erstellen" unter dem CTA im Empty State. |
+
+### Feature 2: Reel-Vorschläge in Pulse Text Results
+
+Nach einer Pulse Text-Generierung werden optionale Reel-Empfehlungen des Agenten angezeigt.
+
+| Datei | Änderung |
+|---|---|
+| `src/components/planner/wizard/ReelSuggestionsSection.tsx` | **Neu.** Rendert `reel_suggestions` aus dem letzten Post-Content als Checkbox-Liste. Jeder Vorschlag zeigt: Titel, Format-Badge, Dauer, Schwierigkeit. CTA "Reel-Konzepte generieren" (Pulse Gradient) ruft `callN8n('vektrus-pulse-reels')` auf und navigiert zu `/studio`. Plattformen werden aus der Pulse-Konfiguration übernommen. |
+| `src/components/planner/wizard/PostResultsList.tsx` | Lädt `reel_suggestions` aus dem letzten `pulse_generated_content` Record (per Post-IDs Query). Rendert `ReelSuggestionsSection` zwischen Post-Liste und "Posts in Kalender übernehmen" Button. Section fehlt graceful wenn keine `reel_suggestions` vorhanden. Plattformen aus `pulse_configurations.configuration` geladen. |
+
+### Datenfluss
+- **Feature 1:** Studio Hub → ReelAutoModal → `callN8n('vektrus-pulse-reels', { theme: 'auto' })` → Polling → Hub Reload
+- **Feature 2:** WizardRoot → PostResultsList → Query `pulse_generated_content` → Extract `reel_suggestions` → ReelSuggestionsSection → `callN8n('vektrus-pulse-reels', { theme: <titles> })` → Navigate `/studio`
+
+### Verifikation
+- ✅ TypeScript: fehlerfrei
+- ✅ Production Build: erfolgreich
+- ✅ Studio Empty State: CTA "KI-Ideen generieren" öffnet Modal
+- ✅ Studio Hub: Button "Neue Reel-Ideen" öffnet Modal
+- ✅ Modal: Plattform/Gesicht/Anzahl-Auswahl, Pulse Gradient CTA
+- ✅ Pulse Results: ReelSuggestionsSection nur wenn `reel_suggestions` vorhanden
+- ✅ Pulse Results: ReelSuggestionsSection fehlt wenn keine Daten (kein Fehler)
+
+---
+
+## Sidebar — Strukturumbau: Gruppierung + Icons + Overlines
+
+**Stand:** 2026-03-31
+**Status: Abgeschlossen.**
+
+### Was wurde gemacht
+
+Sidebar in drei visuell getrennte Blöcke umstrukturiert (Whitespace-Trennung, keine hr-Elemente). Overline-Labels für Block 2 und 3 (Manrope, 10px, uppercase, #7A7A7A). Im Collapsed-State ausgeblendet.
+
+#### Neue Gruppenstruktur
+
+| Block | Overline | Module |
+|---|---|---|
+| 1 — Core | (keine) | Dashboard, Chat |
+| 2 — Workspace | WORKSPACE | Pulse, Studio (Vision), Planner |
+| 3 — Library | LIBRARY | Media, Brand DNA, Insights |
+| Bottom | — | Hilfe, Abmelden, Beta-Feedback, Profil |
+
+#### Icon-Änderungen (Lucide)
+
+| Modul | Neu | Begründung |
+|---|---|---|
+| Dashboard | `LayoutGrid` | Grid = Übersicht |
+| Studio (Vision) | `Crop` | Fokus-Rahmen |
+| Planner | `CalendarRange` | Kalender + Zeitspanne |
+| Media | `Layers` | Gestaffelte Assets |
+| Insights | `TrendingUp` | Wachstum/Performance |
+
+#### Custom SVG Icons
+
+| Modul | Datei | Beschreibung |
+|---|---|---|
+| Chat | `src/components/icons/ChatIcon.tsx` | Zwei überlappende Netzwerk-Nodes + Sprechblasen-Spitze |
+| Pulse | `src/components/icons/PulseIcon.tsx` | Sinuswelle mit zentralem Node |
+
+#### Geänderte Dateien
+
+| Datei | Änderung |
+|---|---|
+| `src/components/icons/ChatIcon.tsx` | **Neu.** Custom SVG, 24x24, stroke-based, currentColor |
+| `src/components/icons/PulseIcon.tsx` | **Neu.** Custom SVG, 24x24, Waveform + Node |
+| `src/components/dashboard/VektrusSidebar.tsx` | Flat links-Array → 3 gruppierte Arrays (coreLinks, workspaceLinks, libraryLinks). Overline-Labels. Neue Icons. Tool-Hub aus Hauptnavigation entfernt (bleibt im Bottom-Bereich als Beta-Feedback). |
+
+---
+
+## Sidebar — Icon-Update
+
+**Stand:** 2026-03-31
+**Status: Abgeschlossen.**
+
+### Was wurde gemacht
+
+Gezielte Icon-Änderung in der Sidebar (`src/components/dashboard/VektrusSidebar.tsx`). Nur Icons ersetzt, keine Labels, Routen, Farben oder Struktur verändert.
+
+| Modul | Alt | Neu (lucide-react) |
+|---|---|---|
+| Dashboard | `LayoutDashboard` | `BarChart3` |
+| Chat | `MessageSquare` | `BotMessageSquare` |
+| Pulse | `Zap` | `AudioWaveform` |
+| Planner | `Calendar` | `CalendarDays` |
+| Studio (Vision) | `Sparkles` | `Clapperboard` |
+| Brand Studio | `Palette` | `Fingerprint` |
+
+Alle anderen Module (Insights, Media, ToolHub, Profile, Hilfe) unverändert. Hover-States, Active-States und Modul-Farben vollständig erhalten. `tsc --noEmit` — 0 Fehler.
 
 ---
 
