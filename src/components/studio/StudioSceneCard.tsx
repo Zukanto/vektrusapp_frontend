@@ -201,42 +201,43 @@ const StudioSceneCard: React.FC<StudioSceneCardProps> = ({
   };
 
   return (
-    <div ref={setNodeRef} style={sortableStyle} className="relative flex gap-5">
-        {/* Timeline connector */}
-        <div className="flex flex-col items-center flex-shrink-0 w-10">
+    <div ref={setNodeRef} style={sortableStyle} className="group/card relative flex gap-5">
+        {/* Timeline connector: Handle + Scene number */}
+        <div className="flex flex-shrink-0">
+          {/* Drag handle */}
           <div
-            className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold flex-shrink-0 transition-colors ${
-              isSelected
-                ? 'bg-[#49B7E3]/20 text-[#49B7E3]'
-                : 'bg-[#FAFAFA]/5 text-[#FAFAFA]/30'
-            }`}
+            {...listeners}
+            {...attributes}
+            className="flex items-center px-2 py-1 opacity-40 group-hover/card:opacity-100 transition-opacity cursor-grab active:cursor-grabbing touch-none"
+            onClick={(e) => e.stopPropagation()}
           >
-            {scene.nr}
+            <GripVertical className="w-4 h-4 text-[#FAFAFA]" />
           </div>
-          {!isLast && (
-            <div className="w-[2px] flex-1 min-h-[16px] bg-[#49B7E3]/30 mt-2" />
-          )}
+          <div className="flex flex-col items-center w-10">
+            <div
+              className={`w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold flex-shrink-0 transition-colors ${
+                isSelected
+                  ? 'bg-[#49B7E3]/20 text-[#49B7E3]'
+                  : 'bg-[#FAFAFA]/5 text-[#FAFAFA]/30'
+              }`}
+            >
+              {scene.nr}
+            </div>
+            {!isLast && (
+              <div className="w-[2px] flex-1 min-h-[16px] bg-[#49B7E3]/30 mt-2" />
+            )}
+          </div>
         </div>
 
         {/* Card */}
         <div
           onClick={onClick}
-          className={`group/card flex-1 rounded-[16px] p-5 text-left transition-all cursor-pointer border mb-4 relative ${
+          className={`flex-1 rounded-[16px] p-5 text-left transition-all cursor-pointer border mb-4 relative ${
             isSelected
               ? 'bg-[#121214] border-[#49B7E3]/40'
               : 'bg-[#121214] border-transparent hover:border-[rgba(255,255,255,0.08)]'
           }`}
         >
-          {/* Drag handle */}
-          <div
-            {...listeners}
-            {...attributes}
-            className="absolute left-2 top-1/2 -translate-y-1/2 opacity-20 group-hover/card:opacity-60 hover:!opacity-80 transition-opacity cursor-grab active:cursor-grabbing touch-none"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <GripVertical className="w-4 h-4 text-[#FAFAFA]" />
-          </div>
-
           {/* Delete button */}
           {!isOnly && (
             <button
