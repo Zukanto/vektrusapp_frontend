@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Sidebar, SidebarBody, SidebarLink } from "../ui/sidebar";
-import { ChartColumn, Calendar, MessageSquare, Image, CircleHelp, LogOut, User, Target, Sparkles, LayoutDashboard, Loader2, CheckCircle, XCircle, Zap, Palette } from "lucide-react";
+import { LayoutGrid, CalendarRange, TrendingUp, FolderOpen, Clapperboard, Fingerprint, CircleHelp, LogOut, User, Loader2, CheckCircle, XCircle, MessageSquare, Zap } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from '../../hooks/useAuth';
-import { useModuleColors } from '../../hooks/useModuleColors';
 import { getDisplayName } from '../../lib/utils';
 import { usePulseGeneration } from '../../hooks/usePulseGeneration';
 import { MODULE_TO_PATH } from '../../routes';
@@ -17,32 +16,6 @@ export function VektrusSidebar({ activeModule = 'dashboard', onModuleChange }: V
   const { signOut, user, userProfile } = useAuth();
   const pulse = usePulseGeneration();
 
-  const dashboardColors = useModuleColors('dashboard');
-  const toolhubColors = useModuleColors('toolhub');
-  const chatColors = useModuleColors('chat');
-  const plannerColors = useModuleColors('planner');
-  const pulseColors = useModuleColors('pulse');
-  const insightsColors = useModuleColors('insights');
-  const studioColors = useModuleColors('studio');
-  const mediaColors = useModuleColors('media');
-  const brandColors = useModuleColors('brand');
-  const profileColors = useModuleColors('profile');
-  const helpColors = useModuleColors('help');
-
-  // Color lookup for active states — maps module ID to its colors
-  const moduleColorMap: Record<string, ReturnType<typeof useModuleColors>> = {
-    dashboard: dashboardColors,
-    toolhub: toolhubColors,
-    chat: chatColors,
-    planner: plannerColors,
-    pulse: pulseColors,
-    insights: insightsColors,
-    studio: studioColors,
-    media: mediaColors,
-    brand: brandColors,
-    profile: profileColors,
-    help: helpColors,
-  };
 
   const [showDoneIndicator, setShowDoneIndicator] = useState(false);
   const doneStatus = pulse.progress.status;
@@ -57,28 +30,21 @@ export function VektrusSidebar({ activeModule = 'dashboard', onModuleChange }: V
 
   const showFloatingIndicator = (pulse.isGenerating && !pulse.popupOpen) || showDoneIndicator;
 
-  const links = [
+  const ACTIVE_COLOR = '#49B7E3'; // Vektrus Blue for all active icons
+  const INACTIVE_COLOR = '#7A7A7A';
+
+  // Block 1 — no overline
+  const coreLinks = [
     {
       label: "Dashboard",
       href: MODULE_TO_PATH.dashboard,
       icon: (
-        <LayoutDashboard
+        <LayoutGrid
           className="h-5 w-5 flex-shrink-0"
-          style={{ color: activeModule === 'dashboard' ? dashboardColors.primary : '#7A7A7A' }}
+          style={{ color: activeModule === 'dashboard' ? ACTIVE_COLOR : INACTIVE_COLOR }}
         />
       ),
       id: 'dashboard'
-    },
-    {
-      label: "Tool-Hub",
-      href: MODULE_TO_PATH.toolhub,
-      icon: (
-        <Target
-          className="h-5 w-5 flex-shrink-0"
-          style={{ color: activeModule === 'toolhub' ? toolhubColors.primary : '#7A7A7A' }}
-        />
-      ),
-      id: 'toolhub'
     },
     {
       label: "Chat",
@@ -86,86 +52,84 @@ export function VektrusSidebar({ activeModule = 'dashboard', onModuleChange }: V
       icon: (
         <MessageSquare
           className="h-5 w-5 flex-shrink-0"
-          style={{ color: activeModule === 'chat' ? chatColors.primary : '#7A7A7A' }}
+          style={{ color: activeModule === 'chat' ? ACTIVE_COLOR : INACTIVE_COLOR }}
         />
       ),
       id: 'chat'
     },
-    {
-      label: "Planner",
-      href: MODULE_TO_PATH.planner,
-      icon: (
-        <Calendar
-          className="h-5 w-5 flex-shrink-0"
-          style={{ color: activeModule === 'planner' ? plannerColors.primary : '#7A7A7A' }}
-        />
-      ),
-      id: 'planner'
-    },
+  ];
+
+  // Block 2 — overline: WORKSPACE
+  const workspaceLinks = [
     {
       label: "Pulse",
       href: MODULE_TO_PATH.pulse,
-      icon: activeModule === 'pulse' ? (
-        <span className="h-5 w-5 flex-shrink-0 flex items-center justify-center">
-          <Zap
-            className="h-5 w-5"
-            style={{
-              fill: 'url(#pulse-gradient-sidebar)',
-              stroke: 'url(#pulse-gradient-sidebar)',
-            }}
-          />
-        </span>
-      ) : (
+      icon: (
         <Zap
           className="h-5 w-5 flex-shrink-0"
-          style={{ color: '#7A7A7A' }}
+          style={{ color: activeModule === 'pulse' ? ACTIVE_COLOR : INACTIVE_COLOR }}
         />
       ),
       id: 'pulse'
     },
     {
-      label: "Insights",
-      href: MODULE_TO_PATH.insights,
-      icon: (
-        <ChartColumn
-          className="h-5 w-5 flex-shrink-0"
-          style={{ color: activeModule === 'insights' ? insightsColors.primary : '#7A7A7A' }}
-        />
-      ),
-      id: 'insights'
-    },
-    {
       label: "Studio",
       href: MODULE_TO_PATH.studio,
       icon: (
-        <Sparkles
+        <Clapperboard
           className="h-5 w-5 flex-shrink-0"
-          style={{ color: activeModule === 'studio' ? studioColors.primary : '#7A7A7A' }}
+          style={{ color: activeModule === 'studio' ? ACTIVE_COLOR : INACTIVE_COLOR }}
         />
       ),
       id: 'studio'
     },
     {
+      label: "Planner",
+      href: MODULE_TO_PATH.planner,
+      icon: (
+        <CalendarRange
+          className="h-5 w-5 flex-shrink-0"
+          style={{ color: activeModule === 'planner' ? ACTIVE_COLOR : INACTIVE_COLOR }}
+        />
+      ),
+      id: 'planner'
+    },
+  ];
+
+  // Block 3 — overline: LIBRARY
+  const libraryLinks = [
+    {
       label: "Media",
       href: MODULE_TO_PATH.media,
       icon: (
-        <Image
+        <FolderOpen
           className="h-5 w-5 flex-shrink-0"
-          style={{ color: activeModule === 'media' ? mediaColors.primary : '#7A7A7A' }}
+          style={{ color: activeModule === 'media' ? ACTIVE_COLOR : INACTIVE_COLOR }}
         />
       ),
       id: 'media'
     },
     {
-      label: "Brand Studio",
+      label: "Brand DNA",
       href: MODULE_TO_PATH.brand,
       icon: (
-        <Palette
+        <Fingerprint
           className="h-5 w-5 flex-shrink-0"
-          style={{ color: activeModule === 'brand' ? brandColors.primary : '#7A7A7A' }}
+          style={{ color: activeModule === 'brand' ? ACTIVE_COLOR : INACTIVE_COLOR }}
         />
       ),
       id: 'brand'
+    },
+    {
+      label: "Insights",
+      href: MODULE_TO_PATH.insights,
+      icon: (
+        <TrendingUp
+          className="h-5 w-5 flex-shrink-0"
+          style={{ color: activeModule === 'insights' ? ACTIVE_COLOR : INACTIVE_COLOR }}
+        />
+      ),
+      id: 'insights'
     },
   ];
 
@@ -176,7 +140,7 @@ export function VektrusSidebar({ activeModule = 'dashboard', onModuleChange }: V
       icon: (
         <CircleHelp
           className="h-5 w-5 flex-shrink-0"
-          style={{ color: activeModule === 'help' ? helpColors.primary : '#7A7A7A' }}
+          style={{ color: activeModule === 'help' ? ACTIVE_COLOR : INACTIVE_COLOR }}
         />
       ),
       id: 'help'
@@ -211,39 +175,71 @@ export function VektrusSidebar({ activeModule = 'dashboard', onModuleChange }: V
 
   return (
     <>
-      {/* SVG gradient definition for Pulse icon */}
-      <svg width="0" height="0" className="absolute">
-        <defs>
-          <linearGradient id="pulse-gradient-sidebar" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#49B7E3" />
-            <stop offset="33%" stopColor="#7C6CF2" />
-            <stop offset="66%" stopColor="#E8A0D6" />
-            <stop offset="100%" stopColor="#F4BE9D" />
-          </linearGradient>
-        </defs>
-      </svg>
       <Sidebar open={open} setOpen={setOpen}>
         <SidebarBody className="justify-between gap-10">
           <div className="flex flex-col flex-1 overflow-y-auto overflow-x-hidden">
             {open ? <VektrusLogo /> : <VektrusLogoIcon />}
+            {/* Block 1 — Core (no overline) */}
             <div className="mt-8 flex flex-col gap-1">
-              {links.map((link, idx) => {
+              {coreLinks.map((link, idx) => {
                 const isActive = activeModule === link.id;
-                const colors = moduleColorMap[link.id];
-                const isPulse = link.id === 'pulse';
                 return (
                   <div key={idx} onClick={() => handleLinkClick(link.id)} data-tour={link.id}>
                     <SidebarLink
                       link={link}
                       className={isActive ? 'sidebar-link-active' : ''}
-                      style={isActive && colors ? (isPulse ? {
-                        backgroundColor: 'rgba(124, 108, 242, 0.06)',
-                        borderLeft: '2px solid transparent',
-                        borderImage: 'linear-gradient(180deg, #49B7E3, #7C6CF2, #E8A0D6) 1',
-                      } : {
-                        backgroundColor: colors.hoverBg,
-                        borderLeft: `2px solid ${colors.primary}`,
-                      }) : undefined}
+                      style={isActive ? {
+                        backgroundColor: 'rgba(73, 183, 227, 0.06)',
+                        borderLeft: `2px solid ${ACTIVE_COLOR}`,
+                      } : undefined}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Block 2 — Workspace */}
+            <div className="mt-4 flex flex-col gap-1">
+              {open && (
+                <span className="px-2.5 pt-2 pb-1 text-[10px] font-manrope font-semibold uppercase tracking-[0.08em] text-[#7A7A7A] select-none">
+                  Workspace
+                </span>
+              )}
+              {workspaceLinks.map((link, idx) => {
+                const isActive = activeModule === link.id;
+                return (
+                  <div key={idx} onClick={() => handleLinkClick(link.id)} data-tour={link.id}>
+                    <SidebarLink
+                      link={link}
+                      className={isActive ? 'sidebar-link-active' : ''}
+                      style={isActive ? {
+                        backgroundColor: 'rgba(73, 183, 227, 0.06)',
+                        borderLeft: `2px solid ${ACTIVE_COLOR}`,
+                      } : undefined}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Block 3 — Library */}
+            <div className="mt-4 flex flex-col gap-1">
+              {open && (
+                <span className="px-2.5 pt-2 pb-1 text-[10px] font-manrope font-semibold uppercase tracking-[0.08em] text-[#7A7A7A] select-none">
+                  Library
+                </span>
+              )}
+              {libraryLinks.map((link, idx) => {
+                const isActive = activeModule === link.id;
+                return (
+                  <div key={idx} onClick={() => handleLinkClick(link.id)} data-tour={link.id}>
+                    <SidebarLink
+                      link={link}
+                      className={isActive ? 'sidebar-link-active' : ''}
+                      style={isActive ? {
+                        backgroundColor: 'rgba(73, 183, 227, 0.06)',
+                        borderLeft: `2px solid ${ACTIVE_COLOR}`,
+                      } : undefined}
                     />
                   </div>
                 );
@@ -253,15 +249,14 @@ export function VektrusSidebar({ activeModule = 'dashboard', onModuleChange }: V
           <div className="flex flex-col gap-1">
             {bottomLinks.map((link, idx) => {
               const isActive = activeModule === link.id;
-              const colors = moduleColorMap[link.id];
               return (
                 <div key={idx} onClick={() => link.id ? handleLinkClick(link.id) : undefined}>
                   <SidebarLink
                     link={link}
                     className={isActive ? 'sidebar-link-active' : ''}
-                    style={isActive && colors ? {
-                      backgroundColor: colors.hoverBg,
-                      borderLeft: `2px solid ${colors.primary}`,
+                    style={isActive ? {
+                      backgroundColor: 'rgba(73, 183, 227, 0.06)',
+                      borderLeft: `2px solid ${ACTIVE_COLOR}`,
                     } : undefined}
                   />
                 </div>
@@ -299,8 +294,8 @@ export function VektrusSidebar({ activeModule = 'dashboard', onModuleChange }: V
                 }}
                 className={activeModule === 'profile' ? 'sidebar-link-active' : ''}
                 style={activeModule === 'profile' ? {
-                  backgroundColor: profileColors.hoverBg,
-                  borderLeft: `2px solid ${profileColors.primary}`,
+                  backgroundColor: 'rgba(73, 183, 227, 0.06)',
+                  borderLeft: `2px solid ${ACTIVE_COLOR}`,
                 } : undefined}
               />
             </div>

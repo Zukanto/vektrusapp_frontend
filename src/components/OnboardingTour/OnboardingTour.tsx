@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { ONBOARDING_STEPS } from './tourSteps';
 import { SpotlightOverlay } from './SpotlightOverlay';
 import { TooltipCard } from './TooltipCard';
@@ -6,6 +7,8 @@ import { useTourEngine } from './useTourEngine';
 import { supabase } from '../../lib/supabase';
 
 export function OnboardingTour() {
+  const location = useLocation();
+  const isStudio = location.pathname.startsWith('/studio');
   const [showToast, setShowToast] = useState(false);
 
   const handleComplete = () => {
@@ -87,7 +90,7 @@ export function OnboardingTour() {
         </>
       )}
 
-      {!tour.active && (
+      {!tour.active && !isStudio && (
         <button
           onClick={tour.start}
           aria-label="Product Tour starten"

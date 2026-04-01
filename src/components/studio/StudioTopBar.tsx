@@ -1,21 +1,27 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, Image as ImageIcon, Check, RefreshCw, Loader2, CircleHelp } from 'lucide-react';
 import { exitStudio } from './studioTransition';
 import { supabase } from '../../lib/supabase';
 
 interface StudioTopBarProps {
   title?: string;
   reelConceptId?: string;
+  saveStatus?: 'idle' | 'saving' | 'saved' | 'error';
+  onRetry?: () => void;
   onAdoptToPlanner?: () => void;
   onThumbnailClick?: () => void;
+  onTourStart?: () => void;
 }
 
 const StudioTopBar: React.FC<StudioTopBarProps> = ({
   title,
   reelConceptId,
+  saveStatus = 'idle',
+  onRetry,
   onAdoptToPlanner,
   onThumbnailClick,
+  onTourStart,
 }) => {
   const navigate = useNavigate();
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
@@ -68,7 +74,7 @@ const StudioTopBar: React.FC<StudioTopBarProps> = ({
         <span>Zur Übersicht</span>
       </button>
 
-      {/* Center: Title + Thumbnail Preview */}
+      {/* Center: Title + Thumbnail Preview + Save Status */}
       <div className="flex items-center gap-3">
         {thumbnailUrl && (
           <button
@@ -89,15 +95,50 @@ const StudioTopBar: React.FC<StudioTopBarProps> = ({
             {title}
           </span>
         )}
+
+        {/* Save Status Indicator */}
+        {saveStatus === 'saving' && (
+          <span className="flex items-center gap-1.5 text-xs text-[#7A7A7A] animate-pulse">
+            <Loader2 className="w-3 h-3 animate-spin" />
+            Speichert...
+          </span>
+        )}
+        {saveStatus === 'saved' && (
+          <span className="flex items-center gap-1.5 text-xs text-[#49D69E] transition-opacity">
+            <Check className="w-3 h-3" />
+            Gespeichert
+          </span>
+        )}
+        {saveStatus === 'error' && (
+          <button
+            onClick={onRetry}
+            className="flex items-center gap-1.5 text-xs text-[#FA7E70] hover:text-[#FA7E70]/80 transition-colors bg-transparent border-none cursor-pointer"
+          >
+            <RefreshCw className="w-3 h-3" />
+            Speichern fehlgeschlagen
+          </button>
+        )}
       </div>
 
-      {/* Right: Primary CTA */}
-      <button
-        onClick={handleAdopt}
-        className="px-5 py-2 bg-[#49B7E3] hover:bg-[#3aa5d1] text-white text-sm font-semibold rounded-[12px] transition-colors cursor-pointer"
-      >
-        In Planner übernehmen
-      </button>
+      {/* Right: Tour trigger + Primary CTA */}
+      <div className="flex items-center gap-3">
+        {onTourStart && (
+          <button
+            onClick={onTourStart}
+            className="w-8 h-8 rounded-full flex items-center justify-center text-[#FAFAFA]/30 hover:text-[#FAFAFA]/60 hover:bg-[#FAFAFA]/5 transition-colors cursor-pointer bg-transparent border-none"
+            title="Studio-Tour starten"
+          >
+            <CircleHelp className="w-4 h-4" />
+          </button>
+        )}
+        <button
+          data-tour="studio-planner-btn"
+          onClick={handleAdopt}
+          className="px-5 py-2 bg-[#49B7E3] hover:bg-[#3aa5d1] text-white text-sm font-semibold rounded-[12px] transition-colors cursor-pointer"
+        >
+          In Planner übernehmen
+        </button>
+      </div>
     </div>
   );
 };

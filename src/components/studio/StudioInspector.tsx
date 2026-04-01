@@ -1,31 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { Camera, Clock, Type, Wand2, Subtitles, Scissors, MousePointerClick, Clapperboard, Film, Timer, Check, RefreshCw, Loader, X } from 'lucide-react';
-import type { ReelScene, ReelContent } from '../../services/reelService';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import {
+  Camera, Clock, Type, Wand2, Subtitles, Scissors, MousePointerClick,
+  Clapperboard, Film, Timer, Check, RefreshCw, Loader, X, User,
+  Video, Smartphone, Monitor, Hand, ScanLine, Focus,
+} from 'lucide-react';
+import type { Scene, ReelConcept, CameraType } from '../../types/reelConcept';
+import { CAMERA_LABELS, CAMERA_OPTIONS, FORMAT_LABELS } from '../../types/reelConcept';
 import type { SceneVideo } from '../../hooks/useSceneVideos';
 import { supabase } from '../../lib/supabase';
 import { callN8n } from '../../lib/n8n';
 import { useAuth } from '../../hooks/useAuth';
-
-const CAMERA_LABELS: Record<string, string> = {
-  frontal_selfie: 'Frontal',
-  detail_nahaufnahme: 'Nahaufnahme',
-  over_the_shoulder: 'Über die Schulter',
-  pov: 'POV',
-  stativ_weit: 'Weitwinkel',
-  drohne: 'Drohne',
-};
-
-const FORMAT_LABELS: Record<string, string> = {
-  talking_head: 'Talking Head',
-  produkt_showcase: 'Produkt-Showcase',
-  tutorial: 'Tutorial',
-  behind_the_scenes: 'Behind the Scenes',
-  vorher_nachher: 'Vorher/Nachher',
-  b_roll_montage: 'B-Roll Montage',
-  listicle: 'Listicle',
-};
-
-const DURATION_OPTIONS = [3, 4, 5, 6, 7, 8] as const;
 
 const FAILED_MESSAGES: Record<string, string> = {
   failed_timeout: 'Die Generierung hat zu lange gedauert.',
@@ -34,43 +18,108 @@ const FAILED_MESSAGES: Record<string, string> = {
   failed: 'Ein Fehler ist aufgetreten.',
 };
 
+// ── Camera icon map ──
+const CAMERA_ICONS: Record<string, React.ReactNode> = {
+  frontal_selfie: <User className="w-5 h-5" />,
+  detail_nah: <Focus className="w-5 h-5" />,
+  weitwinkel: <Monitor className="w-5 h-5" />,
+  screen_recording: <ScanLine className="w-5 h-5" />,
+  produkt_fokus: <Video className="w-5 h-5" />,
+  'hände_fokus': <Hand className="w-5 h-5" />,
+};
+
+// ── Auto-resize textarea ──
+const AutoTextarea: React.FC<{
+  value: string;
+  onChange: (v: string) => void;
+  className?: string;
+  placeholder?: string;
+  rows?: number;
+  disabled?: boolean;
+}> = ({ value, onChange, className = '', placeholder, rows = 2, disabled }) => {
+  const ref = useRef<HTMLTextAreaElement>(null);
+  const resize = useCallback(() => {
+    if (ref.current) {
+      ref.current.style.height = 'auto';
+      ref.current.style.height = `${ref.current.scrollHeight}px`;
+    }
+  }, []);
+  useEffect(resize, [value, resize]);
+
+  return (
+    <textarea
+      ref={ref}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      rows={rows}
+      disabled={disabled}
+      className={`w-full bg-[rgba(255,255,255,0.06)] text-[#FAFAFA]/80 text-sm rounded-lg border border-[rgba(255,255,255,0.1)] p-3 resize-none focus:outline-none transition-colors ${className}`}
+      style={{ boxShadow: 'none' }}
+      onFocus={(e) => { (e.target as HTMLTextAreaElement).style.boxShadow = '0 0 0 2px rgba(124, 108, 242, 0.3)'; (e.target as HTMLTextAreaElement).style.borderColor = 'rgba(124, 108, 242, 0.5)'; }}
+      onBlur={(e) => { (e.target as HTMLTextAreaElement).style.boxShadow = 'none'; (e.target as HTMLTextAreaElement).style.borderColor = 'rgba(255, 255, 255, 0.1)'; }}
+    />
+  );
+};
+
 interface StudioInspectorProps {
-  scene: ReelScene | null;
-  concept?: ReelContent;
+  scene: Scene | null;
+  sceneIndex: number | null;
+  concept?: ReelConcept;
   reelConceptId?: string;
   sceneVideo?: SceneVideo | null;
   onVideoGenerated?: () => void;
+  onSceneChange?: (index: number, scene: Scene) => void;
+  onConceptChange?: (concept: ReelConcept) => void;
 }
 
 const StudioInspector: React.FC<StudioInspectorProps> = ({
   scene,
+  sceneIndex,
   concept,
   reelConceptId,
   sceneVideo,
   onVideoGenerated,
+  onSceneChange,
+  onConceptChange,
 }) => {
   const { user } = useAuth();
   const [brollDescription, setBrollDescription] = useState(scene?.action || '');
   const [clipDuration, setClipDuration] = useState(scene?.duration_seconds || 5);
   const [submitting, setSubmitting] = useState(false);
 
-  // Sync textarea + duration when scene changes
+  // Sync when scene changes externally
   useEffect(() => {
     setBrollDescription(scene?.action || '');
     setClipDuration(scene?.duration_seconds || 5);
   }, [scene?.nr, scene?.action, scene?.duration_seconds]);
 
-  // Determine display state from sceneVideo
   const isGenerating = sceneVideo?.status === 'generating' || sceneVideo?.status === 'queued';
   const isFinished = sceneVideo?.status === 'finished' && !!sceneVideo?.video_url;
   const isFailed = sceneVideo?.status?.startsWith('failed') || false;
+
+  // ── Update scene (bidirectional) ──
+  const updateScene = useCallback(
+    (partial: Partial<Scene>) => {
+      if (!scene || sceneIndex === null || !onSceneChange) return;
+      onSceneChange(sceneIndex, { ...scene, ...partial });
+    },
+    [scene, sceneIndex, onSceneChange]
+  );
+
+  // ── needs_face toggle ──
+  const toggleNeedsFace = useCallback(() => {
+    if (!concept || !onConceptChange) return;
+    onConceptChange({ ...concept, needs_face: !concept.needs_face });
+  }, [concept, onConceptChange]);
+
+  const DURATION_OPTIONS = [3, 4, 5, 6, 7, 8] as const;
 
   const handleGenerate = async () => {
     if (!user?.id || !scene || !reelConceptId) return;
     setSubmitting(true);
 
     try {
-      // 1. Insert vision_project with scene_nr + reel_concept_id
       const { data: project, error: insertError } = await supabase
         .from('vision_projects')
         .insert({
@@ -87,7 +136,6 @@ const StudioInspector: React.FC<StudioInspectorProps> = ({
 
       if (insertError || !project) throw insertError || new Error('Insert fehlgeschlagen');
 
-      // 2. Call n8n webhook
       try {
         await callN8n('vektrus-vision-broll', {
           user_id: user.id,
@@ -99,22 +147,21 @@ const StudioInspector: React.FC<StudioInspectorProps> = ({
           reference_images: [],
         });
       } catch {
-        // Webhook fire-and-forget; polling will pick up status
+        // fire-and-forget
       }
 
-      // 3. Trigger refetch so useSceneVideos picks up the new record
       onVideoGenerated?.();
     } catch {
-      // Error handled silently — user sees the scene stays without video
+      // silent
     } finally {
       setSubmitting(false);
     }
   };
 
+  // ── Empty state ──
   if (!scene) {
     return (
       <div className="h-full flex flex-col items-center justify-center px-6">
-        {/* Icon with subtle pulse */}
         <div className="mb-4 opacity-30" style={{ animation: 'studio-inspector-pulse 3s ease-in-out infinite' }}>
           <MousePointerClick className="w-8 h-8 text-[#49B7E3]" />
         </div>
@@ -125,30 +172,53 @@ const StudioInspector: React.FC<StudioInspectorProps> = ({
           um Details und Bearbeitungsoptionen zu sehen
         </p>
 
-        {/* Concept summary below */}
         {concept && (
-          <div className="mt-8 w-full rounded-xl bg-[#121214] p-4 border border-[rgba(255,255,255,0.04)]">
-            <p className="text-[#FAFAFA]/30 text-[11px] uppercase tracking-wider font-medium mb-3">
-              Konzept-Übersicht
-            </p>
-            <div className="space-y-2.5">
-              <div className="flex items-center gap-2.5">
-                <Clapperboard className="w-3.5 h-3.5 text-[#FAFAFA]/20 flex-shrink-0" />
-                <span className="text-[#FAFAFA]/50 text-xs truncate">{concept.title}</span>
+          <div className="mt-8 w-full space-y-4">
+            <div className="rounded-xl bg-[#121214] p-4 border border-[rgba(255,255,255,0.04)]">
+              <p className="text-[#FAFAFA]/30 text-[11px] uppercase tracking-wider font-medium mb-3">
+                Konzept-Übersicht
+              </p>
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-2.5">
+                  <Clapperboard className="w-3.5 h-3.5 text-[#FAFAFA]/20 flex-shrink-0" />
+                  <span className="text-[#FAFAFA]/50 text-xs truncate">{concept.title}</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Film className="w-3.5 h-3.5 text-[#FAFAFA]/20 flex-shrink-0" />
+                  <span className="text-[#FAFAFA]/50 text-xs">
+                    {FORMAT_LABELS[concept.format] || concept.format}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Timer className="w-3.5 h-3.5 text-[#FAFAFA]/20 flex-shrink-0" />
+                  <span className="text-[#FAFAFA]/50 text-xs">{concept.total_duration_seconds}s Gesamtdauer</span>
+                </div>
+                <div className="flex items-center gap-2.5">
+                  <Camera className="w-3.5 h-3.5 text-[#FAFAFA]/20 flex-shrink-0" />
+                  <span className="text-[#FAFAFA]/50 text-xs">{concept.scenes.length} Szenen</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2.5">
-                <Film className="w-3.5 h-3.5 text-[#FAFAFA]/20 flex-shrink-0" />
-                <span className="text-[#FAFAFA]/50 text-xs">
-                  {FORMAT_LABELS[concept.format] || concept.format}
-                </span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <Timer className="w-3.5 h-3.5 text-[#FAFAFA]/20 flex-shrink-0" />
-                <span className="text-[#FAFAFA]/50 text-xs">{concept.total_duration_seconds}s Gesamtdauer</span>
-              </div>
-              <div className="flex items-center gap-2.5">
-                <Camera className="w-3.5 h-3.5 text-[#FAFAFA]/20 flex-shrink-0" />
-                <span className="text-[#FAFAFA]/50 text-xs">{concept.scenes.length} Szenen</span>
+            </div>
+
+            {/* needs_face toggle */}
+            <div className="rounded-xl bg-[#121214] p-4 border border-[rgba(255,255,255,0.04)]">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <User className="w-3.5 h-3.5 text-[#FAFAFA]/20 flex-shrink-0" />
+                  <span className="text-[#FAFAFA]/50 text-xs">Gesicht im Video</span>
+                </div>
+                <button
+                  onClick={toggleNeedsFace}
+                  className={`w-10 h-[22px] rounded-full relative transition-colors cursor-pointer border-none ${
+                    concept.needs_face ? 'bg-[#49B7E3]' : 'bg-[#FAFAFA]/10'
+                  }`}
+                >
+                  <div
+                    className={`absolute top-[3px] w-4 h-4 rounded-full bg-white transition-transform ${
+                      concept.needs_face ? 'left-[23px]' : 'left-[3px]'
+                    }`}
+                  />
+                </button>
               </div>
             </div>
           </div>
@@ -157,6 +227,7 @@ const StudioInspector: React.FC<StudioInspectorProps> = ({
     );
   }
 
+  // ── Scene selected ──
   return (
     <div className="h-full overflow-y-auto pl-2 studio-scrollbar">
       <div className="space-y-5 pb-6">
@@ -168,22 +239,112 @@ const StudioInspector: React.FC<StudioInspectorProps> = ({
           <h3 className="text-lg font-manrope font-bold text-[#FAFAFA]">
             Szene {scene.nr}
           </h3>
-          <p className="text-[#FAFAFA]/60 text-sm mt-1 leading-relaxed">
-            {scene.action}
-          </p>
         </div>
 
-        {/* B-Roll Inline Generation */}
+        {/* Editable scene action */}
+        <div className="rounded-xl bg-[#121214] p-4">
+          <span className="text-[11px] uppercase tracking-wider font-medium text-[#FAFAFA]/40 block mb-2">
+            Szenen-Beschreibung
+          </span>
+          <AutoTextarea
+            value={scene.action}
+            onChange={(action) => updateScene({ action })}
+            placeholder="Was passiert in dieser Szene..."
+          />
+        </div>
+
+        {/* Camera type as icon selector */}
+        <div className="rounded-xl bg-[#121214] p-4">
+          <span className="text-[11px] uppercase tracking-wider font-medium text-[#FAFAFA]/40 block mb-3">
+            Kamera-Typ
+          </span>
+          <div className="grid grid-cols-3 gap-2">
+            {CAMERA_OPTIONS.map((cam) => {
+              const isActive = scene.camera === cam;
+              return (
+                <button
+                  key={cam}
+                  onClick={() => updateScene({ camera: cam })}
+                  className={`flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl transition-all cursor-pointer border ${
+                    isActive
+                      ? 'bg-[#49B7E3]/10 border-[#49B7E3]/40 text-[#49B7E3]'
+                      : 'bg-transparent border-[rgba(255,255,255,0.06)] text-[#FAFAFA]/30 hover:border-[rgba(255,255,255,0.15)] hover:text-[#FAFAFA]/50'
+                  }`}
+                >
+                  {CAMERA_ICONS[cam] || <Camera className="w-5 h-5" />}
+                  <span className="text-[10px] font-medium leading-tight text-center">
+                    {CAMERA_LABELS[cam]?.split(' / ')[0] || cam}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Duration */}
+        <div className="rounded-xl bg-[#121214] p-4">
+          <span className="text-[11px] uppercase tracking-wider font-medium text-[#FAFAFA]/40 block mb-2">
+            Dauer
+          </span>
+          <div className="flex gap-1.5">
+            {DURATION_OPTIONS.map((d) => (
+              <button
+                key={d}
+                onClick={() => updateScene({ duration_seconds: d })}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all cursor-pointer border ${
+                  scene.duration_seconds === d
+                    ? 'bg-[#49B7E3]/15 text-[#49B7E3] border-[#49B7E3]/40'
+                    : 'bg-[#1A1A1E] text-[#FAFAFA]/40 border-transparent hover:border-[rgba(255,255,255,0.08)]'
+                }`}
+              >
+                {d}s
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Text overlay */}
+        <div className="rounded-xl bg-[#121214] p-4">
+          <span className="text-[11px] uppercase tracking-wider font-medium text-[#FAFAFA]/40 block mb-2">
+            Text-Overlay
+          </span>
+          <input
+            value={scene.text_overlay || ''}
+            onChange={(e) => updateScene({ text_overlay: e.target.value || null })}
+            className="w-full bg-[rgba(255,255,255,0.06)] text-[#FAFAFA]/80 text-sm rounded-lg border border-[rgba(255,255,255,0.1)] px-3 py-2 focus:outline-none transition-colors"
+            placeholder="Text-Overlay eingeben..."
+            style={{ boxShadow: 'none' }}
+            onFocus={(e) => { e.target.style.boxShadow = '0 0 0 2px rgba(124, 108, 242, 0.3)'; e.target.style.borderColor = 'rgba(124, 108, 242, 0.5)'; }}
+            onBlur={(e) => { e.target.style.boxShadow = 'none'; e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)'; }}
+          />
+        </div>
+
+        {/* Tip */}
+        <div className="rounded-xl bg-[#121214] p-4">
+          <span className="text-[11px] uppercase tracking-wider font-medium text-[#FAFAFA]/40 block mb-2">
+            Tipp
+          </span>
+          <input
+            value={scene.tip}
+            onChange={(e) => updateScene({ tip: e.target.value })}
+            className="w-full bg-[rgba(255,255,255,0.06)] text-[#FAFAFA]/80 text-sm rounded-lg border border-[rgba(255,255,255,0.1)] px-3 py-2 focus:outline-none transition-colors"
+            placeholder="Tipp für diese Szene..."
+            style={{ boxShadow: 'none' }}
+            onFocus={(e) => { e.target.style.boxShadow = '0 0 0 2px rgba(124, 108, 242, 0.3)'; e.target.style.borderColor = 'rgba(124, 108, 242, 0.5)'; }}
+            onBlur={(e) => { e.target.style.boxShadow = 'none'; e.target.style.borderColor = 'rgba(255, 255, 255, 0.1)'; }}
+          />
+        </div>
+
+        {/* B-Roll Generation */}
         <div className="rounded-xl bg-[#121214] p-4">
           <span className="text-[11px] uppercase tracking-wider font-medium text-[#FAFAFA]/40 block mb-2">
             B-Roll Beschreibung
           </span>
-          <textarea
+          <AutoTextarea
             value={brollDescription}
-            onChange={(e) => setBrollDescription(e.target.value)}
-            className="w-full bg-[#1A1A1E] text-[#FAFAFA]/80 text-sm rounded-lg border border-[#FAFAFA]/5 p-3 resize-none focus:outline-none focus:border-[#49B7E3]/30 transition-colors"
-            rows={3}
+            onChange={setBrollDescription}
             disabled={isGenerating || submitting}
+            placeholder="Beschreibung für das B-Roll-Video..."
           />
 
           {/* Duration chips */}
@@ -209,7 +370,7 @@ const StudioInspector: React.FC<StudioInspectorProps> = ({
             </div>
           </div>
 
-          {/* Generate / Status area */}
+          {/* Generate / Status */}
           <div className="mt-3">
             {isGenerating ? (
               <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#7C6CF2]/10 border border-[#7C6CF2]/20">
@@ -274,43 +435,29 @@ const StudioInspector: React.FC<StudioInspectorProps> = ({
           </div>
         </div>
 
-        {/* Scene Details */}
-        <div className="rounded-xl bg-[#121214] p-4">
-          <span className="text-[11px] uppercase tracking-wider font-medium text-[#FAFAFA]/40 block mb-3">
-            Dreh-Details
-          </span>
-          <div className="space-y-3">
-            <div className="flex items-center gap-3">
-              <Camera className="w-4 h-4 text-[#FAFAFA]/30 flex-shrink-0" />
-              <div>
-                <p className="text-[11px] text-[#FAFAFA]/30">Kamera</p>
-                <p className="text-sm text-[#FAFAFA]/70">
-                  {CAMERA_LABELS[scene.camera] || scene.camera}
-                </p>
+        {/* needs_face toggle */}
+        {concept && (
+          <div className="rounded-xl bg-[#121214] p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <User className="w-4 h-4 text-[#FAFAFA]/30" />
+                <span className="text-sm text-[#FAFAFA]/50">Gesicht im Video</span>
               </div>
+              <button
+                onClick={toggleNeedsFace}
+                className={`w-10 h-[22px] rounded-full relative transition-colors cursor-pointer border-none ${
+                  concept.needs_face ? 'bg-[#49B7E3]' : 'bg-[#FAFAFA]/10'
+                }`}
+              >
+                <div
+                  className={`absolute top-[3px] w-4 h-4 rounded-full bg-white transition-transform ${
+                    concept.needs_face ? 'left-[23px]' : 'left-[3px]'
+                  }`}
+                />
+              </button>
             </div>
-            <div className="flex items-center gap-3">
-              <Clock className="w-4 h-4 text-[#FAFAFA]/30 flex-shrink-0" />
-              <div>
-                <p className="text-[11px] text-[#FAFAFA]/30">Dauer</p>
-                <p className="text-sm text-[#FAFAFA]/70">
-                  {scene.duration_seconds} Sek
-                </p>
-              </div>
-            </div>
-            {scene.text_overlay && (
-              <div className="flex items-center gap-3">
-                <Type className="w-4 h-4 text-[#FAFAFA]/30 flex-shrink-0" />
-                <div>
-                  <p className="text-[11px] text-[#FAFAFA]/30">Text-Overlay</p>
-                  <p className="text-sm text-[#FAFAFA]/70">
-                    {scene.text_overlay}
-                  </p>
-                </div>
-              </div>
-            )}
           </div>
-        </div>
+        )}
 
         {/* Auto-Edit Toggles (Placeholder) */}
         <div className="rounded-xl bg-[#121214] p-4">
@@ -318,26 +465,19 @@ const StudioInspector: React.FC<StudioInspectorProps> = ({
             Auto-Edit
           </span>
           <div className="space-y-4">
-            {/* Jump-Cuts Toggle */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <Scissors className="w-4 h-4 text-[#FAFAFA]/30" />
-                <span className="text-sm text-[#FAFAFA]/50">
-                  Jump-Cuts anwenden
-                </span>
+                <span className="text-sm text-[#FAFAFA]/50">Jump-Cuts anwenden</span>
               </div>
               <div className="w-10 h-[22px] rounded-full bg-[#FAFAFA]/10 opacity-50 cursor-not-allowed relative">
                 <div className="absolute left-[3px] top-[3px] w-4 h-4 rounded-full bg-[#FAFAFA]/30 transition-transform" />
               </div>
             </div>
-
-            {/* Subtitles Toggle */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <Subtitles className="w-4 h-4 text-[#FAFAFA]/30" />
-                <span className="text-sm text-[#FAFAFA]/50">
-                  Untertitel generieren
-                </span>
+                <span className="text-sm text-[#FAFAFA]/50">Untertitel generieren</span>
               </div>
               <div className="w-10 h-[22px] rounded-full bg-[#FAFAFA]/10 opacity-50 cursor-not-allowed relative">
                 <div className="absolute left-[3px] top-[3px] w-4 h-4 rounded-full bg-[#FAFAFA]/30 transition-transform" />

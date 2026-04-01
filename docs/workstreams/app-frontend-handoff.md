@@ -1,7 +1,286 @@
 # Vektrus App Frontend — Handoff für den nächsten Chat
 
-**Stand:** 2026-03-31
-**Kontext:** AP-01 bis AP-08 vollstaendig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik. **Posting Popup Redesign Phase 1 + Phase 2 + QA Pass abgeschlossen. Chat-to-Planner Handoff V1 + Corrective Pass + QA Pass + Single-Caption Bugfix + QA + Robustness Pass + Robustness QA Pass abgeschlossen. Composer Handoff V2 (Three-State Model + Source-Material Mode) implementiert. Help-Seite Workstream Phase 1 (Audit + Zielarchitektur) + Phase 2 (Implementierung) + Corrective Pass + QA Pass + Finaler Visual QA Pass abgeschlossen. Help Updates-Layer (Produkt-Updates + Transparenz) implementiert. Onboarding Wizard komplett implementiert (Session 1 + Session 2: alle 4 Schritte, OAuth, Completion, Step-Resume, SignUp-Redirect). Onboarding Design Polish Pass abgeschlossen (Premium UI, Framer Motion Transitions, Custom Slider/Dropdown/Tags). SignUpFlow Visual Polish Pass abgeschlossen (Design-Konsistenz mit Onboarding-Wizard). Onboarding OAuth-Callback Sync Bugfix abgeschlossen. Pulse Reels — Session 1 (Frontend) abgeschlossen. Pulse Reels — Session 2 (Design Polish + Brand Icons) abgeschlossen. Vision Rebranding — Session 3 (Video-Werkstatt) abgeschlossen. Vision Session 3 — Corrective Pass abgeschlossen. Vision — Fix Pass (Pulse Button + Thumbnail Webhook) abgeschlossen. Vision & Pulse — Fix Pass (Image Advanced + Label-Rename) abgeschlossen. Vision B-Roll — Funktional machen + Bild-Upload abgeschlossen. Vision B-Roll — Videos in Vision Tab + Mediathek anzeigen abgeschlossen. Vektrus Studio Phase 1 (Foundation & Shell) abgeschlossen. Vektrus Studio Phase 2 (Director's Desk / Storyboard) abgeschlossen. Vektrus Studio — Floating Dock abgeschlossen. Vektrus Studio — Corrective Pass + B-Roll View + "Dimming the Lights" abgeschlossen. Vektrus Studio — Echte Supabase-Daten + Entry-Buttons abgeschlossen. Vektrus Studio — B-Roll + Thumbnails + Meine Videos (echte n8n-Integration) abgeschlossen. Vektrus Studio — Production-Ready Cleanup abgeschlossen. Vektrus Studio — Szenen-gebundene B-Roll + Thumbnail-Zuordnung abgeschlossen. Sidebar Icon-Update abgeschlossen. Sidebar Strukturumbau (Gruppierung + Overlines + neue Icons) abgeschlossen. Studio KI-Reel-Ideen + Pulse Reel-Empfehlungen abgeschlossen. Studio Polish & Review-Flow abgeschlossen.**
+**Stand:** 2026-04-01
+**Kontext:** AP-01 bis AP-08 vollstaendig umgesetzt. Planner-Workstream abgeschlossen (Phase 1, Phase 2, Corrective Pass, Persistence Bridge, QA Pass). Planner Follow-up Workstream abgeschlossen inkl. Cleanup (Pulse Routing, Platform Filters, MonthView CI, Dead Code Cleanup). Planner Platform Filter Bugfix abgeschlossen. Dynamische Plattform-Filter + Pulse-Entry-Modal umgesetzt. Corrective Pass: Fake-Fallback entfernt, Zero-Platform + Fetch-Error States implementiert. Hierarchy Refinement Pass: Upper-Zone Konsolidierung, Content-Mix Visualisierung, Grid-Semantik. **Posting Popup Redesign Phase 1 + Phase 2 + QA Pass abgeschlossen. Chat-to-Planner Handoff V1 + Corrective Pass + QA Pass + Single-Caption Bugfix + QA + Robustness Pass + Robustness QA Pass abgeschlossen. Composer Handoff V2 (Three-State Model + Source-Material Mode) implementiert. Help-Seite Workstream Phase 1 (Audit + Zielarchitektur) + Phase 2 (Implementierung) + Corrective Pass + QA Pass + Finaler Visual QA Pass abgeschlossen. Help Updates-Layer (Produkt-Updates + Transparenz) implementiert. Onboarding Wizard komplett implementiert (Session 1 + Session 2: alle 4 Schritte, OAuth, Completion, Step-Resume, SignUp-Redirect). Onboarding Design Polish Pass abgeschlossen (Premium UI, Framer Motion Transitions, Custom Slider/Dropdown/Tags). SignUpFlow Visual Polish Pass abgeschlossen (Design-Konsistenz mit Onboarding-Wizard). Onboarding OAuth-Callback Sync Bugfix abgeschlossen. Pulse Reels — Session 1 (Frontend) abgeschlossen. Pulse Reels — Session 2 (Design Polish + Brand Icons) abgeschlossen. Vision Rebranding — Session 3 (Video-Werkstatt) abgeschlossen. Vision Session 3 — Corrective Pass abgeschlossen. Vision — Fix Pass (Pulse Button + Thumbnail Webhook) abgeschlossen. Vision & Pulse — Fix Pass (Image Advanced + Label-Rename) abgeschlossen. Vision B-Roll — Funktional machen + Bild-Upload abgeschlossen. Vision B-Roll — Videos in Vision Tab + Mediathek anzeigen abgeschlossen. Vektrus Studio Phase 1 (Foundation & Shell) abgeschlossen. Vektrus Studio Phase 2 (Director's Desk / Storyboard) abgeschlossen. Vektrus Studio — Floating Dock abgeschlossen. Vektrus Studio — Corrective Pass + B-Roll View + "Dimming the Lights" abgeschlossen. Vektrus Studio — Echte Supabase-Daten + Entry-Buttons abgeschlossen. Vektrus Studio — B-Roll + Thumbnails + Meine Videos (echte n8n-Integration) abgeschlossen. Vektrus Studio — Production-Ready Cleanup abgeschlossen. Vektrus Studio — Szenen-gebundene B-Roll + Thumbnail-Zuordnung abgeschlossen. Sidebar Icon-Update abgeschlossen. Sidebar Strukturumbau (Gruppierung + Overlines + neue Icons) abgeschlossen. Studio KI-Reel-Ideen + Pulse Reel-Empfehlungen abgeschlossen. Studio Polish & Review-Flow abgeschlossen. Studio Konzept-Editor Feature 1 abgeschlossen. Studio Reel-Vorschau Feature 2 (Animated Preview) + Corrective Pass abgeschlossen. Studio Onboarding Tour abgeschlossen. Studio DnD Fix (@dnd-kit Migration) + Szene-hinzufügen-Button abgeschlossen. Studio DnD Corrective Pass (Fragment-Struktur, Scroll-Padding, Handle-Discovery) abgeschlossen.**
+
+---
+
+## Studio DnD Corrective Pass
+
+**Stand:** 2026-04-01
+**Status: Abgeschlossen.**
+
+### Diagnose
+
+**Fragment-Struktur:** `StudioSceneCard` renderte ein React-Fragment (`<>...</>`) mit zwei Geschwister-Elementen: dem sortable Card-Container (`setNodeRef`) und einem Add-Between-Button. `@dnd-kit` `verticalListSortingStrategy` erwartet sortable Items als einzelne DOM-Knoten — die Zwischen-Buttons störten die Collision-Detection und Drop-Animation.
+
+**Scroll-Padding:** `pb-6` (24px) im Scroll-Container war zu gering — der prominente "Szene hinzufügen"-Button am Ende der Liste verschwand teilweise hinter dem Floating Dock (~64px + 16px Abstand).
+
+**Drag-Handle-Discovery:** Handle war `opacity-0` im Normalzustand, erst bei Card-Hover sichtbar. Nutzer konnten DnD nicht entdecken.
+
+### Fix 1 — Fragment-Struktur bereinigen
+
+Add-Between-Button aus `StudioSceneCard` entfernt. `onAddAfter` Prop entfernt. Button wird jetzt in `StudioSceneList` zwischen den Karten gerendert (als Sibling des sortable Items, aber außerhalb von `setNodeRef`). Jedes sortable Item ist jetzt ein einzelnes `<div>`.
+
+### Fix 2 — Scroll-Padding
+
+`pb-6` (24px) → `pb-24` (96px) im inneren Container von `StudioSceneList`. Genug Platz für Floating Dock + Endbutton.
+
+### Fix 3 — Drag-Handle sichtbarer
+
+Handle-Opacity: `opacity-0 group-hover/card:opacity-40` → `opacity-20 group-hover/card:opacity-60 hover:!opacity-80`. Subtil sichtbar im Idle-State, klar erkennbar bei Hover.
+
+### Geänderte Dateien
+
+| Datei | Änderung |
+|---|---|
+| `src/components/studio/StudioSceneCard.tsx` | Fragment entfernt → einzelnes `<div>` als Root. Add-Between-Button + `onAddAfter` Prop entfernt. Drag-Handle opacity erhöht. |
+| `src/components/studio/StudioSceneList.tsx` | Add-Between-Button hier gerendert (außerhalb sortable Items). `pb-6` → `pb-24`. |
+
+### Nicht angefasst
+
+- DnD-Kernlogik (DndContext, SortableContext, handleDragEnd) — war bereits korrekt
+- Szene-hinzufügen-Logik (handleSceneAdd in StudioStoryboard) — Prop-Kette intakt
+- StudioScript, StudioInspector, StudioPreview, StudioTour, StudioDock
+
+---
+
+## Studio DnD Fix + Szene hinzufügen
+
+**Stand:** 2026-04-01
+**Status: Abgeschlossen.**
+
+### Diagnose
+
+**DnD (Framer Motion Reorder):** `Reorder.Group values={scenes}` trackt Items per Objekt-Referenz. Nach jedem Reorder erzeugt `recalculate()` neue Objekte (`{ ...scene, nr: i+1 }`). Framer Motion verliert den Bezug → Reorder-State wird nach dem ersten Drag zurückgesetzt. Zusätzlich: Drag-Handle war `opacity-0` — unsichtbar.
+
+**Plus-Button:** Zwischen Karten existierte ein `opacity-0 hover:opacity-100` Plus-Button, aber kein prominenter Button am Ende der Liste.
+
+### Fix 1 — DnD: Framer Motion Reorder → @dnd-kit
+
+- `npm install @dnd-kit/core @dnd-kit/sortable @dnd-kit/utilities`
+- `StudioSceneList.tsx`: Komplett neu mit `DndContext` + `SortableContext` (verticalListSortingStrategy). `PointerSensor` mit `distance: 8` Activation Constraint (verhindert versehentliche Drags). `handleDragEnd` nutzt `arrayMove` + Nr-Neuvergabe.
+- `StudioSceneCard.tsx`: `useSortable({ id: scene.nr })` Hook. `setNodeRef` + `transform`/`transition` Styles auf dem Karten-Container. `{...listeners} {...attributes}` auf dem GripVertical Drag-Handle. `isDragging` State für Opacity-Feedback. `touch-none` auf dem Handle für korrekte Touch-Events.
+- `DraggableScene` Wrapper-Komponente (Framer Motion) entfernt.
+
+### Fix 2 — Prominenter "Szene hinzufügen" Button
+
+Am Ende der Szenen-Liste: volle Breite, Ghost-Style, gestrichelte Border, Plus-Icon + Text. Vektrus Blue Hover-Akzent. Ruft `onSceneAdd(scenes.length - 1)` auf.
+
+### Geänderte Dateien
+
+| Datei | Änderung |
+|---|---|
+| `src/components/studio/StudioSceneList.tsx` | Komplett neu: @dnd-kit statt Framer Motion Reorder, DraggableScene entfernt, prominenter End-Button |
+| `src/components/studio/StudioSceneCard.tsx` | `useSortable` Hook, `setNodeRef`/`transform`/`transition`/`isDragging` Styles, `listeners`/`attributes` auf Drag-Handle, `dragHandleProps` Prop entfernt |
+| `package.json` | `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities` hinzugefügt |
+
+### Nicht angefasst
+
+- Szenen-Löschen-Logik, Auto-Save, B-Roll-Generierung, Inspector, Script, MetaBar
+- Zwischen-Karten Plus-Buttons (existieren weiterhin, `opacity-0 hover:opacity-100`)
+
+---
+
+## Studio Onboarding Tour
+
+**Stand:** 2026-04-01
+**Status: Abgeschlossen.**
+
+### Was wurde gemacht
+
+6-Schritt Onboarding Tour für das Studio. Custom Framer Motion Spotlight-Overlay (kein externes Package). Pro Station: dunkler Overlay (rgba(0,0,0,0.7)), das aktive Element wird über den Overlay gehoben (z-index 70), daneben ein Tooltip-Panel mit Titel, Beschreibung und Navigation (Zurück / Weiter / Überspringen).
+
+### Tour-Stationen
+
+| # | ID | Titel | Target Element | Position |
+|---|---|---|---|---|
+| 1 | script | Dein Drehbuch | `studio-script-panel` (Spalte 1) | right |
+| 2 | scenes | Deine Szenen | `studio-scene-list` (Spalte 2) | right |
+| 3 | preview | Reel-Vorschau | `studio-preview-button` (MetaBar) | bottom |
+| 4 | inspector | KI-Inspektor | `studio-inspector-panel` (Spalte 3) | left |
+| 5 | dock | Studio Navigation | `studio-dock` (Floating Dock) | top |
+| 6 | planner | In den Planner | `studio-planner-btn` (TopBar CTA) | left |
+
+### Trigger
+
+- **Auto-Start:** Tour startet automatisch beim ersten Studio-Besuch (1.2s Delay für Reveal-Animationen). Persistenz via `localStorage('studio-tour-completed')`.
+- **Re-Trigger:** CircleHelp-Button (?) in StudioTopBar rechts neben dem Planner-CTA.
+
+### Neue Dateien
+
+| Datei | Zweck |
+|---|---|
+| `src/components/studio/StudioTour.tsx` | 6-Schritt Tour: Spotlight-Overlay, Tooltip-Panel, Framer Motion Transitions, localStorage Persistenz |
+
+### Geänderte Dateien
+
+| Datei | Änderung |
+|---|---|
+| `src/components/studio/StudioPage.tsx` | `showTour` State, Auto-Trigger useEffect, `<StudioTour>` Render, `onTourStart` an TopBar |
+| `src/components/studio/StudioTopBar.tsx` | `onTourStart` Prop, CircleHelp-Button (?) rechts neben Planner-CTA |
+| `src/components/studio/StudioStoryboard.tsx` | `data-tour` Attribute auf Spalte 1/2/3 |
+| `src/components/studio/StudioMetaBar.tsx` | `data-tour="studio-preview-button"` auf Vorschau-Button |
+| `src/components/studio/StudioDock.tsx` | `data-tour="studio-dock"` auf Dock-Container |
+
+### Spotlight-Technik
+
+- Kein Canvas. Voller Overlay (`fixed inset-0 bg-black/70 z-[60]`).
+- Aktives Element bekommt `z-index: 70` (inline style). Für `position: static` Elemente wird `position: relative` gesetzt; bereits positionierte Elemente (z.B. Dock mit `fixed`) behalten ihre Position.
+- Originalstyles werden gespeichert und beim Step-Wechsel / Tour-Ende sauber restored.
+- Tooltip-Position mit Edge-Clamping (min 16px vom Viewport-Rand).
+
+### Nicht angefasst (bewusst)
+
+- StudioScript, StudioInspector, StudioSceneList — keine Logik-Änderungen
+- Preview-Logik, Auto-Save — unverändert
+- Keine externen Tour-Packages (Shepherd, React Joyride etc.)
+
+---
+
+## Studio Reel-Vorschau — Feature 2 (Animated Preview)
+
+**Stand:** 2026-04-01
+**Status: Abgeschlossen.**
+
+### Was wurde gemacht
+
+Animierte Reel-Vorschau im Studio. Ein 9:16-Player spielt das Szenen-Storyboard als zeitgesteuerte Preview ab — mit Szenen-Übergängen, Text-Overlays, B-Roll-Video-Hintergrund oder Brand-Gradient-Fallback, Progress-Bar mit Szenen-Markern, und Play/Pause/Loop/Restart-Controls.
+
+### Trigger & Layout
+
+- „▶ Vorschau"-Button in der MetaBar (neben Gesamtdauer), Ghost-Style in Vektrus Blue
+- Klick: SceneList fadet aus → StudioPreview fadet ein (AnimatePresence mode="wait", 300ms)
+- Script-Spalte (links) und Inspector-Spalte (rechts) dimmen ab: opacity 0.3, pointer-events none
+- Schließen-Button (✕) kehrt zum normalen Storyboard-State zurück
+
+### Neue Dateien
+
+| Datei | Zweck |
+|---|---|
+| `src/components/studio/StudioPreview.tsx` | 9:16 Preview-Player: Timer-Loop (100ms), Framer Motion Szenen-Transitions, Progress-Bar, Controls, Brand-Gradient-Fallback, Audio-Vorbereitung (Feature 3) |
+
+### Geänderte Dateien
+
+| Datei | Änderung |
+|---|---|
+| `src/components/studio/StudioStoryboard.tsx` | `previewActive` State, `motion`/`AnimatePresence` Import, Spalten-Dimming via `motion.div animate`, Preview/SceneList Swap via `AnimatePresence` |
+| `src/components/studio/StudioMetaBar.tsx` | `onPreview` Prop + Vorschau-Button (Play-Icon, Ghost-Style, Vektrus Blue Border) neben Gesamtdauer |
+
+### Nicht angefasst (bewusst)
+
+- StudioScript, StudioInspector — keine Logik-Änderungen
+- Auto-Save-Logik — unverändert
+- Kein echtes Video-Rendering / MP4-Export
+- Kein Audio-Mixing (Audio-Hook ist vorbereitet aber inaktiv)
+- Keine Brand-Font-Rendering im Text-Overlay
+
+### Risiken / Offene Punkte
+
+- `brand_profiles.colors` muss `primary` und `secondary` Keys enthalten — Fallback auf `#1a1a2e`/`#16213e` vorhanden
+- Timer-Drift bei 100ms setInterval ist für Preview akzeptabel, aber nicht frame-accurate
+- `voiceover_audio_url` Audio-Hook ist vorbereitet (Feature 3), aktuell noch nicht aktiv
+
+### Corrective Pass (abgeschlossen)
+
+| # | Problem | Fix |
+|---|---|---|
+| 1 | Player overflow bei Viewport < 800px Höhe | `maxHeight: calc(100vh - 180px)` hinzugefügt, `aspect-ratio` + `maxWidth: 100%` skaliert automatisch |
+| 2 | Info-Overlay (1.5s) bleibt sichtbar bei Szenen < 2s | Timeout dynamisch: `Math.min(1500, sceneDuration * 600)` — bei 1s Szene: 0.6s |
+| 3 | Progress-Bar Klick ungenau bei vielen kurzen Szenen | Click-Handler robuster (akkumulierte Szenen-Grenzen), Touch-Target: 3px sichtbar + 8px Padding oben/unten |
+| 4 | Timer kann über totalDuration hinauslaufen | `Math.min(prev + 0.1, totalDuration)` Clamping, sauberer Loop-Reset |
+
+### Nächste Schritte
+
+- Feature 3: Voiceover-Audio-Sync (audioRef ist bereits eingebaut)
+
+---
+
+## Studio Konzept-Editor — Feature 1
+
+**Stand:** 2026-04-01
+**Status: Abgeschlossen.**
+
+### Was wurde gemacht
+
+Vollständiger Konzept-Editor für das Reel-Storyboard im Studio. Alle Felder des Reel-Konzepts sind jetzt inline editierbar mit Auto-Save.
+
+#### Neue Dateien
+
+| Datei | Zweck |
+|---|---|
+| `src/types/reelConcept.ts` | Kanonische TypeScript-Interfaces mit Union-Types für `ReelConcept`, `Scene`, alle Enums, Label-Maps, Hilfsfunktionen (`recalculate`, `createDefaultScene`). |
+| `src/components/studio/StudioMetaBar.tsx` | Editierbare Meta-Badges über der Stage: Titel (click-to-edit), Format/Schwierigkeit/Plattform (Dropdowns), Szenen/Dauer-Anzeige. |
+
+#### Geänderte Dateien
+
+| Datei | Änderung |
+|---|---|
+| `src/components/studio/StudioPage.tsx` | Editable State (`editableConcept`) + Auto-Save (2s Debounce) + Save-Status (`idle/saving/saved/error`). `handleConceptChange` mit `recalculate()`. Props an StudioStoryboard + StudioTopBar erweitert. |
+| `src/components/studio/StudioTopBar.tsx` | Save-Status-Indikator (Speichert.../Gespeichert/Fehlgeschlagen mit Retry). Neue Props: `saveStatus`, `onRetry`. |
+| `src/components/studio/StudioStoryboard.tsx` | Komplett überarbeitet. Empfängt `onConceptChange`, delegiert an `StudioScript`, `StudioSceneList`, `StudioInspector`. Scene-Handler: `handleSceneChange`, `handleScenesReorder`, `handleSceneAdd`, `handleSceneDelete`. |
+| `src/components/studio/StudioScript.tsx` | Alle Felder editierbar: Hook-Text (Auto-Textarea, max 120 Zeichen), Hook-Typ (Dropdown mit farbigen Badges), Hook-Delivery (Dropdown), Voiceover-Skript (Auto-Textarea), Caption (Auto-Textarea, Plattform-Limit), Hashtags (Tag-Editor mit Add/Remove/Validierung), Audio-Empfehlung (Typ-Dropdown + Freitext). `why_it_works` und `reasoning` bleiben read-only. |
+| `src/components/studio/StudioSceneList.tsx` | Framer Motion `Reorder.Group` für Drag & Drop. `useDragControls` per Szene. Neue Props: `needsFace`, `onSceneChange`, `onScenesReorder`, `onSceneAdd`, `onSceneDelete`. |
+| `src/components/studio/StudioSceneCard.tsx` | Inline-Editing: Action (Textarea, max 200 Zeichen), Duration (+/- Buttons, 1–15s), Camera (Dropdown), Text-Overlay (Input), Tip (Input). Drag-Handle (GripVertical). Delete mit Bestätigungs-Dialog. Add-Button zwischen Karten. `needs_face` Warnung bei `frontal_selfie`. |
+| `src/components/studio/StudioInspector.tsx` | Bidirektionale Sync: Alle Szenen-Felder editierbar (Action, Camera als Icon-Grid, Duration-Chips, Text-Overlay, Tip). `needs_face` Toggle. B-Roll-Generierung bleibt unverändert. Neue Props: `sceneIndex`, `onSceneChange`, `onConceptChange`. |
+
+### Auto-Save
+
+- 2s Debounce nach jeder Inhaltsänderung
+- Supabase UPDATE auf `pulse_generated_content.content` (JSONB)
+- `recalculate()` aktualisiert `total_duration_seconds`, `estimated_effort`, Szenen-Nummern
+- Save-Status im TopBar: idle → saving → saved (2s) → idle; error mit Retry
+
+### Design-Regeln eingehalten
+
+- Dark Mode: #09090b Hintergrund, #121214 Karten, #FAFAFA Text
+- Focus-State: AI Violet Glow (`box-shadow: 0 0 0 2px rgba(124, 108, 242, 0.3)`)
+- Kein visueller Sprung zwischen View und Edit
+- Dropdowns/Inputs: `rgba(255,255,255,0.06)` Hintergrund, `rgba(255,255,255,0.1)` Border
+- Alle Texte echte deutsche Schreibweise
+- Lucide Icons, keine Emojis
+
+### Verifikation
+
+- TypeScript: fehlerfrei
+- Production Build: erfolgreich
+
+### Bekannte offene Punkte
+
+- Drag & Drop: `Reorder.Group` nutzt `scene.nr` als Key — nach Reorder werden `nr`-Werte sofort neu berechnet, aber `useSceneVideos` mappt auf die alten `nr`-Werte. Szenen-gebundene Videos könnten nach Reorder einer falschen Szene zugeordnet werden, bis die nächste Supabase-Speicherung + Neuladung erfolgt.
+- Szenen-Deletion löscht keine zugehörigen `vision_projects` aus Supabase (bewusste Vereinfachung — Orphans sind harmlos).
+- `platform_optimization` ist in der alten `ReelContent`-Type nicht definiert — wird aus dem JSONB-Feld gelesen, fallback auf `'instagram'`.
+
+### Corrective Pass Prüfpunkte
+
+- [x] Focus-States auf allen Editierfeldern visuell korrekt
+- [x] Drag & Drop funktional (Handle, Animation, Reorder)
+- [x] Szenen-Add/Delete mit korrekter Neunummerierung
+- [x] Auto-Save Status-Indikator sichtbar und korrekt
+- [x] Bidirektionale Sync Inspector ↔ SceneCard
+- [x] Hashtag-Validierung (kein Leerzeichen, #-Prefix)
+- [x] Caption-Limit wechselt mit Plattform-Dropdown
+- [x] `needs_face` Toggle + Warnung auf `frontal_selfie`-Szenen
+- [x] Keine Regression in B-Roll-Generierung
+
+### Corrective Pass — Durchgeführt 2026-04-01
+
+| # | Punkt | Ergebnis |
+|---|---|---|
+| C1 | Scene-Video-Mapping nach DnD | **Fixed.** Finished video URLs werden in `scene.broll_video_url` eingebettet (via Sync-Effect in StudioStoryboard). SceneCard nutzt `scene.broll_video_url` als Fallback. Nach Reorder ziehen Videos mit der Szene mit. |
+| C2 | Focus-States | **Nachgezogen.** Inspector-Inputs mit expliziter Border erhalten jetzt `borderColor: rgba(124, 108, 242, 0.5)` auf Focus. Andere Felder waren bereits korrekt. |
+| C3 | DnD visuelles Feedback | **Nachgezogen.** `opacity: 0.8` auf `whileDrag` ergänzt. `scale(1.02)` + Shadow + cursor-grab/grabbing waren bereits vorhanden. |
+| C4 | Auto-Save Retry | **Fixed.** Neue `handleImmediateSave`-Funktion ohne Debounce. Retry-Button ruft direkt den Save auf. |
+| C5 | Hashtag-Validierung | **Bereits korrekt.** `#`-Prefix auto, Leerzeichen-Ablehnung, Duplikat-Prüfung, Fehlermeldung unter Input. |
+| C6 | Caption-Zeichenlimit | **Nachgezogen.** Zeichenzähler und Header-Label werden ab 90% Auslastung rot (`#FA7E70`). Limit wechselt korrekt mit Plattform. |
+| C7 | `needs_face` Warnung | **Bereits korrekt.** `AlertTriangle` + "Kein Gesicht nötig" Badge in `#F4BE9D` auf `frontal_selfie`-Szenen wenn `needs_face === false`. |
+| C8 | Bidirektionale Sync | **Bereits korrekt.** Gemeinsamer State in StudioPage, kein blockierender lokaler State. Inspector + SceneCard nutzen denselben `handleSceneChange`. |
+
+### Verbleibende bekannte Einschränkungen
+
+- **Orphaned vision_projects:** Szenen-Deletion löscht keine zugehörigen `vision_projects` aus Supabase. Bewusst nicht gefixed — Orphans sind harmlos.
+- **`platform_optimization` Fallback:** Ältere Konzepte ohne dieses Feld fallen auf `'instagram'` zurück.
+- **Video-Sync Timing:** Der Sync-Effect in StudioStoryboard schreibt `broll_video_url` ins Scene-Objekt wenn `useSceneVideos` ein fertiges Video meldet. Bei sehr schnellem Reorder direkt nach Video-Completion könnte ein einzelner Render-Zyklus den alten `nr`-Wert nutzen. In der Praxis ist das Timing unkritisch.
 
 ---
 

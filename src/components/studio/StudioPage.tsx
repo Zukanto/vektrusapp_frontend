@@ -13,11 +13,14 @@ import StudioBRoll from './StudioBRoll';
 import StudioThumbnails from './StudioThumbnails';
 import StudioMyVideos from './StudioMyVideos';
 import StudioDock, { StudioView } from './StudioDock';
+import StudioTour, { TOUR_STORAGE_KEY } from './StudioTour';
 import ReelAutoModal from './ReelAutoModal';
 import ReelGeneratingOverlay from './ReelGeneratingOverlay';
 import ReelReviewOverlay from './ReelReviewOverlay';
 import type { ReviewConcept } from './ReelReviewOverlay';
 import type { ReelContent } from '../../services/reelService';
+import type { ReelConcept } from '../../types/reelConcept';
+import { recalculate } from '../../types/reelConcept';
 
 interface ReelConceptRow {
   id: string;
@@ -32,10 +35,96 @@ const StudioPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [activeView, setActiveView] = useState<StudioView>('storyboard');
+  const [previewActive, setPreviewActive] = useState(false);
+  const [showTour, setShowTour] = useState(false);
 
   // Load single reel concept when reelId is present
   const { record, loading, error } = useReelConcept(reelId);
-  const concept = record?.content ?? null;
+  const loadedConcept = record?.content ?? null;
+
+  // Editable concept state + save
+  const [editableConcept, setEditableConcept] = useState<ReelConcept | null>(null);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const saveTimeout = useRef<ReturnType<typeof setTimeout>>();
+
+  // Sync editable state when loaded concept changes
+  useEffect(() => {
+    if (loadedConcept) {
+      setEditableConcept(loadedConcept as ReelConcept);
+    }
+  }, [loadedConcept]);
+
+  // Auto-show tour on first visit (after reveal animations settle)
+  useEffect(() => {
+    if (!reelId || !loadedConcept) return;
+    if (localStorage.getItem(TOUR_STORAGE_KEY)) return;
+    const timer = setTimeout(() => setShowTour(true), 1200);
+    return () => clearTimeout(timer);
+  }, [reelId, loadedConcept]);
+
+  const handleConceptChange = useCallback((updatedConcept: ReelConcept) => {
+    const recalculated = recalculate(updatedConcept);
+    setEditableConcept(recalculated);
+
+    // Auto-save with 2s debounce
+    clearTimeout(saveTimeout.current);
+    saveTimeout.current = setTimeout(async () => {
+      if (!reelId || !user?.id) return;
+      setSaveStatus('saving');
+      try {
+        const { error: updateError } = await supabase
+          .from('pulse_generated_content')
+          .update({
+            content: recalculated,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', reelId)
+          .eq('user_id', user.id);
+
+        if (updateError) {
+          setSaveStatus('error');
+        } else {
+          setSaveStatus('saved');
+          setTimeout(() => setSaveStatus('idle'), 2000);
+        }
+      } catch {
+        setSaveStatus('error');
+      }
+    }, 2000);
+  }, [reelId, user?.id]);
+
+  // Immediate save (for retry — no debounce)
+  const handleImmediateSave = useCallback(async () => {
+    if (!reelId || !user?.id || !editableConcept) return;
+    clearTimeout(saveTimeout.current);
+    setSaveStatus('saving');
+    try {
+      const { error: updateError } = await supabase
+        .from('pulse_generated_content')
+        .update({
+          content: editableConcept,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', reelId)
+        .eq('user_id', user.id);
+
+      if (updateError) {
+        setSaveStatus('error');
+      } else {
+        setSaveStatus('saved');
+        setTimeout(() => setSaveStatus('idle'), 2000);
+      }
+    } catch {
+      setSaveStatus('error');
+    }
+  }, [reelId, user?.id, editableConcept]);
+
+  // Cleanup save timeout on unmount
+  useEffect(() => {
+    return () => clearTimeout(saveTimeout.current);
+  }, []);
+
+  const concept = editableConcept ?? loadedConcept ?? null;
 
   // Scene videos for this reel (polling-based)
   const { sceneVideos, refetch: refetchSceneVideos } = useSceneVideos(reelId);
@@ -509,7 +598,7 @@ const StudioPage: React.FC = () => {
     >
       {/* Stagger Layer 1: TopBar */}
       <div className="studio-reveal-topbar flex-shrink-0">
-        <StudioTopBar title={concept.title} reelConceptId={reelId} />
+        <StudioTopBar title={concept.title} reelConceptId={reelId} saveStatus={saveStatus} onRetry={handleImmediateSave} onTourStart={() => setShowTour(true)} />
       </div>
 
       {/* Stagger Layer 3: Content */}
@@ -517,10 +606,12 @@ const StudioPage: React.FC = () => {
         <StudioContent>
           {activeView === 'storyboard' && (
             <StudioStoryboard
-              concept={concept}
+              concept={concept as ReelConcept}
               reelConceptId={reelId}
               sceneVideos={sceneVideos}
               onVideoGenerated={refetchSceneVideos}
+              onConceptChange={handleConceptChange}
+              onPreviewActiveChange={setPreviewActive}
             />
           )}
           {activeView === 'b-roll' && (
@@ -535,12 +626,17 @@ const StudioPage: React.FC = () => {
         </StudioContent>
       </div>
 
-      {/* Stagger Layer 2: Dock */}
-      <StudioDock
-        activeView={activeView}
-        onViewChange={setActiveView}
-        className="studio-reveal-dock"
-      />
+      {/* Stagger Layer 2: Dock — hidden during preview */}
+      {!previewActive && (
+        <StudioDock
+          activeView={activeView}
+          onViewChange={setActiveView}
+          className="studio-reveal-dock"
+        />
+      )}
+
+      {/* Studio Tour */}
+      {showTour && <StudioTour onComplete={() => setShowTour(false)} />}
     </div>
   );
 };

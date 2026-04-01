@@ -84,7 +84,7 @@ interface StudioDockProps {
 
 const StudioDock: React.FC<StudioDockProps> = ({ activeView, onViewChange, className }) => {
   return (
-    <div className={`fixed bottom-4 left-0 right-0 flex justify-center z-50 ${className || ''}`}>
+    <div data-tour="studio-dock" className={`fixed bottom-4 left-0 right-0 flex justify-center z-50 ${className || ''}`}>
       <motion.nav
         className="w-fit mx-auto px-4 py-3 rounded-3xl bg-[#121214]/90 backdrop-blur-lg border border-[#FAFAFA]/[0.06] shadow-xl relative"
         initial="initial"
